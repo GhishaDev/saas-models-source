@@ -85,6 +85,16 @@ python filter_models.py --url https://custom-source.com/models.json
 - **Cloud-Specific**: Exclude Azure, Bedrock, Sagemaker variants
 - **Price Validation**: Exclude models with zero or missing pricing
 
+### Default Availability Rules
+
+Each model includes an `is_default_available` field indicating default user availability:
+
+- **Default**: `true` for all models
+- **OpenAI o series** (o3, o4, o3-mini, o4-mini): `false`
+- **OpenAI chat series** (gpt-*-chat-*): `false`
+
+These models require special access or configuration and are not available to all users by default.
+
 ## Output Format
 
 ```json
@@ -97,10 +107,25 @@ python filter_models.py --url https://custom-source.com/models.json
       "provider": "anthropic",
       "type": "language",
       "friendly_name": "Claude 4.6 Sonnet",
+      "is_default_available": true,
       "input_cost_per_token": 3e-06,
       "output_cost_per_token": 1.5e-05,
       "max_input_tokens": 200000,
       "max_output_tokens": 64000,
+      "supports_vision": true,
+      "supports_function_calling": true,
+      "supports_json_output": false
+    },
+    "o3": {
+      "model_key": "o3",
+      "provider": "openai",
+      "type": "language",
+      "friendly_name": "o3",
+      "is_default_available": false,
+      "input_cost_per_token": 2e-06,
+      "output_cost_per_token": 8e-06,
+      "max_input_tokens": 200000,
+      "max_output_tokens": 100000,
       "supports_vision": true,
       "supports_function_calling": true,
       "supports_json_output": false
@@ -174,6 +199,10 @@ ModelSyncRules.should_exclude("gpt-4", "openai")  # True
 ModelSyncRules.format_model_name("claude-sonnet-4-6", "anthropic")
 # Returns: "Claude 4.6 Sonnet"
 
+# Check if a model is default available
+ModelSyncRules.is_default_available("o3", "openai")  # False
+ModelSyncRules.is_default_available("gpt-5", "openai")  # True
+
 # Filter a single model
 result = ModelSyncRules.filter_model(model_key, model_data)
 
@@ -202,6 +231,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.1.0 (2026-03-12)
+- Add `is_default_available` field to model output
+- Implement default availability rules for OpenAI o series and chat series
+- Update documentation with field explanation and examples
 
 ### v1.0.0 (2026-03-12)
 - Initial release

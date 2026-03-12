@@ -348,6 +348,37 @@ class ModelSyncRules:
         return " ".join(w.capitalize() for w in key.split("-"))
 
     @classmethod
+    def is_default_available(cls, model_key: str, provider: str) -> bool:
+        """
+        Check if a model is default available for users.
+
+        Rules:
+        - Default: true for all models
+        - OpenAI o series (o3, o4, etc.): false
+        - OpenAI chat series (gpt-*-chat-*): false
+
+        Args:
+            model_key: Model identifier
+            provider: Provider name (mapped, lowercase)
+
+        Returns:
+            True if model is default available, False otherwise
+        """
+        # Default is true
+        is_available = True
+
+        # OpenAI specific rules
+        if provider == "openai":
+            # o series: o3, o3-mini, o4, o4-mini, etc.
+            if re.match(r"^o\d", model_key.lower()):
+                is_available = False
+            # chat series: gpt-*-chat-*
+            elif re.search(r"-chat-", model_key.lower()):
+                is_available = False
+
+        return is_available
+
+    @classmethod
     def filter_model(cls, model_key: str, model_data: dict[str, Any]) -> dict[str, Any] | None:
         """
         Filter a single model and return transformed data if it passes all rules.
@@ -378,12 +409,14 @@ class ModelSyncRules:
         mapped_provider = cls.map_provider_name(provider)
         model_type = cls.map_mode_to_type(mode)
         friendly_name = cls.format_model_name(model_key, mapped_provider)
+        default_available = cls.is_default_available(model_key, mapped_provider)
 
         return {
             "model_key": model_key,
             "provider": mapped_provider,
             "type": model_type,
             "friendly_name": friendly_name,
+            "is_default_available": default_available,
             "input_cost_per_token": model_data.get("input_cost_per_token"),
             "output_cost_per_token": model_data.get("output_cost_per_token"),
             "max_input_tokens": model_data.get("max_input_tokens"),
@@ -490,6 +523,11 @@ def should_exclude(model_key: str, provider: str | None = None) -> bool:
 def format_model_name(model_key: str, provider: str) -> str:
     """Format model key to friendly display name."""
     return ModelSyncRules.format_model_name(model_key, provider)
+
+
+def is_default_available(model_key: str, provider: str) -> bool:
+    """Check if a model is default available."""
+    return ModelSyncRules.is_default_available(model_key, provider)
 
 
 def filter_model(model_key: str, model_data: dict[str, Any]) -> dict[str, Any] | None:
