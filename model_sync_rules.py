@@ -64,22 +64,22 @@ class ModelSyncRules:
             "description": "Only allow claude-* prefix, exclude regional variants and Claude 4.1",
         },
         "google": {
-            # Exclude gemini-1 series and gemini-2.0 series (keep gemini-2.5)
+            # Exclude gemini versions below 2.5 (keep 2.5, 3.x, and above)
             "patterns": [
                 re.compile(r"^gemini/gemini-1\.", re.IGNORECASE),
-                re.compile(r"^gemini/gemini-2\.0", re.IGNORECASE),
+                re.compile(r"^gemini/gemini-2\.[0-4]", re.IGNORECASE),
             ],
             "custom_check": None,
-            "description": "Exclude gemini-1 series and gemini-2.0 series (keep gemini-2.5)",
+            "description": "Exclude gemini versions below 2.5 (keep 2.5+)",
         },
         "gemini": {
             # Same as google - for when litellm_provider is 'gemini' instead of 'google'
             "patterns": [
                 re.compile(r"^gemini/gemini-1\.", re.IGNORECASE),
-                re.compile(r"^gemini/gemini-2\.0", re.IGNORECASE),
+                re.compile(r"^gemini/gemini-2\.[0-4]", re.IGNORECASE),
             ],
             "custom_check": None,
-            "description": "Exclude gemini-1 series and gemini-2.0 series (keep gemini-2.5)",
+            "description": "Exclude gemini versions below 2.5 (keep 2.5+)",
         },
     }
 
@@ -118,6 +118,9 @@ class ModelSyncRules:
         "gemini/gemini-gemma-2-9b-it",
         "gemini/gemini-pro",
         "gemini/gemini-pro-vision",
+        # Gemini special-purpose models
+        "gemini/gemini-3.1-pro-preview-customtools",
+        "gemini/gemini-3.1-flash-live-preview",
     ]
 
     # Date patterns for validation
@@ -130,6 +133,7 @@ class ModelSyncRules:
     # Include patterns (exceptions to exclude rules)
     INCLUDE_PATTERNS: list[re.Pattern] = [
         re.compile(r"^gpt-.*-chat-latest$", re.IGNORECASE),  # Allow gpt-*-chat-latest despite -latest rule
+        re.compile(r"^gemini/gemini-[3-9].*-preview$", re.IGNORECASE),  # Allow Gemini 3.x+ preview models
     ]
 
     # Data source URL
@@ -211,14 +215,14 @@ class ModelSyncRules:
             if cls.should_exclude_by_provider(model_key, provider):
                 return True
 
+        # Check exact match exclude list (highest priority after provider rules)
+        if model_key in cls.EXCLUDE_MODEL_KEYS:
+            return True
+
         # Then check include patterns (exceptions to global rules only)
         for pattern in cls.INCLUDE_PATTERNS:
             if pattern.search(model_key):
                 return False
-
-        # Check exact match exclude list
-        if model_key in cls.EXCLUDE_MODEL_KEYS:
-            return True
 
         # Check for date patterns
         if cls.contains_date_pattern(model_key):
