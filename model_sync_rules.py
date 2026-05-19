@@ -130,6 +130,16 @@ class ModelSyncRules:
         "mmdd": re.compile(r"-(\d{2})(\d{2})$"),
     }
 
+    # Claude dated snapshot pattern: claude-{variant}-{major}-{minor}-{YYYYMMDD}
+    # Example: claude-sonnet-4-5-20250929, claude-opus-4-7-20260416
+    CLAUDE_DATED_PATTERN = re.compile(
+        r"^claude-([a-z]+)-(\d+)-(\d+)-(\d{4})(\d{2})(\d{2})$",
+        re.IGNORECASE,
+    )
+
+    # Minimum claude version allowed for dated snapshots
+    CLAUDE_DATED_MIN_VERSION = (4, 5)
+
     # Include patterns (exceptions to exclude rules)
     INCLUDE_PATTERNS: list[re.Pattern] = [
         re.compile(r"^gpt-.*-chat-latest$", re.IGNORECASE),  # Allow gpt-*-chat-latest despite -latest rule
@@ -160,6 +170,29 @@ class ModelSyncRules:
         if day < 1 or day > 31:
             return False
         return True
+
+    @classmethod
+    def is_claude_dated_snapshot(cls, model_key: str) -> bool:
+        """
+        Check if model_key is a claude dated snapshot with version >= CLAUDE_DATED_MIN_VERSION.
+
+        Matches: claude-{variant}-{major}-{minor}-{YYYYMMDD}
+        Allows only versions >= 4.5 (configurable via CLAUDE_DATED_MIN_VERSION).
+        Rejects 3.x snapshots and 4.0/4.1 snapshots.
+        """
+        match = cls.CLAUDE_DATED_PATTERN.match(model_key)
+        if not match:
+            return False
+
+        year = int(match.group(4))
+        month = int(match.group(5))
+        day = int(match.group(6))
+        if not cls.is_valid_date_pattern(year, month, day):
+            return False
+
+        major = int(match.group(2))
+        minor = int(match.group(3))
+        return (major, minor) >= cls.CLAUDE_DATED_MIN_VERSION
 
     @classmethod
     def contains_date_pattern(cls, model_key: str) -> bool:
@@ -223,6 +256,11 @@ class ModelSyncRules:
         for pattern in cls.INCLUDE_PATTERNS:
             if pattern.search(model_key):
                 return False
+
+        # Allow claude dated snapshots with version >= CLAUDE_DATED_MIN_VERSION
+        # (overrides date pattern exclusion below)
+        if cls.is_claude_dated_snapshot(model_key):
+            return False
 
         # Check for date patterns
         if cls.contains_date_pattern(model_key):
@@ -296,6 +334,15 @@ class ModelSyncRules:
 
         # Anthropic: claude-opus-4-1 → Claude 4.1 Opus
         if provider == "anthropic" or key.startswith("claude-"):
+            # Dated snapshot: claude-sonnet-4-5-20250929 → Claude 4.5 Sonnet 20250929
+            dated = cls.CLAUDE_DATED_PATTERN.match(key)
+            if dated:
+                variant = dated.group(1).capitalize()
+                major_version = dated.group(2)
+                minor_version = dated.group(3)
+                date_str = f"{dated.group(4)}{dated.group(5)}{dated.group(6)}"
+                return f"Claude {major_version}.{minor_version} {variant} {date_str}"
+
             parts = key.replace("claude-", "").split("-")
             # Expected format: opus-4-1, sonnet-4-5, haiku-4-5
             if len(parts) >= 3:
@@ -487,8 +534,8 @@ class ModelSyncRules:
                 excluded_by_rule["exact_match"] += 1
                 continue
 
-            # Check date pattern
-            if cls.contains_date_pattern(model_key):
+            # Check date pattern (allow claude dated snapshots >= CLAUDE_DATED_MIN_VERSION)
+            if cls.contains_date_pattern(model_key) and not cls.is_claude_dated_snapshot(model_key):
                 excluded_by_rule["date_pattern"] += 1
                 continue
 
