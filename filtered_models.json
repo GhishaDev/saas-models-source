@@ -579,6 +579,189 @@
         "supports_service_tier": true
       }
     },
+    "gemini/gemini-2.5-flash-image": {
+      "model_key": "gemini/gemini-2.5-flash-image",
+      "provider": "google",
+      "type": "image",
+      "friendly_name": "Gemini 2.5 Flash Image",
+      "is_default_available": false,
+      "input_cost_per_token": 3e-07,
+      "output_cost_per_token": 2.5e-06,
+      "max_input_tokens": 32768,
+      "max_output_tokens": 32768,
+      "supports_vision": true,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "cache_read_input_token_cost": 3e-08,
+        "input_cost_per_audio_token": 1e-06,
+        "input_cost_per_token": 3e-07,
+        "litellm_provider": "gemini",
+        "max_audio_length_hours": 8.4,
+        "max_audio_per_prompt": 1,
+        "supports_reasoning": false,
+        "max_images_per_prompt": 3000,
+        "max_input_tokens": 32768,
+        "max_output_tokens": 32768,
+        "max_tokens": 32768,
+        "max_pdf_size_mb": 30,
+        "max_video_length": 1,
+        "max_videos_per_prompt": 10,
+        "mode": "image_generation",
+        "output_cost_per_image": 0.039,
+        "output_cost_per_image_token": 3e-05,
+        "output_cost_per_reasoning_token": 2.5e-06,
+        "output_cost_per_token": 2.5e-06,
+        "rpm": 100000,
+        "source": "https://ai.google.dev/gemini-api/docs/pricing#gemini-2.5-flash-image",
+        "supported_endpoints": [
+          "/v1/chat/completions",
+          "/v1/completions",
+          "/v1/batch"
+        ],
+        "supported_modalities": [
+          "text",
+          "image",
+          "audio",
+          "video"
+        ],
+        "supported_output_modalities": [
+          "text",
+          "image"
+        ],
+        "supports_audio_output": false,
+        "supports_function_calling": true,
+        "supports_parallel_function_calling": true,
+        "supports_pdf_input": true,
+        "supports_prompt_caching": true,
+        "supports_response_schema": true,
+        "supports_system_messages": true,
+        "supports_tool_choice": true,
+        "supports_url_context": true,
+        "supports_vision": true,
+        "supports_web_search": true,
+        "tpm": 8000000,
+        "search_context_cost_per_query": {
+          "search_context_size_low": 0.035,
+          "search_context_size_medium": 0.035,
+          "search_context_size_high": 0.035
+        },
+        "supports_service_tier": true
+      }
+    },
+    "gemini/gemini-3-pro-image-preview": {
+      "model_key": "gemini/gemini-3-pro-image-preview",
+      "provider": "google",
+      "type": "image",
+      "friendly_name": "Gemini 3 Pro Image Preview",
+      "is_default_available": false,
+      "input_cost_per_token": 2e-06,
+      "output_cost_per_token": 1.2e-05,
+      "max_input_tokens": 65536,
+      "max_output_tokens": 32768,
+      "supports_vision": true,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "input_cost_per_image": 0.0011,
+        "input_cost_per_token": 2e-06,
+        "input_cost_per_token_batches": 1e-06,
+        "litellm_provider": "gemini",
+        "max_input_tokens": 65536,
+        "max_output_tokens": 32768,
+        "max_tokens": 32768,
+        "mode": "image_generation",
+        "output_cost_per_image": 0.134,
+        "output_cost_per_image_token": 0.00012,
+        "output_cost_per_token": 1.2e-05,
+        "rpm": 1000,
+        "tpm": 4000000,
+        "output_cost_per_token_batches": 6e-06,
+        "source": "https://ai.google.dev/gemini-api/docs/pricing",
+        "supported_endpoints": [
+          "/v1/chat/completions",
+          "/v1/completions",
+          "/v1/batch"
+        ],
+        "supported_modalities": [
+          "text",
+          "image"
+        ],
+        "supported_output_modalities": [
+          "text",
+          "image"
+        ],
+        "supports_function_calling": false,
+        "supports_prompt_caching": true,
+        "supports_response_schema": true,
+        "supports_system_messages": true,
+        "supports_vision": true,
+        "supports_web_search": true,
+        "search_context_cost_per_query": {
+          "search_context_size_low": 0.014,
+          "search_context_size_medium": 0.014,
+          "search_context_size_high": 0.014
+        },
+        "web_search_billing_unit": "per_query",
+        "supports_service_tier": true
+      }
+    },
+    "gemini/gemini-3.1-flash-image-preview": {
+      "model_key": "gemini/gemini-3.1-flash-image-preview",
+      "provider": "google",
+      "type": "image",
+      "friendly_name": "Gemini 3.1 Flash Image Preview",
+      "is_default_available": false,
+      "input_cost_per_token": 2.5e-07,
+      "output_cost_per_token": 1.5e-06,
+      "max_input_tokens": 65536,
+      "max_output_tokens": 32768,
+      "supports_vision": true,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "input_cost_per_token": 2.5e-07,
+        "input_cost_per_token_batches": 1.25e-07,
+        "litellm_provider": "gemini",
+        "max_input_tokens": 65536,
+        "max_output_tokens": 32768,
+        "max_tokens": 32768,
+        "mode": "image_generation",
+        "output_cost_per_image": 0.045,
+        "output_cost_per_image_token": 6e-05,
+        "output_cost_per_image_token_batches": 3e-05,
+        "output_cost_per_token": 1.5e-06,
+        "output_cost_per_token_batches": 7.5e-07,
+        "rpm": 1000,
+        "tpm": 4000000,
+        "source": "https://ai.google.dev/gemini-api/docs/pricing#gemini-3.1-flash-image-preview",
+        "supported_endpoints": [
+          "/v1/chat/completions",
+          "/v1/completions",
+          "/v1/batch"
+        ],
+        "supported_modalities": [
+          "text",
+          "image"
+        ],
+        "supported_output_modalities": [
+          "text",
+          "image"
+        ],
+        "supports_function_calling": false,
+        "supports_prompt_caching": true,
+        "supports_response_schema": true,
+        "supports_system_messages": true,
+        "supports_vision": true,
+        "supports_web_search": true,
+        "search_context_cost_per_query": {
+          "search_context_size_low": 0.014,
+          "search_context_size_medium": 0.014,
+          "search_context_size_high": 0.014
+        },
+        "web_search_billing_unit": "per_query"
+      }
+    },
     "gemini/gemini-2.5-flash-lite": {
       "model_key": "gemini/gemini-2.5-flash-lite",
       "provider": "google",
@@ -940,6 +1123,81 @@
         "web_search_billing_unit": "per_query"
       }
     },
+    "gemini/gemini-3.5-flash": {
+      "model_key": "gemini/gemini-3.5-flash",
+      "provider": "google",
+      "type": "language",
+      "friendly_name": "Gemini 3.5 Flash",
+      "is_default_available": true,
+      "input_cost_per_token": 1.5e-06,
+      "output_cost_per_token": 9e-06,
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 65535,
+      "supports_vision": true,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "cache_read_input_token_cost": 1.5e-07,
+        "input_cost_per_audio_token": 1e-06,
+        "input_cost_per_token": 1.5e-06,
+        "litellm_provider": "gemini",
+        "max_audio_length_hours": 8.4,
+        "max_audio_per_prompt": 1,
+        "max_images_per_prompt": 3000,
+        "max_input_tokens": 1048576,
+        "max_output_tokens": 65535,
+        "max_pdf_size_mb": 30,
+        "max_tokens": 65535,
+        "max_video_length": 1,
+        "max_videos_per_prompt": 10,
+        "mode": "chat",
+        "output_cost_per_reasoning_token": 9e-06,
+        "output_cost_per_token": 9e-06,
+        "rpm": 2000,
+        "source": "https://ai.google.dev/pricing/gemini-3",
+        "supported_endpoints": [
+          "/v1/chat/completions",
+          "/v1/completions",
+          "/v1/batch"
+        ],
+        "supported_modalities": [
+          "text",
+          "image",
+          "audio",
+          "video"
+        ],
+        "supported_output_modalities": [
+          "text"
+        ],
+        "supports_audio_output": false,
+        "supports_audio_input": true,
+        "supports_function_calling": true,
+        "supports_parallel_function_calling": true,
+        "supports_pdf_input": true,
+        "supports_prompt_caching": true,
+        "supports_reasoning": true,
+        "supports_response_schema": true,
+        "supports_system_messages": true,
+        "supports_tool_choice": true,
+        "supports_url_context": true,
+        "supports_video_input": true,
+        "supports_vision": true,
+        "supports_web_search": true,
+        "supports_native_streaming": true,
+        "tpm": 800000,
+        "input_cost_per_token_priority": 2.7e-06,
+        "input_cost_per_audio_token_priority": 1.8e-06,
+        "output_cost_per_token_priority": 1.62e-05,
+        "cache_read_input_token_cost_priority": 2.7e-07,
+        "supports_service_tier": true,
+        "search_context_cost_per_query": {
+          "search_context_size_low": 0.014,
+          "search_context_size_medium": 0.014,
+          "search_context_size_high": 0.014
+        },
+        "web_search_billing_unit": "per_query"
+      }
+    },
     "gemini/gemini-3.1-pro-preview": {
       "model_key": "gemini/gemini-3.1-pro-preview",
       "provider": "google",
@@ -1016,6 +1274,65 @@
           "search_context_size_high": 0.014
         },
         "web_search_billing_unit": "per_query"
+      }
+    },
+    "gpt-image-1.5": {
+      "model_key": "gpt-image-1.5",
+      "provider": "openai",
+      "type": "image",
+      "friendly_name": "GPT Image 1.5",
+      "is_default_available": false,
+      "input_cost_per_token": 5e-06,
+      "output_cost_per_token": 1e-05,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": true,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "cache_read_input_image_token_cost": 2e-06,
+        "cache_read_input_token_cost": 1.25e-06,
+        "input_cost_per_token": 5e-06,
+        "litellm_provider": "openai",
+        "mode": "image_generation",
+        "output_cost_per_token": 1e-05,
+        "input_cost_per_image_token": 8e-06,
+        "output_cost_per_image_token": 3.2e-05,
+        "supported_endpoints": [
+          "/v1/images/generations"
+        ],
+        "supports_vision": true,
+        "supports_pdf_input": true
+      }
+    },
+    "gpt-image-2": {
+      "model_key": "gpt-image-2",
+      "provider": "openai",
+      "type": "image",
+      "friendly_name": "GPT Image 2",
+      "is_default_available": false,
+      "input_cost_per_token": 5e-06,
+      "output_cost_per_token": 1e-05,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": true,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "cache_read_input_image_token_cost": 2e-06,
+        "cache_read_input_token_cost": 1.25e-06,
+        "input_cost_per_token": 5e-06,
+        "litellm_provider": "openai",
+        "mode": "image_generation",
+        "output_cost_per_token": 1e-05,
+        "input_cost_per_image_token": 8e-06,
+        "output_cost_per_image_token": 3e-05,
+        "supported_endpoints": [
+          "/v1/images/generations",
+          "/v1/images/edits"
+        ],
+        "supports_vision": true,
+        "supports_pdf_input": true
       }
     },
     "gpt-5": {
@@ -1739,6 +2056,60 @@
         "supports_none_reasoning_effort": false,
         "supports_xhigh_reasoning_effort": false,
         "supports_minimal_reasoning_effort": true
+      }
+    },
+    "gpt-image-1": {
+      "model_key": "gpt-image-1",
+      "provider": "openai",
+      "type": "image",
+      "friendly_name": "GPT Image 1",
+      "is_default_available": false,
+      "input_cost_per_token": 5e-06,
+      "output_cost_per_token": null,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "cache_read_input_image_token_cost": 2.5e-06,
+        "cache_read_input_token_cost": 1.25e-06,
+        "input_cost_per_image_token": 1e-05,
+        "input_cost_per_token": 5e-06,
+        "litellm_provider": "openai",
+        "mode": "image_generation",
+        "output_cost_per_image_token": 4e-05,
+        "supported_endpoints": [
+          "/v1/images/generations",
+          "/v1/images/edits"
+        ]
+      }
+    },
+    "gpt-image-1-mini": {
+      "model_key": "gpt-image-1-mini",
+      "provider": "openai",
+      "type": "image",
+      "friendly_name": "GPT Image 1 Mini",
+      "is_default_available": false,
+      "input_cost_per_token": 2e-06,
+      "output_cost_per_token": null,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "cache_read_input_image_token_cost": 2.5e-07,
+        "cache_read_input_token_cost": 2e-07,
+        "input_cost_per_image_token": 2.5e-06,
+        "input_cost_per_token": 2e-06,
+        "litellm_provider": "openai",
+        "mode": "image_generation",
+        "output_cost_per_image_token": 8e-06,
+        "supported_endpoints": [
+          "/v1/images/generations",
+          "/v1/images/edits"
+        ]
       }
     },
     "o3": {

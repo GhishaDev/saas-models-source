@@ -26,7 +26,7 @@ class ModelSyncRules:
     }
 
     # Supported model modes
-    SUPPORTED_MODES = ["chat", "embedding"]
+    SUPPORTED_MODES = ["chat", "embedding", "image_generation"]
 
     # Mode to model type mapping
     MODE_MAPPING = {
@@ -46,15 +46,18 @@ class ModelSyncRules:
             # Exclude gpt-*-chat without -latest suffix (keep gpt-*-chat-latest)
             # Exclude ada embedding models (keep text-embedding-*-large/small only)
             # Exclude search-api models
+            # Image: keep gpt-image-* only; exclude dall-e-* and chatgpt-image-*
             "patterns": [
                 re.compile(r"^gpt-4", re.IGNORECASE),
                 re.compile(r"^o1", re.IGNORECASE),
                 re.compile(r"^gpt-.*-chat$", re.IGNORECASE),
                 re.compile(r"^text-embedding-ada", re.IGNORECASE),
                 re.compile(r"-search-api$", re.IGNORECASE),
+                re.compile(r"^dall-e", re.IGNORECASE),
+                re.compile(r"^chatgpt-image", re.IGNORECASE),
             ],
             "custom_check": None,
-            "description": "Exclude gpt-4, o1, gpt-*-chat w/o -latest, ada, search-api",
+            "description": "Exclude gpt-4, o1, gpt-*-chat w/o -latest, ada, search-api, dall-e, chatgpt-image",
         },
         "anthropic": {
             # Only allow models starting with 'claude-'
@@ -65,21 +68,26 @@ class ModelSyncRules:
         },
         "google": {
             # Exclude gemini versions below 2.5 (keep 2.5, 3.x, and above)
+            # Image: exclude imagen-* and experimental flash-exp-image models
             "patterns": [
                 re.compile(r"^gemini/gemini-1\.", re.IGNORECASE),
                 re.compile(r"^gemini/gemini-2\.[0-4]", re.IGNORECASE),
+                re.compile(r"^gemini/imagen", re.IGNORECASE),
+                re.compile(r"flash-exp-image", re.IGNORECASE),
             ],
             "custom_check": None,
-            "description": "Exclude gemini versions below 2.5 (keep 2.5+)",
+            "description": "Exclude gemini <2.5, imagen-*, flash-exp-image",
         },
         "gemini": {
             # Same as google - for when litellm_provider is 'gemini' instead of 'google'
             "patterns": [
                 re.compile(r"^gemini/gemini-1\.", re.IGNORECASE),
                 re.compile(r"^gemini/gemini-2\.[0-4]", re.IGNORECASE),
+                re.compile(r"^gemini/imagen", re.IGNORECASE),
+                re.compile(r"flash-exp-image", re.IGNORECASE),
             ],
             "custom_check": None,
-            "description": "Exclude gemini versions below 2.5 (keep 2.5+)",
+            "description": "Exclude gemini <2.5, imagen-*, flash-exp-image",
         },
     }
 
@@ -102,6 +110,9 @@ class ModelSyncRules:
         re.compile(r"^gemini/gemini-.*-\d{3}$"),  # Exclude Gemini versioned models
         re.compile(r"^gpt-realtime", re.IGNORECASE),  # Exclude gpt-realtime-* models
         re.compile(r"^gpt-audio", re.IGNORECASE),  # Exclude gpt-audio-* models
+        # Image generation size/quality variants (e.g. low/1024-x-1024/gpt-image-1.5)
+        re.compile(r"^(low|medium|high|standard|hd|auto)/", re.IGNORECASE),
+        re.compile(r"^\d+-x-\d+/", re.IGNORECASE),
     ]
 
     # Exclude specific model keys (exact match)
@@ -241,44 +252,76 @@ class ModelSyncRules:
         return False
 
     @classmethod
-    def should_exclude(cls, model_key: str, provider: str | None = None) -> bool:
-        """Check if a model key should be excluded."""
+    def should_exclude_with_reason(
+        cls, model_key: str, provider: str | None = None
+    ) -> tuple[bool, str | None]:
+        """
+        Check exclusion and return the rule that triggered it.
+
+        Returns:
+            (True, reason) if excluded, where reason is one of:
+                'provider_exclusion', 'exact_match', 'date_pattern', 'global_exclusion'
+            (False, None) if not excluded
+        """
         # Provider-specific exclusion rules have highest priority
-        if provider:
-            if cls.should_exclude_by_provider(model_key, provider):
-                return True
+        if provider and cls.should_exclude_by_provider(model_key, provider):
+            return True, "provider_exclusion"
 
-        # Check exact match exclude list (highest priority after provider rules)
+        # Check exact match exclude list
         if model_key in cls.EXCLUDE_MODEL_KEYS:
-            return True
+            return True, "exact_match"
 
-        # Then check include patterns (exceptions to global rules only)
+        # Check include patterns (exceptions to global rules)
         for pattern in cls.INCLUDE_PATTERNS:
             if pattern.search(model_key):
-                return False
+                return False, None
 
         # Allow claude dated snapshots with version >= CLAUDE_DATED_MIN_VERSION
-        # (overrides date pattern exclusion below)
         if cls.is_claude_dated_snapshot(model_key):
-            return False
+            return False, None
 
         # Check for date patterns
         if cls.contains_date_pattern(model_key):
-            return True
+            return True, "date_pattern"
 
         # Check global exclude patterns
         for pattern in cls.EXCLUDE_PATTERNS:
             if pattern.search(model_key):
-                return True
+                return True, "global_exclusion"
 
-        return False
+        return False, None
+
+    @classmethod
+    def should_exclude(cls, model_key: str, provider: str | None = None) -> bool:
+        """Check if a model key should be excluded."""
+        excluded, _ = cls.should_exclude_with_reason(model_key, provider)
+        return excluded
+
+    # Per-mode pricing fields used for "non-zero price" validation
+    PRICE_FIELDS_BY_MODE = {
+        "image_generation": (
+            "input_cost_per_token",
+            "input_cost_per_image_token",
+            "input_cost_per_image",
+        ),
+    }
 
     @classmethod
     def should_exclude_due_to_price(cls, model_data: dict[str, Any]) -> bool:
         """Check if a model should be excluded due to zero/missing price."""
+        mode = model_data.get("mode")
+
+        # Image generation: accept any non-zero input pricing field
+        # (some models bill per token, others per image)
+        if mode == "image_generation":
+            for field in cls.PRICE_FIELDS_BY_MODE["image_generation"]:
+                value = model_data.get(field)
+                if value is not None and value > 0:
+                    return False
+            return True
+
         input_cost = model_data.get("input_cost_per_token")
         output_cost = model_data.get("output_cost_per_token")
-        mode = model_data.get("mode")
 
         if input_cost is None or input_cost == 0:
             return True
@@ -355,6 +398,12 @@ class ModelSyncRules:
 
         # OpenAI: gpt-5-mini → GPT-5 Mini, o3-mini → o3 Mini
         if provider == "openai":
+            # Image: gpt-image-1 → GPT Image 1, gpt-image-1.5 → GPT Image 1.5
+            if key.startswith("gpt-image-"):
+                suffix = key.replace("gpt-image-", "")
+                suffix_formatted = " ".join(w.capitalize() for w in suffix.split("-"))
+                return f"GPT Image {suffix_formatted}"
+
             # o series: o3-mini → o3 Mini, o4-mini → o4 Mini
             if re.match(r"^o\d+", key):
                 match = re.match(r"^(o\d+)(?:-(.+))?$", key)
@@ -399,22 +448,28 @@ class ModelSyncRules:
         return " ".join(w.capitalize() for w in key.split("-"))
 
     @classmethod
-    def is_default_available(cls, model_key: str, provider: str) -> bool:
+    def is_default_available(cls, model_key: str, provider: str, model_type: str = "language") -> bool:
         """
         Check if a model is default available for users.
 
         Rules:
         - Default: true for all models
+        - Image models (model_type == "image"): false
         - OpenAI o series (o3, o4, etc.): false
         - OpenAI chat series (gpt-*-chat-*): false
 
         Args:
             model_key: Model identifier
             provider: Provider name (mapped, lowercase)
+            model_type: Mapped model type (language, embedding, image, audio)
 
         Returns:
             True if model is default available, False otherwise
         """
+        # Image models require special access by default
+        if model_type == "image":
+            return False
+
         # Default is true
         is_available = True
 
@@ -460,7 +515,7 @@ class ModelSyncRules:
         mapped_provider = cls.map_provider_name(provider)
         model_type = cls.map_mode_to_type(mode)
         friendly_name = cls.format_model_name(model_key, mapped_provider)
-        default_available = cls.is_default_available(model_key, mapped_provider)
+        default_available = cls.is_default_available(model_key, mapped_provider, model_type)
 
         return {
             "model_key": model_key,
@@ -497,7 +552,11 @@ class ModelSyncRules:
 
     @classmethod
     def get_filter_stats(cls, models: dict[str, Any]) -> dict[str, Any]:
-        """Get statistics about the filtering process."""
+        """
+        Get statistics about the filtering process.
+
+        Mirrors filter_model's pipeline exactly so passed == len(filter_all_models(models)).
+        """
         total = len(models)
         passed = 0
         excluded_by_rule: dict[str, int] = {
@@ -514,43 +573,20 @@ class ModelSyncRules:
             provider = model_data.get("litellm_provider")
             mode = model_data.get("mode")
 
-            # Check provider support
             if not cls.is_provider_supported(provider):
                 excluded_by_rule["unsupported_provider"] += 1
                 continue
 
-            # Check mode support
             if not cls.is_mode_supported(mode):
                 excluded_by_rule["unsupported_mode"] += 1
                 continue
 
-            # Check provider-specific exclusion
-            if cls.should_exclude_by_provider(model_key, provider):
-                excluded_by_rule["provider_exclusion"] += 1
+            excluded, reason = cls.should_exclude_with_reason(model_key, provider)
+            if excluded:
+                # reason is one of the bucket keys above
+                excluded_by_rule[reason] += 1  # type: ignore[index]
                 continue
 
-            # Check exact match
-            if model_key in cls.EXCLUDE_MODEL_KEYS:
-                excluded_by_rule["exact_match"] += 1
-                continue
-
-            # Check date pattern (allow claude dated snapshots >= CLAUDE_DATED_MIN_VERSION)
-            if cls.contains_date_pattern(model_key) and not cls.is_claude_dated_snapshot(model_key):
-                excluded_by_rule["date_pattern"] += 1
-                continue
-
-            # Check global patterns
-            excluded_by_pattern = False
-            for pattern in cls.EXCLUDE_PATTERNS:
-                if pattern.search(model_key):
-                    excluded_by_rule["global_exclusion"] += 1
-                    excluded_by_pattern = True
-                    break
-
-            if excluded_by_pattern:
-                continue
-
-            # Check price
             if cls.should_exclude_due_to_price(model_data):
                 excluded_by_rule["zero_price"] += 1
                 continue
@@ -576,9 +612,9 @@ def format_model_name(model_key: str, provider: str) -> str:
     return ModelSyncRules.format_model_name(model_key, provider)
 
 
-def is_default_available(model_key: str, provider: str) -> bool:
+def is_default_available(model_key: str, provider: str, model_type: str = "language") -> bool:
     """Check if a model is default available."""
-    return ModelSyncRules.is_default_available(model_key, provider)
+    return ModelSyncRules.is_default_available(model_key, provider, model_type)
 
 
 def filter_model(model_key: str, model_data: dict[str, Any]) -> dict[str, Any] | None:
