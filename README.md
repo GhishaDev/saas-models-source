@@ -7,16 +7,25 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 ## Features
 
 - **Multi-Provider Support**: Filters models from OpenAI, Anthropic, and Google
+- **Multi-Modal Support**: Chat (language), embedding, and image generation models
 - **Smart Filtering Rules**: Comprehensive exclusion rules for deprecated, preview, and versioned models
-- **Price Validation**: Ensures all models have valid pricing information
+- **Mode-Aware Price Validation**: Validates pricing using mode-specific fields (per-token, per-image-token, per-image)
 - **Flexible Output**: JSON export ready for database synchronization
-- **Detailed Statistics**: Track filtering metrics and exclusion reasons
+- **Detailed Statistics**: Track filtering metrics and exclusion reasons with full consistency between `stats.passed` and exported count
 
 ## Supported Providers
 
-- **OpenAI**: GPT-5 series, o3/o4 series, text-embedding models
-- **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus)
-- **Google**: Gemini 2.5 series (Flash, Flash Lite, Pro)
+- **OpenAI**: GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series
+- **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), including dated snapshots
+- **Google**: Gemini 2.5+ series (Flash, Flash Lite, Pro), Gemini embedding 2, `gemini-*-image*` series
+
+## Supported Model Types
+
+| Type | Mode | Examples |
+|------|------|----------|
+| `language` | `chat` | `claude-opus-4-7`, `gpt-5.5`, `gemini/gemini-3-pro-preview` |
+| `embedding` | `embedding` | `text-embedding-3-large`, `gemini/gemini-embedding-2` |
+| `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
 
 ## Installation
 
@@ -62,28 +71,34 @@ python filter_models.py --url https://custom-source.com/models.json
 ### Provider-Specific Rules
 
 #### OpenAI
-- ✅ Include: GPT-5 series, o3/o4 series, text-embedding-3-*
+- ✅ Include: GPT-5 series, o3/o4 series, text-embedding-3-*, `gpt-image-*` series
 - ❌ Exclude: GPT-4 series, o1 series, ada embedding models
+- ❌ Exclude: `dall-e-*`, `chatgpt-image-*` (legacy image models)
 - ❌ Exclude: Models with `openai/` prefix, search-api variants
 
 #### Anthropic
 - ✅ Include: Claude 4.5+ variants (Haiku, Sonnet, Opus)
-- ❌ Exclude: Claude 4.1 versions
+- ✅ Include: Dated snapshots ≥ 4.5 (e.g. `claude-sonnet-4-5-20250929`)
+- ❌ Exclude: Claude 4.1 and below versions
 - ❌ Exclude: Non-claude prefixed models
+- ❌ Exclude: Dated snapshots < 4.5
 
 #### Google
-- ✅ Include: Gemini 2.5 series
-- ❌ Exclude: Gemini 1.x and 2.0 series
+- ✅ Include: Gemini 2.5+ series
+- ✅ Include: `gemini-*-image*` series (e.g. `gemini-2.5-flash-image`)
+- ❌ Exclude: Gemini 1.x and 2.0–2.4 series
 - ❌ Exclude: Gemma models, deprecated versions
+- ❌ Exclude: `imagen-*`, `flash-exp-image` (legacy/experimental image models)
 
 ### Global Exclusion Rules
 
-- **Version Patterns**: Exclude date-stamped models (YYYY-MM-DD, YYYYMMDD)
+- **Version Patterns**: Exclude date-stamped models (YYYY-MM-DD, YYYYMMDD), except claude snapshots ≥ 4.5
+- **Image Variants**: Exclude size/quality variants (`low/`, `medium/`, `high/`, `standard/`, `hd/`, `auto/`, `WxH/` prefixes)
 - **Preview/Legacy**: Exclude `-preview`, `-old`, `-deprecated`, `-legacy` suffixes
 - **Latest Versions**: Exclude models ending with `-latest` (except `gpt-*-chat-latest`)
 - **Fine-tuned**: Exclude models starting with `ft:`
 - **Cloud-Specific**: Exclude Azure, Bedrock, Sagemaker variants
-- **Price Validation**: Exclude models with zero or missing pricing
+- **Price Validation**: Mode-aware — excludes models with zero/missing input pricing across all applicable fields
 
 ### Default Availability Rules
 
@@ -92,6 +107,7 @@ Each model includes an `is_default_available` field indicating default user avai
 - **Default**: `true` for all models
 - **OpenAI o series** (o3, o4, o3-mini, o4-mini): `false`
 - **OpenAI chat series** (gpt-*-chat-*): `false`
+- **Image models** (all `image` type): `false`
 
 These models require special access or configuration and are not available to all users by default.
 
@@ -126,6 +142,34 @@ These models require special access or configuration and are not available to al
       "output_cost_per_token": 8e-06,
       "max_input_tokens": 200000,
       "max_output_tokens": 100000,
+      "supports_vision": true,
+      "supports_function_calling": true,
+      "supports_json_output": false
+    },
+    "gpt-image-1.5": {
+      "model_key": "gpt-image-1.5",
+      "provider": "openai",
+      "type": "image",
+      "friendly_name": "GPT Image 1.5",
+      "is_default_available": false,
+      "input_cost_per_token": 5e-06,
+      "output_cost_per_token": 1e-05,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false
+    },
+    "claude-sonnet-4-5-20250929": {
+      "model_key": "claude-sonnet-4-5-20250929",
+      "provider": "anthropic",
+      "type": "language",
+      "friendly_name": "Claude 4.5 Sonnet 20250929",
+      "is_default_available": true,
+      "input_cost_per_token": 3e-06,
+      "output_cost_per_token": 1.5e-05,
+      "max_input_tokens": 200000,
+      "max_output_tokens": 64000,
       "supports_vision": true,
       "supports_function_calling": true,
       "supports_json_output": false
@@ -166,19 +210,22 @@ Edit `model_sync_rules.py` to customize:
 ============================================================
 FILTERING SUMMARY
 ============================================================
-Total models:          1,234
-Passed filters:        24
-Excluded:              1,210
-Pass rate:             1.9%
+Total models:          2,720
+Passed filters:        45
+Excluded:              2,675
+Pass rate:             1.7%
 
 Exclusion breakdown:
-  - Unsupported Provider: 856
-  - Unsupported Mode: 156
-  - Provider Exclusion: 98
-  - Global Exclusion: 67
-  - Date Pattern: 23
-  - Zero Price: 10
+  - Unsupported Provider: 2,421
+  - Unsupported Mode: 56
+  - Provider Exclusion: 57
+  - Global Exclusion: 73
+  - Date Pattern: 60
+  - Exact Match: 6
+  - Zero Price: 2
 ```
+
+> `passed` always equals `len(filter_all_models(models))`. Stats and export share the same exclusion pipeline (`should_exclude_with_reason`).
 
 ## Requirements
 
@@ -202,6 +249,15 @@ ModelSyncRules.format_model_name("claude-sonnet-4-6", "anthropic")
 # Check if a model is default available
 ModelSyncRules.is_default_available("o3", "openai")  # False
 ModelSyncRules.is_default_available("gpt-5", "openai")  # True
+ModelSyncRules.is_default_available("gpt-image-1.5", "openai", "image")  # False
+
+# Check if a model key is an allowed claude dated snapshot (version >= 4.5)
+ModelSyncRules.is_claude_dated_snapshot("claude-sonnet-4-5-20250929")  # True
+ModelSyncRules.is_claude_dated_snapshot("claude-opus-4-1-20250805")  # False
+
+# Exclusion with reason (for telemetry / stats)
+ModelSyncRules.should_exclude_with_reason("dall-e-3", "openai")
+# Returns: (True, "provider_exclusion")
 
 # Filter a single model
 result = ModelSyncRules.filter_model(model_key, model_data)
@@ -231,6 +287,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.3.0 (2026-05-20)
+- Support `image_generation` mode with mode-aware price validation
+- Include `gpt-image-*` (OpenAI) and `gemini-*-image*` (Gemini) series
+- Exclude size/quality variants (`low/`, `high/`, `hd/`, `1024-x-1024/`, etc.)
+- Exclude `dall-e-*`, `chatgpt-image-*`, `imagen-*`, `flash-exp-image` variants
+- Set `is_default_available=false` for all image models
+- Refactor exclusion logic into `should_exclude_with_reason` single source of truth
+- Fix stats `passed` count to match exported model count exactly
+
+### v1.2.0 (2026-05-19)
+- Allow claude dated snapshots with version ≥ 4.5 (e.g. `claude-sonnet-4-5-20250929`)
+- Format dated snapshot friendly names as `Claude 4.5 Sonnet 20250929`
+- Sync Claude 4.7 Opus, GPT-5.5, Gemini Embedding 2
 
 ### v1.1.0 (2026-03-12)
 - Add `is_default_available` field to model output
