@@ -18,7 +18,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **OpenAI**: GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash Lite, Pro), Gemini embedding 2, `gemini-*-image*` series
-- **Z.AI (GLM)**: Whitelist-curated `zai/glm-*` SKUs (GLM-4.5/4.6/4.7/5 family + vision/OCR variants)
+- **Z.AI (GLM)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1 family + vision/OCR variants)
 
 ## Supported Model Types
 
@@ -93,10 +93,12 @@ python filter_models.py --url https://custom-source.com/models.json
 
 #### Z.AI
 - ✅ Include: only keys listed in `ModelSyncRules.ZAI_ALLOWED_KEYS` (reverse whitelist)
-- ✅ Pre-staged keys announced on [docs.z.ai/guides/overview/pricing](https://docs.z.ai/guides/overview/pricing) but not yet on LiteLLM activate automatically once published upstream
-- ✅ Vision flag auto-inferred for keys matching `glm-*v` or `glm-ocr` (upstream often omits `supports_vision`)
+- ✅ **z.ai as source of truth** via `ZAI_SYNTH_DATA` overlay (sourced from [docs.z.ai/guides/overview/overview](https://docs.z.ai/guides/overview/overview) + [pricing](https://docs.z.ai/guides/overview/pricing)):
+  - Pre-staged SKUs absent from LiteLLM are synthesised from z.ai data (GLM-5.1, GLM-5-Turbo, GLM-4.7-FlashX, GLM-5V-Turbo, GLM-4.6V, GLM-4.6V-FlashX, GLM-OCR)
+  - When upstream conflicts with z.ai, z.ai wins (e.g. `zai/glm-4.5v` context = 64K per z.ai overview, not the 128K LiteLLM reports)
+- ✅ Vision flag auto-inferred for keys matching `glm-*v` or `glm-ocr` when upstream omits `supports_vision`
 - ❌ Exclude: `zai/glm-5-code` (not on z.ai official pricing page), other-gateway GLM (openrouter / fireworks / together / bedrock / vertex / novita / cerebras / baseten / gmi / wandb / vercel_ai_gateway / deepinfra)
-- ❌ Exclude: Free-tier SKUs via Zero Price rule (e.g. `zai/glm-4.5-flash`, future `glm-4.7-flash`, `glm-4.6v-flash`)
+- ❌ Exclude: Free-tier SKUs via Zero Price rule (e.g. `zai/glm-4.5-flash`, `glm-4.7-flash`, `glm-4.6v-flash`)
 
 ### Global Exclusion Rules
 
@@ -134,6 +136,7 @@ These models require special access or configuration and are not available to al
       "is_default_available": true,
       "input_cost_per_token": 3e-06,
       "output_cost_per_token": 1.5e-05,
+      "cache_read_input_token_cost": 3e-07,
       "max_input_tokens": 200000,
       "max_output_tokens": 64000,
       "supports_vision": true,
@@ -190,7 +193,8 @@ These models require special access or configuration and are not available to al
       "is_default_available": true,
       "input_cost_per_token": 6e-07,
       "output_cost_per_token": 1.8e-06,
-      "max_input_tokens": 128000,
+      "cache_read_input_token_cost": 1.1e-07,
+      "max_input_tokens": 64000,
       "max_output_tokens": 32000,
       "supports_vision": true,
       "supports_function_calling": true,
@@ -232,10 +236,10 @@ Edit `model_sync_rules.py` to customize:
 ============================================================
 FILTERING SUMMARY
 ============================================================
-Total models:          2,784
-Passed filters:        57
+Total models:          2,791
+Passed filters:        64
 Excluded:              2,727
-Pass rate:             2.0%
+Pass rate:             2.3%
 
 Exclusion breakdown:
   - Unsupported Provider: 2,471
@@ -246,6 +250,8 @@ Exclusion breakdown:
   - Exact Match: 6
   - Zero Price: 3
 ```
+
+> `Total` includes 7 z.ai pre-staged SKUs injected by `ZAI_SYNTH_DATA`. `passed` always equals `len(filter_all_models(models))`.
 
 > `passed` always equals `len(filter_all_models(models))`. Stats and export share the same exclusion pipeline (`should_exclude_with_reason`).
 
@@ -309,6 +315,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.6.0 (2026-06-13)
+- Export `cache_read_input_token_cost` field (cached input pricing per token)
+- Overlay z.ai-authoritative cached input pricing for `zai/glm-4.5` family + `zai/glm-4.5v` (upstream missed these)
+- `zai/glm-4-32b-0414-128k` and `zai/glm-ocr` correctly export `null` cache cost (z.ai shows no cache pricing)
+
+### v1.5.0 (2026-06-13)
+- Add `ZAI_SYNTH_DATA` overlay — z.ai becomes the source of truth for whitelisted GLM SKUs
+- Synthesise full data (context, max output, pricing, capabilities) for 7 pre-staged SKUs from [docs.z.ai/guides/overview](https://docs.z.ai/guides/overview/overview): GLM-5.1, GLM-5-Turbo, GLM-4.7-FlashX, GLM-5V-Turbo, GLM-4.6V, GLM-4.6V-FlashX, GLM-OCR
+- Override `zai/glm-4.5v` context to 64K (LiteLLM reports 128K, z.ai overview lists 64K)
+- `apply_zai_synth()` runs at the entry of both `filter_all_models` and `get_filter_stats` (stats remain consistent with export)
 
 ### v1.4.0 (2026-06-13)
 - Add **Z.AI (GLM)** as the fourth supported provider via reverse-whitelist (`ZAI_ALLOWED_KEYS`)

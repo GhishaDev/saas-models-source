@@ -61,6 +61,126 @@ class ModelSyncRules:
         "ocr": "OCR",
     }
 
+    # Authoritative z.ai data overlay. Source: docs.z.ai/guides/overview/overview
+    # + docs.z.ai/guides/overview/pricing (snapshot taken 2026-06-13).
+    #
+    # Two roles:
+    #   1. Inject pre-staged SKUs absent from LiteLLM upstream.
+    #   2. Overlay/correct fields when upstream disagrees with z.ai
+    #      (e.g. zai/glm-4.5v context: upstream 128K vs z.ai 64K — z.ai wins).
+    #
+    # Once LiteLLM publishes a pre-staged SKU upstream, the entry continues
+    # to overlay any conflicting fields (z.ai remains the source of truth).
+    ZAI_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        # ── Pre-staged SKUs (not yet on LiteLLM) ──────────────────────────
+        "zai/glm-5.1": {
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": 200000,
+            "max_output_tokens": 128000,
+            "input_cost_per_token": 1.4e-06,
+            "output_cost_per_token": 4.4e-06,
+            "cache_read_input_token_cost": 0.26e-06,
+            "supports_function_calling": True,
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        "zai/glm-5-turbo": {
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": 200000,
+            "max_output_tokens": 128000,
+            "input_cost_per_token": 1.2e-06,
+            "output_cost_per_token": 4.0e-06,
+            "cache_read_input_token_cost": 0.24e-06,
+            "supports_function_calling": True,
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        "zai/glm-4.7-flashx": {
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": 200000,
+            "max_output_tokens": 128000,
+            "input_cost_per_token": 0.07e-06,
+            "output_cost_per_token": 0.4e-06,
+            "cache_read_input_token_cost": 0.01e-06,
+            "supports_function_calling": True,
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        "zai/glm-5v-turbo": {
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": 200000,
+            "max_output_tokens": 128000,
+            "input_cost_per_token": 1.2e-06,
+            "output_cost_per_token": 4.0e-06,
+            "cache_read_input_token_cost": 0.24e-06,
+            "supports_function_calling": True,
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+        "zai/glm-4.6v": {
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": 128000,
+            "max_output_tokens": 32000,
+            "input_cost_per_token": 0.3e-06,
+            "output_cost_per_token": 0.9e-06,
+            "cache_read_input_token_cost": 0.05e-06,
+            "supports_function_calling": True,
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+        "zai/glm-4.6v-flashx": {
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": 128000,
+            "max_output_tokens": 32000,
+            "input_cost_per_token": 0.04e-06,
+            "output_cost_per_token": 0.4e-06,
+            "cache_read_input_token_cost": 0.004e-06,
+            "supports_function_calling": True,
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+        "zai/glm-ocr": {
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": None,
+            "max_output_tokens": None,
+            "input_cost_per_token": 0.03e-06,
+            "output_cost_per_token": 0.03e-06,
+            "supports_function_calling": False,
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+        # ── Overlays for existing LiteLLM SKUs ────────────────────────────
+        # Strategy: only fill what upstream lacks or disagrees with z.ai.
+        # Upstream already has correct cache pricing for glm-5/4.7/4.6,
+        # so they're not duplicated here. The 4.5 family + 4.5v are.
+        "zai/glm-4.5v": {
+            # z.ai/overview lists context 64K; upstream says 128K. z.ai wins.
+            "max_input_tokens": 64000,
+            "cache_read_input_token_cost": 0.11e-06,
+        },
+        "zai/glm-4.5": {
+            "cache_read_input_token_cost": 0.11e-06,
+        },
+        "zai/glm-4.5-x": {
+            "cache_read_input_token_cost": 0.45e-06,
+        },
+        "zai/glm-4.5-air": {
+            "cache_read_input_token_cost": 0.03e-06,
+        },
+        "zai/glm-4.5-airx": {
+            "cache_read_input_token_cost": 0.22e-06,
+        },
+        # zai/glm-4-32b-0414-128k and zai/glm-ocr: no cache pricing on
+        # z.ai/pricing (shown as "-" / "\") — intentionally not added.
+    }
+
     # Supported model modes
     SUPPORTED_MODES = ["chat", "embedding", "image_generation"]
 
@@ -593,6 +713,7 @@ class ModelSyncRules:
             "is_default_available": default_available,
             "input_cost_per_token": model_data.get("input_cost_per_token"),
             "output_cost_per_token": model_data.get("output_cost_per_token"),
+            "cache_read_input_token_cost": model_data.get("cache_read_input_token_cost"),
             "max_input_tokens": model_data.get("max_input_tokens"),
             "max_output_tokens": model_data.get("max_output_tokens"),
             "supports_vision": cls.resolve_supports_vision(
@@ -604,6 +725,26 @@ class ModelSyncRules:
         }
 
     @classmethod
+    def apply_zai_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Inject z.ai-authoritative data into the upstream model dict.
+
+        - Pre-staged SKUs (not present upstream) are added wholesale.
+        - SKUs present upstream get the overlay merged on top (synth wins for
+          any field z.ai considers authoritative, e.g. zai/glm-4.5v context).
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, synth in cls.ZAI_SYNTH_DATA.items():
+            existing = merged.get(key)
+            if existing is None:
+                merged[key] = dict(synth)
+            else:
+                merged[key] = {**existing, **synth}
+        return merged
+
+    @classmethod
     def filter_all_models(cls, models: dict[str, Any]) -> dict[str, dict[str, Any]]:
         """
         Filter all models and return a dict of valid models.
@@ -611,9 +752,10 @@ class ModelSyncRules:
         Returns:
             dict mapping model_key to transformed model data
         """
+        enriched = cls.apply_zai_synth(models)
         filtered: dict[str, dict[str, Any]] = {}
 
-        for model_key, model_data in models.items():
+        for model_key, model_data in enriched.items():
             result = cls.filter_model(model_key, model_data)
             if result:
                 filtered[model_key] = result
@@ -627,7 +769,8 @@ class ModelSyncRules:
 
         Mirrors filter_model's pipeline exactly so passed == len(filter_all_models(models)).
         """
-        total = len(models)
+        enriched = cls.apply_zai_synth(models)
+        total = len(enriched)
         passed = 0
         excluded_by_rule: dict[str, int] = {
             "unsupported_provider": 0,
@@ -639,7 +782,7 @@ class ModelSyncRules:
             "zero_price": 0,
         }
 
-        for model_key, model_data in models.items():
+        for model_key, model_data in enriched.items():
             provider = model_data.get("litellm_provider")
             mode = model_data.get("mode")
 
