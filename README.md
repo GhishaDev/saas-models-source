@@ -6,7 +6,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Features
 
-- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, and Google
+- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, and Z.AI (GLM)
 - **Multi-Modal Support**: Chat (language), embedding, and image generation models
 - **Smart Filtering Rules**: Comprehensive exclusion rules for deprecated, preview, and versioned models
 - **Mode-Aware Price Validation**: Validates pricing using mode-specific fields (per-token, per-image-token, per-image)
@@ -18,12 +18,13 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **OpenAI**: GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash Lite, Pro), Gemini embedding 2, `gemini-*-image*` series
+- **Z.AI (GLM)**: Whitelist-curated `zai/glm-*` SKUs (GLM-4.5/4.6/4.7/5 family + vision/OCR variants)
 
 ## Supported Model Types
 
 | Type | Mode | Examples |
 |------|------|----------|
-| `language` | `chat` | `claude-opus-4-7`, `gpt-5.5`, `gemini/gemini-3-pro-preview` |
+| `language` | `chat` | `claude-opus-4-7`, `gpt-5.5`, `gemini/gemini-3-pro-preview`, `zai/glm-5`, `zai/glm-4.5v` |
 | `embedding` | `embedding` | `text-embedding-3-large`, `gemini/gemini-embedding-2` |
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
 
@@ -89,6 +90,13 @@ python filter_models.py --url https://custom-source.com/models.json
 - ❌ Exclude: Gemini 1.x and 2.0–2.4 series
 - ❌ Exclude: Gemma models, deprecated versions
 - ❌ Exclude: `imagen-*`, `flash-exp-image` (legacy/experimental image models)
+
+#### Z.AI
+- ✅ Include: only keys listed in `ModelSyncRules.ZAI_ALLOWED_KEYS` (reverse whitelist)
+- ✅ Pre-staged keys announced on [docs.z.ai/guides/overview/pricing](https://docs.z.ai/guides/overview/pricing) but not yet on LiteLLM activate automatically once published upstream
+- ✅ Vision flag auto-inferred for keys matching `glm-*v` or `glm-ocr` (upstream often omits `supports_vision`)
+- ❌ Exclude: `zai/glm-5-code` (not on z.ai official pricing page), other-gateway GLM (openrouter / fireworks / together / bedrock / vertex / novita / cerebras / baseten / gmi / wandb / vercel_ai_gateway / deepinfra)
+- ❌ Exclude: Free-tier SKUs via Zero Price rule (e.g. `zai/glm-4.5-flash`, future `glm-4.7-flash`, `glm-4.6v-flash`)
 
 ### Global Exclusion Rules
 
@@ -173,6 +181,20 @@ These models require special access or configuration and are not available to al
       "supports_vision": true,
       "supports_function_calling": true,
       "supports_json_output": false
+    },
+    "zai/glm-4.5v": {
+      "model_key": "zai/glm-4.5v",
+      "provider": "zai",
+      "type": "language",
+      "friendly_name": "GLM-4.5V",
+      "is_default_available": true,
+      "input_cost_per_token": 6e-07,
+      "output_cost_per_token": 1.8e-06,
+      "max_input_tokens": 128000,
+      "max_output_tokens": 32000,
+      "supports_vision": true,
+      "supports_function_calling": true,
+      "supports_json_output": false
     }
   }
 }
@@ -210,19 +232,19 @@ Edit `model_sync_rules.py` to customize:
 ============================================================
 FILTERING SUMMARY
 ============================================================
-Total models:          2,720
-Passed filters:        45
-Excluded:              2,675
-Pass rate:             1.7%
+Total models:          2,784
+Passed filters:        57
+Excluded:              2,727
+Pass rate:             2.0%
 
 Exclusion breakdown:
-  - Unsupported Provider: 2,421
+  - Unsupported Provider: 2,471
   - Unsupported Mode: 56
-  - Provider Exclusion: 57
+  - Provider Exclusion: 58
   - Global Exclusion: 73
   - Date Pattern: 60
   - Exact Match: 6
-  - Zero Price: 2
+  - Zero Price: 3
 ```
 
 > `passed` always equals `len(filter_all_models(models))`. Stats and export share the same exclusion pipeline (`should_exclude_with_reason`).
@@ -287,6 +309,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.4.0 (2026-06-13)
+- Add **Z.AI (GLM)** as the fourth supported provider via reverse-whitelist (`ZAI_ALLOWED_KEYS`)
+- Whitelist GLM-4.5 family (Air/AirX/X/V/32B), GLM-4.6, GLM-4.7, GLM-5
+- Pre-stage upcoming SKUs from [docs.z.ai pricing](https://docs.z.ai/guides/overview/pricing) (GLM-5.1, GLM-5-Turbo, GLM-4.7-FlashX, GLM-5V-Turbo, GLM-4.6V, GLM-4.6V-FlashX, GLM-OCR) — activate automatically when LiteLLM publishes them
+- Auto-infer `supports_vision=true` for `zai/glm-*v` and `zai/glm-ocr` keys
+- Friendly-name formatting (`GLM-4.5-Air`, `GLM-4.5V`, `GLM-4.5-AirX`, `GLM-OCR`)
+- Exclude `zai/glm-5-code` (not on z.ai official pricing page) and all other-gateway GLM listings
+- Fix `filter_models.py` crash on `max_input_tokens=None` (image SKUs)
+- `--provider` choices now derived from `PROVIDER_MAPPING` (no hardcoded list)
 
 ### v1.3.0 (2026-05-20)
 - Support `image_generation` mode with mode-aware price validation

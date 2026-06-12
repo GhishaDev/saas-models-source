@@ -16,13 +16,49 @@ class ModelSyncRules:
     """Model sync rules configuration and utilities."""
 
     # Supported providers list
-    PROVIDERS = ["openai", "anthropic", "gemini"]
+    PROVIDERS = ["openai", "anthropic", "gemini", "zai"]
 
     # Provider name mapping (lowercase for DB consistency)
     PROVIDER_MAPPING = {
         "openai": "openai",
         "anthropic": "anthropic",
         "gemini": "google",
+        "zai": "zai",
+    }
+
+    # zai/glm whitelist — only these keys are allowed through provider filter.
+    # Includes models present on the LiteLLM source today, plus pre-staged SKUs
+    # that exist on z.ai's official pricing page but are not yet synced upstream.
+    # Pre-staged keys activate automatically once LiteLLM publishes them.
+    ZAI_ALLOWED_KEYS = frozenset({
+        # Currently on LiteLLM source
+        "zai/glm-5",
+        "zai/glm-4.7",
+        "zai/glm-4.6",
+        "zai/glm-4.5",
+        "zai/glm-4.5v",
+        "zai/glm-4.5-x",
+        "zai/glm-4.5-air",
+        "zai/glm-4.5-airx",
+        "zai/glm-4.5-flash",
+        "zai/glm-4-32b-0414-128k",
+        # Pre-staged: announced on docs.z.ai but missing from LiteLLM source
+        "zai/glm-5.1",
+        "zai/glm-5-turbo",
+        "zai/glm-4.7-flashx",
+        "zai/glm-5v-turbo",
+        "zai/glm-4.6v",
+        "zai/glm-4.6v-flashx",
+        "zai/glm-ocr",
+    })
+
+    # Segment-level casing overrides for zai friendly-name formatting.
+    # str.title() handles the common cases; this map only patches branded suffixes
+    # that Title-Case would mangle (FlashX, AirX, OCR, etc.).
+    ZAI_NAME_SEGMENT_OVERRIDES = {
+        "flashx": "FlashX",
+        "airx": "AirX",
+        "ocr": "OCR",
     }
 
     # Supported model modes
@@ -88,6 +124,12 @@ class ModelSyncRules:
             ],
             "custom_check": None,
             "description": "Exclude gemini <2.5, imagen-*, flash-exp-image",
+        },
+        "zai": {
+            # Reverse-whitelist: only ZAI_ALLOWED_KEYS pass through.
+            "patterns": [],
+            "custom_check": lambda key: key.lower() not in ModelSyncRules.ZAI_ALLOWED_KEYS,
+            "description": "Allow only whitelisted zai/glm-* keys (see ZAI_ALLOWED_KEYS)",
         },
     }
 
@@ -427,6 +469,17 @@ class ModelSyncRules:
             # Fallback
             return " ".join(w.capitalize() for w in key.split("-"))
 
+        # ZAI: zai/glm-4.7 → GLM-4.7, zai/glm-4.5-air → GLM-4.5-Air,
+        # zai/glm-4.5v → GLM-4.5V, zai/glm-4-32b-0414-128k → GLM-4-32B-0414-128K
+        if provider == "zai" or key.startswith("zai/"):
+            suffix = key.replace("zai/glm-", "").replace("zai/", "")
+            overrides = cls.ZAI_NAME_SEGMENT_OVERRIDES
+            # str.title() uppercases each letter-run head, naturally producing
+            # 32B / 128K / 4.5V; overrides patch branded suffixes (FlashX, AirX, OCR).
+            return "GLM-" + "-".join(
+                overrides.get(p.lower(), p.title()) for p in suffix.split("-")
+            )
+
         # Google: gemini-2.5-flash → Gemini 2.5 Flash
         # gemini/gemini-2.5-flash → Gemini 2.5 Flash
         if provider == "google" or key.startswith("gemini"):
@@ -484,6 +537,21 @@ class ModelSyncRules:
 
         return is_available
 
+    # Vision detection for zai/glm-*v / zai/glm-ocr — LiteLLM source often
+    # omits supports_vision for these, so we infer it from the key.
+    _ZAI_VISION_KEY = re.compile(r"^zai/glm-(?:[\d.]+v(?:-|$)|ocr$|ocr-)", re.IGNORECASE)
+
+    @classmethod
+    def resolve_supports_vision(
+        cls, model_key: str, provider: str, raw_value: bool
+    ) -> bool:
+        """Return supports_vision, inferring True for zai vision SKUs when upstream omits it."""
+        if raw_value:
+            return True
+        if provider == "zai" and cls._ZAI_VISION_KEY.match(model_key):
+            return True
+        return False
+
     @classmethod
     def filter_model(cls, model_key: str, model_data: dict[str, Any]) -> dict[str, Any] | None:
         """
@@ -527,7 +595,9 @@ class ModelSyncRules:
             "output_cost_per_token": model_data.get("output_cost_per_token"),
             "max_input_tokens": model_data.get("max_input_tokens"),
             "max_output_tokens": model_data.get("max_output_tokens"),
-            "supports_vision": model_data.get("supports_vision", False),
+            "supports_vision": cls.resolve_supports_vision(
+                model_key, mapped_provider, bool(model_data.get("supports_vision", False))
+            ),
             "supports_function_calling": model_data.get("supports_function_calling", False),
             "supports_json_output": model_data.get("supports_json_mode", False),
             "raw_data": model_data,

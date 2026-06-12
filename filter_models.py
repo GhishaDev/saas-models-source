@@ -71,8 +71,10 @@ def print_models_by_provider(models: dict[str, dict[str, Any]]) -> None:
             by_provider[provider] = []
         by_provider[provider].append((model_key, model_info))
 
-    # Print each provider's models
-    for provider in ["openai", "anthropic", "google"]:
+    # Print each provider's models (use canonical order; append any unseen at end)
+    canonical_order = ["openai", "anthropic", "google", "zai"]
+    ordered = canonical_order + [p for p in by_provider if p not in canonical_order]
+    for provider in ordered:
         if provider not in by_provider:
             continue
 
@@ -83,17 +85,18 @@ def print_models_by_provider(models: dict[str, dict[str, Any]]) -> None:
 
         for model_key, model_info in sorted(provider_models, key=lambda x: x[0]):
             friendly_name = model_info["friendly_name"]
-            input_cost = model_info.get("input_cost_per_token", 0)
-            output_cost = model_info.get("output_cost_per_token", 0)
-            max_input = model_info.get("max_input_tokens", "N/A")
+            input_cost = model_info.get("input_cost_per_token") or 0
+            output_cost = model_info.get("output_cost_per_token") or 0
+            max_input = model_info.get("max_input_tokens")
 
             # Convert token costs to per million tokens for readability
-            input_per_m = input_cost * 1_000_000 if input_cost else 0
-            output_per_m = output_cost * 1_000_000 if output_cost else 0
+            input_per_m = input_cost * 1_000_000
+            output_per_m = output_cost * 1_000_000
+            context_str = f"{max_input:,} tokens" if isinstance(max_input, int) else "N/A"
 
             print(f"  {friendly_name}")
             print(f"    Key: {model_key}")
-            print(f"    Context: {max_input:,} tokens | Cost: ${input_per_m:.2f}/${output_per_m:.2f} per M tokens")
+            print(f"    Context: {context_str} | Cost: ${input_per_m:.2f}/${output_per_m:.2f} per M tokens")
 
 
 def export_for_sync(models: dict[str, dict[str, Any]], output_file: str) -> None:
@@ -132,7 +135,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--provider",
-        choices=["openai", "anthropic", "google"],
+        choices=sorted(set(ModelSyncRules.PROVIDER_MAPPING.values())),
         help="Filter to specific provider only",
     )
 
