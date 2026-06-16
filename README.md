@@ -6,7 +6,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Features
 
-- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, and Z.AI (GLM)
+- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), and Bigmodel (智谱开放平台, GLM domestic)
 - **Multi-Modal Support**: Chat (language), embedding, and image generation models
 - **Smart Filtering Rules**: Comprehensive exclusion rules for deprecated, preview, and versioned models
 - **Mode-Aware Price Validation**: Validates pricing using mode-specific fields (per-token, per-image-token, per-image)
@@ -18,13 +18,14 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **OpenAI**: GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash Lite, Pro), Gemini embedding 2, `gemini-*-image*` series
-- **Z.AI (GLM)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1 family + vision/OCR variants)
+- **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1 family + vision/OCR variants), priced in USD
+- **Bigmodel (智谱开放平台, GLM domestic)**: Whitelist-curated `bigmodel/glm-*` SKUs sourced from `bigmodel.cn/pricing`, RMB→USD converted at a fixed rate (10 SKUs: GLM-4.5-Air, GLM-4.5V, GLM-4.7, GLM-4.7-FlashX, GLM-5, GLM-5-Turbo, GLM-5.1, GLM-5V-Turbo, GLM-4.6V, GLM-4.6V-FlashX)
 
 ## Supported Model Types
 
 | Type | Mode | Examples |
 |------|------|----------|
-| `language` | `chat` | `claude-opus-4-7`, `gpt-5.5`, `gemini/gemini-3-pro-preview`, `zai/glm-5`, `zai/glm-4.5v` |
+| `language` | `chat` | `claude-opus-4-7`, `gpt-5.5`, `gemini/gemini-3-pro-preview`, `zai/glm-5`, `zai/glm-4.5v`, `bigmodel/glm-5` |
 | `embedding` | `embedding` | `text-embedding-3-large`, `gemini/gemini-embedding-2` |
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
 
@@ -99,6 +100,18 @@ python filter_models.py --url https://custom-source.com/models.json
 - ✅ Vision flag auto-inferred for keys matching `glm-*v` or `glm-ocr` when upstream omits `supports_vision`
 - ❌ Exclude: `zai/glm-5-code` (not on z.ai official pricing page), other-gateway GLM (openrouter / fireworks / together / bedrock / vertex / novita / cerebras / baseten / gmi / wandb / vercel_ai_gateway / deepinfra)
 - ❌ Exclude: Free-tier SKUs via Zero Price rule (e.g. `zai/glm-4.5-flash`, `glm-4.7-flash`, `glm-4.6v-flash`)
+
+#### Bigmodel (智谱开放平台)
+- ✅ Include: only keys listed in `ModelSyncRules.BIGMODEL_ALLOWED_KEYS` (reverse whitelist, 10 SKUs)
+- ✅ **bigmodel.cn as source of truth** via `BIGMODEL_SYNTH_DATA` (sourced from [bigmodel.cn/pricing](https://www.bigmodel.cn/pricing), snapshot 2026-06-16):
+  - Every `bigmodel/` SKU is pre-staged — LiteLLM upstream does not carry `bigmodel/*` keys, so entries are injected wholesale
+  - Bigmodel uses tiered pricing (by input length / output length); each SKU is compressed to its **longest-input tier** as a conservative upper-bound
+  - RMB prices converted to USD/token at fixed `CNY_USD_RATE = 6.78` (constant lives in `model_sync_rules.py`; bumping it rescales all bigmodel/ prices)
+- ✅ Vision flag auto-inferred for `bigmodel/glm-*v` keys (same regex as zai)
+- ❌ Exclude (no public API token pricing on bigmodel.cn — only listed under private-instance GPU/day rates): `bigmodel/glm-4.6`, `bigmodel/glm-4.5`, `bigmodel/glm-4.5-x`, `bigmodel/glm-4.5-airx`, `bigmodel/glm-4-32b-0414-128k`, `bigmodel/glm-ocr`
+- ❌ Exclude: Free-tier SKUs (`bigmodel/glm-4.5-flash`, `bigmodel/glm-4.7-flash`, `bigmodel/glm-4.6v-flash`) via Zero Price rule
+
+> **Why two GLM providers?** `zai/` and `bigmodel/` describe the **same models on different platforms with different prices**. z.ai (international) bills in USD; bigmodel.cn (中国版) bills in RMB. SKU-level pricing on the two platforms is **not** a simple exchange-rate conversion. Pick the namespace that matches the gateway you actually call.
 
 ### Global Exclusion Rules
 
@@ -236,10 +249,10 @@ Edit `model_sync_rules.py` to customize:
 ============================================================
 FILTERING SUMMARY
 ============================================================
-Total models:          2,791
-Passed filters:        64
+Total models:          2,801
+Passed filters:        74
 Excluded:              2,727
-Pass rate:             2.3%
+Pass rate:             2.6%
 
 Exclusion breakdown:
   - Unsupported Provider: 2,471
@@ -251,7 +264,7 @@ Exclusion breakdown:
   - Zero Price: 3
 ```
 
-> `Total` includes 7 z.ai pre-staged SKUs injected by `ZAI_SYNTH_DATA`. `passed` always equals `len(filter_all_models(models))`.
+> `Total` includes 7 z.ai pre-staged SKUs injected by `ZAI_SYNTH_DATA` and 10 bigmodel SKUs injected by `BIGMODEL_SYNTH_DATA`. `passed` always equals `len(filter_all_models(models))`.
 
 > `passed` always equals `len(filter_all_models(models))`. Stats and export share the same exclusion pipeline (`should_exclude_with_reason`).
 
@@ -315,6 +328,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.7.0 (2026-06-16)
+- Add **Bigmodel (智谱开放平台)** as the fifth supported provider via reverse-whitelist (`BIGMODEL_ALLOWED_KEYS`)
+- 10 `bigmodel/glm-*` SKUs sourced from [bigmodel.cn/pricing](https://www.bigmodel.cn/pricing) (snapshot 2026-06-16): GLM-5, GLM-5-Turbo, GLM-5.1, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V
+- Bigmodel's tiered pricing compressed to **longest-input tier** per SKU as conservative upper-bound; RMB→USD at fixed `CNY_USD_RATE = 6.78`
+- `zai/` and `bigmodel/` coexist: same GLM models, distinct platform pricing (USD vs RMB-derived). Downstream consumers pick the namespace matching their gateway
+- Generalise vision detection regex (`_GLM_VISION_KEY`) and `format_model_name` GLM branch to cover both `zai/` and `bigmodel/`
+- `apply_bigmodel_synth()` runs at the entry of both `filter_all_models` and `get_filter_stats` (stats remain consistent with export)
+- Exclude bigmodel SKUs without public API token pricing: `bigmodel/glm-4.6`, `bigmodel/glm-4.5`, `bigmodel/glm-4.5-x`, `bigmodel/glm-4.5-airx`, `bigmodel/glm-4-32b-0414-128k`, `bigmodel/glm-ocr` (these only appear under private-instance GPU/day rates on bigmodel.cn)
 
 ### v1.6.0 (2026-06-13)
 - Export `cache_read_input_token_cost` field (cached input pricing per token)

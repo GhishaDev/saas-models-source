@@ -8,15 +8,38 @@ https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Callable
+
+
+# Module-level constant + helper used by BIGMODEL_SYNTH_DATA below.
+# Defined here (not on the class) because class-body dict literals are
+# evaluated before the class is bound — a classmethod would not yet be
+# callable at that point.
+_CNY_USD_RATE_VALUE = 6.78  # source: user-provided, snapshot 2026-06-16
+
+
+def _cny_per_m_to_usd_per_token(rmb_per_m: float, sig: int = 3) -> float:
+    """RMB per M tokens → USD per token, rounded to ``sig`` significant digits.
+
+    The unrounded division produces long IEEE-float tails (e.g. ``6/6.78e6``
+    → ``8.849557522123894e-07``) that read as false precision in JSON. Three
+    significant digits matches the precision LiteLLM uses for upstream zai
+    prices (``6E-7``, ``2.2e-6``, ``1.1e-7``).
+    """
+    raw = rmb_per_m / (_CNY_USD_RATE_VALUE * 1_000_000)
+    if raw == 0:
+        return 0.0
+    digits = sig - int(math.floor(math.log10(abs(raw)))) - 1
+    return round(raw, digits)
 
 
 class ModelSyncRules:
     """Model sync rules configuration and utilities."""
 
     # Supported providers list
-    PROVIDERS = ["openai", "anthropic", "gemini", "zai"]
+    PROVIDERS = ["openai", "anthropic", "gemini", "zai", "bigmodel"]
 
     # Provider name mapping (lowercase for DB consistency)
     PROVIDER_MAPPING = {
@@ -24,6 +47,7 @@ class ModelSyncRules:
         "anthropic": "anthropic",
         "gemini": "google",
         "zai": "zai",
+        "bigmodel": "bigmodel",
     }
 
     # zai/glm whitelist — only these keys are allowed through provider filter.
@@ -52,7 +76,8 @@ class ModelSyncRules:
         "zai/glm-ocr",
     })
 
-    # Segment-level casing overrides for zai friendly-name formatting.
+    # Segment-level casing overrides for GLM friendly-name formatting.
+    # Shared between zai/ and bigmodel/ providers (both expose GLM family SKUs).
     # str.title() handles the common cases; this map only patches branded suffixes
     # that Title-Case would mangle (FlashX, AirX, OCR, etc.).
     ZAI_NAME_SEGMENT_OVERRIDES = {
@@ -181,6 +206,184 @@ class ModelSyncRules:
         # z.ai/pricing (shown as "-" / "\") — intentionally not added.
     }
 
+    # ── Bigmodel (智谱开放平台 / bigmodel.cn) ──────────────────────────────
+    # China-domestic counterpart to z.ai international. Same GLM models,
+    # different (RMB) pricing. Stored alongside zai/ rather than replacing it
+    # so downstream consumers can pick the region they bill against.
+
+    # Fixed CNY→USD conversion rate. Updating this value rescales every
+    # bigmodel/ price in BIGMODEL_SYNTH_DATA. Snapshot intentional, not a
+    # live FX feed — pricing data is also a snapshot, so they age together.
+    # Source: user-provided constant, snapshot 2026-06-16.
+    # Mirrors the module-level _CNY_USD_RATE_VALUE so callers have a single
+    # public attribute on the class; update both together if you change it.
+    CNY_USD_RATE = _CNY_USD_RATE_VALUE
+
+    # Reverse-whitelist for bigmodel/glm-* SKUs. Only models with publicly
+    # listed API token pricing on bigmodel.cn/pricing are included.
+    # Excluded (no public API pricing on bigmodel.cn, only private-instance
+    # GPU-day rates): glm-4.6, glm-4.5, glm-4.5-x, glm-4.5-airx,
+    # glm-4-32b-0414-128k, glm-ocr. glm-4.5-flash / glm-4.6v-flash are
+    # free-tier and filtered separately via the Zero Price rule.
+    BIGMODEL_ALLOWED_KEYS = frozenset({
+        "bigmodel/glm-5",
+        "bigmodel/glm-4.7",
+        "bigmodel/glm-4.5v",
+        "bigmodel/glm-4.5-air",
+        "bigmodel/glm-5.1",
+        "bigmodel/glm-5-turbo",
+        "bigmodel/glm-4.7-flashx",
+        "bigmodel/glm-5v-turbo",
+        "bigmodel/glm-4.6v",
+        "bigmodel/glm-4.6v-flashx",
+    })
+
+    # Authoritative bigmodel.cn data. Source: bigmodel.cn/pricing
+    # (snapshot taken 2026-06-16).
+    #
+    # Bigmodel uses tiered pricing (by input length / output length).
+    # We compress each SKU to its longest-input tier as a conservative
+    # upper-bound. RMB values are converted to USD/token via
+    # _cny_per_m_to_usd_per_token, which rounds to 3 significant digits
+    # to match upstream LiteLLM precision and avoid IEEE-float noise.
+    #
+    # Every entry is pre-staged (LiteLLM upstream does not carry
+    # bigmodel/* keys), so apply_bigmodel_synth injects them wholesale.
+    BIGMODEL_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        # Text models (tier: longest input)
+        "bigmodel/glm-5": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 200000,
+            "max_output_tokens": 128000,
+            # Tier [32K+): input ¥6 / output ¥22 / cache_read ¥1.5 per M tokens
+            "input_cost_per_token": _cny_per_m_to_usd_per_token(6),
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(22),
+            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(1.5),
+            "supports_function_calling": True,
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        "bigmodel/glm-4.7": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 200000,
+            "max_output_tokens": 128000,
+            # Tier [32K, 200K): input ¥4 / output ¥16 / cache_read ¥0.8
+            "input_cost_per_token": _cny_per_m_to_usd_per_token(4),
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(16),
+            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.8),
+            "supports_function_calling": True,
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        "bigmodel/glm-4.5-air": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 128000,
+            "max_output_tokens": 32000,
+            # Tier [32K, 128K): input ¥1.2 / output ¥8 / cache_read ¥0.24
+            "input_cost_per_token": _cny_per_m_to_usd_per_token(1.2),
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(8),
+            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.24),
+            "supports_function_calling": True,
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        "bigmodel/glm-5.1": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 200000,
+            "max_output_tokens": 128000,
+            # Tier [32K+): input ¥8 / output ¥28 / cache_read ¥2
+            "input_cost_per_token": _cny_per_m_to_usd_per_token(8),
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(28),
+            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(2),
+            "supports_function_calling": True,
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        "bigmodel/glm-5-turbo": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 200000,
+            "max_output_tokens": 128000,
+            # Tier [32K+): input ¥7 / output ¥26 / cache_read ¥1.8
+            "input_cost_per_token": _cny_per_m_to_usd_per_token(7),
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(26),
+            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(1.8),
+            "supports_function_calling": True,
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        "bigmodel/glm-4.7-flashx": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 200000,
+            "max_output_tokens": 128000,
+            # Single tier (200K): input ¥0.5 / output ¥3 / cache_read ¥0.1
+            "input_cost_per_token": _cny_per_m_to_usd_per_token(0.5),
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(3),
+            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.1),
+            "supports_function_calling": True,
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        # Vision models
+        "bigmodel/glm-5v-turbo": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 200000,
+            "max_output_tokens": 128000,
+            # Tier [32K+): input ¥7 / output ¥26 / cache_read ¥1.8
+            "input_cost_per_token": _cny_per_m_to_usd_per_token(7),
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(26),
+            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(1.8),
+            "supports_function_calling": True,
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+        "bigmodel/glm-4.6v": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 128000,
+            "max_output_tokens": 32000,
+            # Tier [32K, 128K): input ¥2 / output ¥6 / cache_read ¥0.4
+            "input_cost_per_token": _cny_per_m_to_usd_per_token(2),
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(6),
+            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.4),
+            "supports_function_calling": True,
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+        "bigmodel/glm-4.6v-flashx": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 128000,
+            "max_output_tokens": 32000,
+            # Tier [32K, 128K): input ¥0.3 / output ¥3 / cache_read ¥0.03
+            "input_cost_per_token": _cny_per_m_to_usd_per_token(0.3),
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(3),
+            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.03),
+            "supports_function_calling": True,
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+        "bigmodel/glm-4.5v": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 64000,
+            "max_output_tokens": 32000,
+            # Tier [32K, 64K): input ¥4 / output ¥12 / cache_read ¥0.8
+            "input_cost_per_token": _cny_per_m_to_usd_per_token(4),
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(12),
+            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.8),
+            "supports_function_calling": True,
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+    }
+
     # Supported model modes
     SUPPORTED_MODES = ["chat", "embedding", "image_generation"]
 
@@ -250,6 +453,12 @@ class ModelSyncRules:
             "patterns": [],
             "custom_check": lambda key: key.lower() not in ModelSyncRules.ZAI_ALLOWED_KEYS,
             "description": "Allow only whitelisted zai/glm-* keys (see ZAI_ALLOWED_KEYS)",
+        },
+        "bigmodel": {
+            # Reverse-whitelist: only BIGMODEL_ALLOWED_KEYS pass through.
+            "patterns": [],
+            "custom_check": lambda key: key.lower() not in ModelSyncRules.BIGMODEL_ALLOWED_KEYS,
+            "description": "Allow only whitelisted bigmodel/glm-* keys (see BIGMODEL_ALLOWED_KEYS)",
         },
     }
 
@@ -589,10 +798,12 @@ class ModelSyncRules:
             # Fallback
             return " ".join(w.capitalize() for w in key.split("-"))
 
-        # ZAI: zai/glm-4.7 → GLM-4.7, zai/glm-4.5-air → GLM-4.5-Air,
-        # zai/glm-4.5v → GLM-4.5V, zai/glm-4-32b-0414-128k → GLM-4-32B-0414-128K
-        if provider == "zai" or key.startswith("zai/"):
-            suffix = key.replace("zai/glm-", "").replace("zai/", "")
+        # GLM family (zai / bigmodel):
+        #   zai/glm-4.7 → GLM-4.7, zai/glm-4.5-air → GLM-4.5-Air,
+        #   zai/glm-4.5v → GLM-4.5V, zai/glm-4-32b-0414-128k → GLM-4-32B-0414-128K,
+        #   bigmodel/glm-4.7 → GLM-4.7 (same rule, region differs via `provider`).
+        if provider in ("zai", "bigmodel") or key.startswith(("zai/", "bigmodel/")):
+            suffix = re.sub(r"^(zai|bigmodel)/(glm-)?", "", key, flags=re.IGNORECASE)
             overrides = cls.ZAI_NAME_SEGMENT_OVERRIDES
             # str.title() uppercases each letter-run head, naturally producing
             # 32B / 128K / 4.5V; overrides patch branded suffixes (FlashX, AirX, OCR).
@@ -657,18 +868,20 @@ class ModelSyncRules:
 
         return is_available
 
-    # Vision detection for zai/glm-*v / zai/glm-ocr — LiteLLM source often
-    # omits supports_vision for these, so we infer it from the key.
-    _ZAI_VISION_KEY = re.compile(r"^zai/glm-(?:[\d.]+v(?:-|$)|ocr$|ocr-)", re.IGNORECASE)
+    # Vision detection for GLM-family vision SKUs (zai/ and bigmodel/).
+    # LiteLLM source often omits supports_vision; we infer it from the key.
+    _GLM_VISION_KEY = re.compile(
+        r"^(?:zai|bigmodel)/glm-(?:[\d.]+v(?:-|$)|ocr$|ocr-)", re.IGNORECASE
+    )
 
     @classmethod
     def resolve_supports_vision(
         cls, model_key: str, provider: str, raw_value: bool
     ) -> bool:
-        """Return supports_vision, inferring True for zai vision SKUs when upstream omits it."""
+        """Return supports_vision, inferring True for GLM vision SKUs when upstream omits it."""
         if raw_value:
             return True
-        if provider == "zai" and cls._ZAI_VISION_KEY.match(model_key):
+        if provider in ("zai", "bigmodel") and cls._GLM_VISION_KEY.match(model_key):
             return True
         return False
 
@@ -745,6 +958,25 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_bigmodel_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Inject bigmodel.cn-authoritative data into the upstream model dict.
+
+        Every bigmodel/ SKU is pre-staged (LiteLLM upstream does not carry
+        bigmodel/* keys), so entries are added wholesale.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, synth in cls.BIGMODEL_SYNTH_DATA.items():
+            existing = merged.get(key)
+            if existing is None:
+                merged[key] = dict(synth)
+            else:
+                merged[key] = {**existing, **synth}
+        return merged
+
+    @classmethod
     def filter_all_models(cls, models: dict[str, Any]) -> dict[str, dict[str, Any]]:
         """
         Filter all models and return a dict of valid models.
@@ -752,7 +984,7 @@ class ModelSyncRules:
         Returns:
             dict mapping model_key to transformed model data
         """
-        enriched = cls.apply_zai_synth(models)
+        enriched = cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
         filtered: dict[str, dict[str, Any]] = {}
 
         for model_key, model_data in enriched.items():
@@ -769,7 +1001,7 @@ class ModelSyncRules:
 
         Mirrors filter_model's pipeline exactly so passed == len(filter_all_models(models)).
         """
-        enriched = cls.apply_zai_synth(models)
+        enriched = cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
         total = len(enriched)
         passed = 0
         excluded_by_rule: dict[str, int] = {
