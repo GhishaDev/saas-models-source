@@ -67,6 +67,7 @@ class ModelSyncRules:
         "zai/glm-4.5-flash",
         "zai/glm-4-32b-0414-128k",
         # Pre-staged: announced on docs.z.ai but missing from LiteLLM source
+        "zai/glm-5.2",
         "zai/glm-5.1",
         "zai/glm-5-turbo",
         "zai/glm-4.7-flashx",
@@ -98,6 +99,21 @@ class ModelSyncRules:
     # to overlay any conflicting fields (z.ai remains the source of truth).
     ZAI_SYNTH_DATA: dict[str, dict[str, Any]] = {
         # ── Pre-staged SKUs (not yet on LiteLLM) ──────────────────────────
+        "zai/glm-5.2": {
+            # Long-horizon flagship: bigmodel.cn advertises "真正可用的 1M 上下文"
+            # (genuinely usable 1M context). Priced identically to GLM-5.1 on
+            # z.ai international (input $1.4 / output $4.4 / cached $0.26 per M).
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "input_cost_per_token": 1.4e-06,
+            "output_cost_per_token": 4.4e-06,
+            "cache_read_input_token_cost": 0.26e-06,
+            "supports_function_calling": True,
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
         "zai/glm-5.1": {
             "litellm_provider": "zai",
             "mode": "chat",
@@ -226,6 +242,7 @@ class ModelSyncRules:
     # glm-4-32b-0414-128k, glm-ocr. glm-4.5-flash / glm-4.6v-flash are
     # free-tier and filtered separately via the Zero Price rule.
     BIGMODEL_ALLOWED_KEYS = frozenset({
+        "bigmodel/glm-5.2",
         "bigmodel/glm-5",
         "bigmodel/glm-4.7",
         "bigmodel/glm-4.5v",
@@ -251,6 +268,21 @@ class ModelSyncRules:
     # bigmodel/* keys), so apply_bigmodel_synth injects them wholesale.
     BIGMODEL_SYNTH_DATA: dict[str, dict[str, Any]] = {
         # Text models (tier: longest input)
+        "bigmodel/glm-5.2": {
+            # 1M-context long-horizon flagship. Bigmodel uses a single tier
+            # (not the [0,32K)/[32K+) split applied to 5.1/5/4.7), so no
+            # tier compression is needed: input ¥8 / output ¥28 / cache ¥2.
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "input_cost_per_token": _cny_per_m_to_usd_per_token(8),
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(28),
+            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(2),
+            "supports_function_calling": True,
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
         "bigmodel/glm-5": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
