@@ -8,31 +8,8 @@ https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_
 
 from __future__ import annotations
 
-import math
 import re
 from typing import Any, Callable
-
-
-# Module-level constant + helper used by BIGMODEL_SYNTH_DATA below.
-# Defined here (not on the class) because class-body dict literals are
-# evaluated before the class is bound — a classmethod would not yet be
-# callable at that point.
-_CNY_USD_RATE_VALUE = 6.78  # source: user-provided, snapshot 2026-06-16
-
-
-def _cny_per_m_to_usd_per_token(rmb_per_m: float, sig: int = 3) -> float:
-    """RMB per M tokens → USD per token, rounded to ``sig`` significant digits.
-
-    The unrounded division produces long IEEE-float tails (e.g. ``6/6.78e6``
-    → ``8.849557522123894e-07``) that read as false precision in JSON. Three
-    significant digits matches the precision LiteLLM uses for upstream zai
-    prices (``6E-7``, ``2.2e-6``, ``1.1e-7``).
-    """
-    raw = rmb_per_m / (_CNY_USD_RATE_VALUE * 1_000_000)
-    if raw == 0:
-        return 0.0
-    digits = sig - int(math.floor(math.log10(abs(raw)))) - 1
-    return round(raw, digits)
 
 
 class ModelSyncRules:
@@ -224,19 +201,15 @@ class ModelSyncRules:
 
     # ── Bigmodel (智谱开放平台 / bigmodel.cn) ──────────────────────────────
     # China-domestic counterpart to z.ai international. Same GLM models,
-    # different (RMB) pricing. Stored alongside zai/ rather than replacing it
-    # so downstream consumers can pick the region they bill against.
+    # exposed under a distinct provider namespace so downstream consumers can
+    # pick the gateway they actually call.
+    #
+    # Pricing policy: bigmodel/* mirrors z.ai international (USD) verbatim.
+    # bigmodel.cn's domestic RMB tariff is intentionally NOT reflected here.
+    # See apply_bigmodel_synth for the mirroring mechanic.
 
-    # Fixed CNY→USD conversion rate. Updating this value rescales every
-    # bigmodel/ price in BIGMODEL_SYNTH_DATA. Snapshot intentional, not a
-    # live FX feed — pricing data is also a snapshot, so they age together.
-    # Source: user-provided constant, snapshot 2026-06-16.
-    # Mirrors the module-level _CNY_USD_RATE_VALUE so callers have a single
-    # public attribute on the class; update both together if you change it.
-    CNY_USD_RATE = _CNY_USD_RATE_VALUE
-
-    # Reverse-whitelist for bigmodel/glm-* SKUs. Only models with publicly
-    # listed API token pricing on bigmodel.cn/pricing are included.
+    # Reverse-whitelist for bigmodel/glm-* SKUs. Only models with a sibling
+    # zai/* entry providing input/output/cache prices are included.
     # Excluded (no public API pricing on bigmodel.cn, only private-instance
     # GPU-day rates): glm-4.6, glm-4.5, glm-4.5-x, glm-4.5-airx,
     # glm-4-32b-0414-128k, glm-ocr. glm-4.5-flash / glm-4.6v-flash are
@@ -255,30 +228,22 @@ class ModelSyncRules:
         "bigmodel/glm-4.6v-flashx",
     })
 
-    # Authoritative bigmodel.cn data. Source: bigmodel.cn/pricing
-    # (snapshot taken 2026-06-16).
+    # Bigmodel SKU metadata. Pricing is *not* stored here — it is mirrored
+    # from the sibling zai/<sku> at synth time (see apply_bigmodel_synth).
+    # Each entry only carries non-price fields: context window, capabilities.
     #
-    # Bigmodel uses tiered pricing (by input length / output length).
-    # We compress each SKU to its longest-input tier as a conservative
-    # upper-bound. RMB values are converted to USD/token via
-    # _cny_per_m_to_usd_per_token, which rounds to 3 significant digits
-    # to match upstream LiteLLM precision and avoid IEEE-float noise.
+    # Source for context/capabilities: docs.z.ai/guides/overview/overview
+    # (same models, so the metadata matches the zai/* entries by design).
     #
-    # Every entry is pre-staged (LiteLLM upstream does not carry
+    # Every bigmodel/* SKU is pre-staged (LiteLLM upstream does not carry
     # bigmodel/* keys), so apply_bigmodel_synth injects them wholesale.
     BIGMODEL_SYNTH_DATA: dict[str, dict[str, Any]] = {
-        # Text models (tier: longest input)
+        # Text models
         "bigmodel/glm-5.2": {
-            # 1M-context long-horizon flagship. Bigmodel uses a single tier
-            # (not the [0,32K)/[32K+) split applied to 5.1/5/4.7), so no
-            # tier compression is needed: input ¥8 / output ¥28 / cache ¥2.
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 1000000,
             "max_output_tokens": 128000,
-            "input_cost_per_token": _cny_per_m_to_usd_per_token(8),
-            "output_cost_per_token": _cny_per_m_to_usd_per_token(28),
-            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(2),
             "supports_function_calling": True,
             "supports_vision": False,
             "supports_json_mode": False,
@@ -288,10 +253,6 @@ class ModelSyncRules:
             "mode": "chat",
             "max_input_tokens": 200000,
             "max_output_tokens": 128000,
-            # Tier [32K+): input ¥6 / output ¥22 / cache_read ¥1.5 per M tokens
-            "input_cost_per_token": _cny_per_m_to_usd_per_token(6),
-            "output_cost_per_token": _cny_per_m_to_usd_per_token(22),
-            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(1.5),
             "supports_function_calling": True,
             "supports_vision": False,
             "supports_json_mode": False,
@@ -301,10 +262,6 @@ class ModelSyncRules:
             "mode": "chat",
             "max_input_tokens": 200000,
             "max_output_tokens": 128000,
-            # Tier [32K, 200K): input ¥4 / output ¥16 / cache_read ¥0.8
-            "input_cost_per_token": _cny_per_m_to_usd_per_token(4),
-            "output_cost_per_token": _cny_per_m_to_usd_per_token(16),
-            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.8),
             "supports_function_calling": True,
             "supports_vision": False,
             "supports_json_mode": False,
@@ -314,10 +271,6 @@ class ModelSyncRules:
             "mode": "chat",
             "max_input_tokens": 128000,
             "max_output_tokens": 32000,
-            # Tier [32K, 128K): input ¥1.2 / output ¥8 / cache_read ¥0.24
-            "input_cost_per_token": _cny_per_m_to_usd_per_token(1.2),
-            "output_cost_per_token": _cny_per_m_to_usd_per_token(8),
-            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.24),
             "supports_function_calling": True,
             "supports_vision": False,
             "supports_json_mode": False,
@@ -327,10 +280,6 @@ class ModelSyncRules:
             "mode": "chat",
             "max_input_tokens": 200000,
             "max_output_tokens": 128000,
-            # Tier [32K+): input ¥8 / output ¥28 / cache_read ¥2
-            "input_cost_per_token": _cny_per_m_to_usd_per_token(8),
-            "output_cost_per_token": _cny_per_m_to_usd_per_token(28),
-            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(2),
             "supports_function_calling": True,
             "supports_vision": False,
             "supports_json_mode": False,
@@ -340,10 +289,6 @@ class ModelSyncRules:
             "mode": "chat",
             "max_input_tokens": 200000,
             "max_output_tokens": 128000,
-            # Tier [32K+): input ¥7 / output ¥26 / cache_read ¥1.8
-            "input_cost_per_token": _cny_per_m_to_usd_per_token(7),
-            "output_cost_per_token": _cny_per_m_to_usd_per_token(26),
-            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(1.8),
             "supports_function_calling": True,
             "supports_vision": False,
             "supports_json_mode": False,
@@ -353,10 +298,6 @@ class ModelSyncRules:
             "mode": "chat",
             "max_input_tokens": 200000,
             "max_output_tokens": 128000,
-            # Single tier (200K): input ¥0.5 / output ¥3 / cache_read ¥0.1
-            "input_cost_per_token": _cny_per_m_to_usd_per_token(0.5),
-            "output_cost_per_token": _cny_per_m_to_usd_per_token(3),
-            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.1),
             "supports_function_calling": True,
             "supports_vision": False,
             "supports_json_mode": False,
@@ -367,10 +308,6 @@ class ModelSyncRules:
             "mode": "chat",
             "max_input_tokens": 200000,
             "max_output_tokens": 128000,
-            # Tier [32K+): input ¥7 / output ¥26 / cache_read ¥1.8
-            "input_cost_per_token": _cny_per_m_to_usd_per_token(7),
-            "output_cost_per_token": _cny_per_m_to_usd_per_token(26),
-            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(1.8),
             "supports_function_calling": True,
             "supports_vision": True,
             "supports_json_mode": False,
@@ -380,10 +317,6 @@ class ModelSyncRules:
             "mode": "chat",
             "max_input_tokens": 128000,
             "max_output_tokens": 32000,
-            # Tier [32K, 128K): input ¥2 / output ¥6 / cache_read ¥0.4
-            "input_cost_per_token": _cny_per_m_to_usd_per_token(2),
-            "output_cost_per_token": _cny_per_m_to_usd_per_token(6),
-            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.4),
             "supports_function_calling": True,
             "supports_vision": True,
             "supports_json_mode": False,
@@ -393,10 +326,6 @@ class ModelSyncRules:
             "mode": "chat",
             "max_input_tokens": 128000,
             "max_output_tokens": 32000,
-            # Tier [32K, 128K): input ¥0.3 / output ¥3 / cache_read ¥0.03
-            "input_cost_per_token": _cny_per_m_to_usd_per_token(0.3),
-            "output_cost_per_token": _cny_per_m_to_usd_per_token(3),
-            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.03),
             "supports_function_calling": True,
             "supports_vision": True,
             "supports_json_mode": False,
@@ -406,15 +335,19 @@ class ModelSyncRules:
             "mode": "chat",
             "max_input_tokens": 64000,
             "max_output_tokens": 32000,
-            # Tier [32K, 64K): input ¥4 / output ¥12 / cache_read ¥0.8
-            "input_cost_per_token": _cny_per_m_to_usd_per_token(4),
-            "output_cost_per_token": _cny_per_m_to_usd_per_token(12),
-            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.8),
             "supports_function_calling": True,
             "supports_vision": True,
             "supports_json_mode": False,
         },
     }
+
+    # Price fields mirrored from zai/<sku> onto bigmodel/<sku>.
+    # Only these three propagate; everything else is bigmodel-owned metadata.
+    _BIGMODEL_MIRRORED_PRICE_FIELDS = (
+        "input_cost_per_token",
+        "output_cost_per_token",
+        "cache_read_input_token_cost",
+    )
 
     # Supported model modes
     SUPPORTED_MODES = ["chat", "embedding", "image_generation"]
@@ -992,20 +925,36 @@ class ModelSyncRules:
     @classmethod
     def apply_bigmodel_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
         """
-        Inject bigmodel.cn-authoritative data into the upstream model dict.
+        Inject bigmodel/* SKUs and mirror pricing from their sibling zai/* entry.
 
-        Every bigmodel/ SKU is pre-staged (LiteLLM upstream does not carry
-        bigmodel/* keys), so entries are added wholesale.
+        Prerequisite: must run after ``apply_zai_synth`` so the ``zai/*``
+        entries in ``models`` already reflect z.ai's authoritative prices.
+        ``filter_all_models`` / ``get_filter_stats`` enforce this ordering.
+
+        For each ``bigmodel/<sku>``:
+          1. Merge BIGMODEL_SYNTH_DATA metadata (context, capabilities).
+          2. Mirror ``input_cost_per_token`` / ``output_cost_per_token`` /
+             ``cache_read_input_token_cost`` from the matching ``zai/<sku>``.
+
+        Mirroring runs last so it always wins over any stale upstream values.
+        If the sibling zai SKU lacks a price field, that field is simply not
+        set on the bigmodel SKU — the model then fails the zero-price filter
+        downstream, surfacing the gap instead of silently exporting bad data.
 
         Does not mutate the input.
         """
         merged: dict[str, Any] = dict(models)
         for key, synth in cls.BIGMODEL_SYNTH_DATA.items():
-            existing = merged.get(key)
-            if existing is None:
-                merged[key] = dict(synth)
-            else:
-                merged[key] = {**existing, **synth}
+            # Resolve sibling zai key: "bigmodel/glm-5" → "zai/glm-5"
+            zai_key = "zai/" + key.split("/", 1)[1]
+            zai_entry = merged.get(zai_key) or {}
+            mirrored = {
+                field: zai_entry[field]
+                for field in cls._BIGMODEL_MIRRORED_PRICE_FIELDS
+                if field in zai_entry
+            }
+            existing = merged.get(key) or {}
+            merged[key] = {**existing, **synth, **mirrored}
         return merged
 
     @classmethod

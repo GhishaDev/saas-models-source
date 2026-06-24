@@ -19,7 +19,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash Lite, Pro), Gemini embedding 2, `gemini-*-image*` series
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1 family + vision/OCR variants), priced in USD
-- **Bigmodel (智谱开放平台, GLM domestic)**: Whitelist-curated `bigmodel/glm-*` SKUs sourced from `bigmodel.cn/pricing`, RMB→USD converted at a fixed rate (11 SKUs: GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
+- **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (11 SKUs: GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 
 ## Supported Model Types
 
@@ -103,15 +103,16 @@ python filter_models.py --url https://custom-source.com/models.json
 
 #### Bigmodel (智谱开放平台)
 - ✅ Include: only keys listed in `ModelSyncRules.BIGMODEL_ALLOWED_KEYS` (reverse whitelist, 11 SKUs)
-- ✅ **bigmodel.cn as source of truth** via `BIGMODEL_SYNTH_DATA` (sourced from [bigmodel.cn/pricing](https://www.bigmodel.cn/pricing), snapshot 2026-06-16):
-  - Every `bigmodel/` SKU is pre-staged — LiteLLM upstream does not carry `bigmodel/*` keys, so entries are injected wholesale
-  - Bigmodel uses tiered pricing (by input length / output length) for most SKUs; each tiered SKU is compressed to its **longest-input tier** as a conservative upper-bound. GLM-5.2 is single-tier (1M context) and stored as-is
-  - RMB prices converted to USD/token at fixed `CNY_USD_RATE = 6.78` (constant lives in `model_sync_rules.py`; bumping it rescales all bigmodel/ prices)
+- ✅ **Pricing mirrors `zai/*` (z.ai international USD)** via `apply_bigmodel_synth`:
+  - Every `bigmodel/` SKU is pre-staged — LiteLLM upstream does not carry `bigmodel/*` keys
+  - `BIGMODEL_SYNTH_DATA` provides metadata only (context, capabilities); `input_cost_per_token`, `output_cost_per_token`, and `cache_read_input_token_cost` are copied from the sibling `zai/<sku>` at synth time
+  - `apply_bigmodel_synth` runs **after** `apply_zai_synth` so prices reflect z.ai overlays + LiteLLM upstream (e.g. `bigmodel/glm-5` inherits `zai/glm-5`'s upstream prices; `bigmodel/glm-4.5v` inherits its z.ai cache overlay)
+  - If a sibling `zai/<sku>` lacks a price field, the bigmodel SKU drops out via the zero-price filter — gaps surface instead of being silently zeroed
 - ✅ Vision flag auto-inferred for `bigmodel/glm-*v` keys (same regex as zai)
-- ❌ Exclude (no public API token pricing on bigmodel.cn — only listed under private-instance GPU/day rates): `bigmodel/glm-4.6`, `bigmodel/glm-4.5`, `bigmodel/glm-4.5-x`, `bigmodel/glm-4.5-airx`, `bigmodel/glm-4-32b-0414-128k`, `bigmodel/glm-ocr`
+- ❌ Exclude (no sibling zai pricing → would fail zero-price filter): `bigmodel/glm-4.6`, `bigmodel/glm-4.5`, `bigmodel/glm-4.5-x`, `bigmodel/glm-4.5-airx`, `bigmodel/glm-4-32b-0414-128k`, `bigmodel/glm-ocr`
 - ❌ Exclude: Free-tier SKUs (`bigmodel/glm-4.5-flash`, `bigmodel/glm-4.7-flash`, `bigmodel/glm-4.6v-flash`) via Zero Price rule
 
-> **Why two GLM providers?** `zai/` and `bigmodel/` describe the **same models on different platforms with different prices**. z.ai (international) bills in USD; bigmodel.cn (中国版) bills in RMB. SKU-level pricing on the two platforms is **not** a simple exchange-rate conversion. Pick the namespace that matches the gateway you actually call.
+> **Why two GLM providers?** `zai/` and `bigmodel/` describe the **same models served by two gateways** — z.ai (international) and bigmodel.cn (中国版). Pricing is currently unified to z.ai's USD tariff on both sides; the two namespaces remain distinct so downstream consumers can pick the gateway they actually call without rewriting the model key.
 
 ### Global Exclusion Rules
 
@@ -328,6 +329,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.9.0 (2026-06-24)
+- **Bigmodel pricing now mirrors z.ai international (USD)** 1:1 — `bigmodel/*` SKUs no longer derive prices from `bigmodel.cn` RMB tariffs
+- Remove `CNY_USD_RATE` constant and `_cny_per_m_to_usd_per_token` helper (no longer used)
+- Strip `input_cost_per_token` / `output_cost_per_token` / `cache_read_input_token_cost` from `BIGMODEL_SYNTH_DATA` entries; metadata-only entries remain
+- `apply_bigmodel_synth` now copies price fields from the sibling `zai/<sku>` (after `apply_zai_synth` has merged z.ai overlays + LiteLLM upstream)
+- Bigmodel SKUs without a sibling zai entry drop out via the zero-price filter, surfacing gaps explicitly
 
 ### v1.8.0 (2026-06-17)
 - Add **GLM-5.2** on both `zai/` (international USD) and `bigmodel/` (domestic CNY) namespaces
