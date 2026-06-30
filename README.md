@@ -6,7 +6,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Features
 
-- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), and Bigmodel (智谱开放平台, GLM domestic)
+- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), and DeepSeek
 - **Multi-Modal Support**: Chat (language), embedding, and image generation models
 - **Smart Filtering Rules**: Comprehensive exclusion rules for deprecated, preview, and versioned models
 - **Mode-Aware Price Validation**: Validates pricing using mode-specific fields (per-token, per-image-token, per-image)
@@ -20,12 +20,13 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Google**: Gemini 2.5+ series (Flash, Flash Lite, Pro), Gemini embedding 2, `gemini-*-image*` series
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1 family + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (11 SKUs: GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
+- **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output)
 
 ## Supported Model Types
 
 | Type | Mode | Examples |
 |------|------|----------|
-| `language` | `chat` | `claude-opus-4-7`, `gpt-5.5`, `gemini/gemini-3-pro-preview`, `zai/glm-5`, `zai/glm-4.5v`, `bigmodel/glm-5` |
+| `language` | `chat` | `claude-opus-4-7`, `gpt-5.5`, `gemini/gemini-3-pro-preview`, `zai/glm-5`, `bigmodel/glm-5`, `deepseek/deepseek-v4-flash` |
 | `embedding` | `embedding` | `text-embedding-3-large`, `gemini/gemini-embedding-2` |
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
 
@@ -113,6 +114,15 @@ python filter_models.py --url https://custom-source.com/models.json
 - ❌ Exclude: Free-tier SKUs (`bigmodel/glm-4.5-flash`, `bigmodel/glm-4.7-flash`, `bigmodel/glm-4.6v-flash`) via Zero Price rule
 
 > **Why two GLM providers?** `zai/` and `bigmodel/` describe the **same models served by two gateways** — z.ai (international) and bigmodel.cn (中国版). Pricing is currently unified to z.ai's USD tariff on both sides; the two namespaces remain distinct so downstream consumers can pick the gateway they actually call without rewriting the model key.
+
+#### DeepSeek
+- ✅ Include: only keys listed in `ModelSyncRules.DEEPSEEK_ALLOWED_KEYS` (reverse whitelist, 2 SKUs)
+- ✅ **Official DeepSeek pricing page as source of truth** ([api-docs.deepseek.com/quick_start/pricing](https://api-docs.deepseek.com/quick_start/pricing/), snapshot 2026-06-30):
+  - LiteLLM upstream carries correct prices, context (1M input), and capabilities; the only mismatch is `max_output_tokens` (upstream `8192`, official `384000`)
+  - `DEEPSEEK_SYNTH_DATA` overlays just that field via `apply_deepseek_synth` — no price synthesis needed
+- ❌ Exclude `deepseek-chat` / `deepseek-reasoner`: scheduled for deprecation on 2026-07-24 (currently aliases of `deepseek-v4-flash` thinking/non-thinking modes)
+- ❌ Exclude `deepseek-v3` / `deepseek-v3.2` / `deepseek-r1` / `deepseek-coder`: superseded by V4, no longer listed on the official pricing page
+- ❌ Exclude all bare-key forms (`deepseek-chat`, `deepseek-v4-flash`, etc.): the `deepseek/` namespace is canonical
 
 ### Global Exclusion Rules
 
@@ -329,6 +339,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.10.0 (2026-06-30)
+- Add **DeepSeek** as the sixth supported provider via reverse-whitelist (`DEEPSEEK_ALLOWED_KEYS`)
+- 2 active SKUs from [api-docs.deepseek.com/quick_start/pricing](https://api-docs.deepseek.com/quick_start/pricing/): `deepseek/deepseek-v4-flash`, `deepseek/deepseek-v4-pro`
+- `DEEPSEEK_SYNTH_DATA` overlays `max_output_tokens=384000` (LiteLLM upstream reports `8192`; all other fields come from upstream unchanged)
+- `format_model_name` deepseek branch outputs branded `DeepSeek-V4-Flash` / `DeepSeek-V4-Pro`
+- `apply_deepseek_synth()` runs at the entry of both `filter_all_models` and `get_filter_stats` (stats remain consistent with export)
+- Exclude `deepseek-chat` / `deepseek-reasoner` (scheduled deprecation 2026-07-24, currently V4-Flash aliases), `deepseek-v3` / `v3.2` / `r1` / `coder` (superseded, no longer on official pricing), and all bare-key forms
 
 ### v1.9.0 (2026-06-24)
 - **Bigmodel pricing now mirrors z.ai international (USD)** 1:1 — `bigmodel/*` SKUs no longer derive prices from `bigmodel.cn` RMB tariffs

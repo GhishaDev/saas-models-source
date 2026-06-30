@@ -16,7 +16,7 @@ class ModelSyncRules:
     """Model sync rules configuration and utilities."""
 
     # Supported providers list
-    PROVIDERS = ["openai", "anthropic", "gemini", "zai", "bigmodel"]
+    PROVIDERS = ["openai", "anthropic", "gemini", "zai", "bigmodel", "deepseek"]
 
     # Provider name mapping (lowercase for DB consistency)
     PROVIDER_MAPPING = {
@@ -25,6 +25,7 @@ class ModelSyncRules:
         "gemini": "google",
         "zai": "zai",
         "bigmodel": "bigmodel",
+        "deepseek": "deepseek",
     }
 
     # zai/glm whitelist — only these keys are allowed through provider filter.
@@ -349,6 +350,32 @@ class ModelSyncRules:
         "cache_read_input_token_cost",
     )
 
+    # ── DeepSeek (api.deepseek.com) ───────────────────────────────────────
+    # Reverse-whitelist for deepseek/* SKUs. Only the V4 series is active
+    # on api-docs.deepseek.com/quick_start/pricing (snapshot 2026-06-30).
+    # Excluded for being deprecated / no longer listed officially:
+    #   - deepseek-chat, deepseek-reasoner: scheduled deprecation 2026-07-24
+    #     (currently aliases of deepseek-v4-flash thinking/non-thinking modes)
+    #   - deepseek-v3, deepseek-v3.2, deepseek-r1, deepseek-coder:
+    #     superseded by V4, not on official pricing page
+    DEEPSEEK_ALLOWED_KEYS = frozenset({
+        "deepseek/deepseek-v4-flash",
+        "deepseek/deepseek-v4-pro",
+    })
+
+    # DeepSeek overlays. Source: api-docs.deepseek.com/quick_start/pricing
+    # (snapshot 2026-06-30). LiteLLM upstream carries correct prices and
+    # context (1M input), but max_output_tokens is stuck at 8192 — official
+    # docs state 384K. Overlay just that field; everything else is upstream.
+    DEEPSEEK_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        "deepseek/deepseek-v4-flash": {
+            "max_output_tokens": 384000,
+        },
+        "deepseek/deepseek-v4-pro": {
+            "max_output_tokens": 384000,
+        },
+    }
+
     # Supported model modes
     SUPPORTED_MODES = ["chat", "embedding", "image_generation"]
 
@@ -424,6 +451,12 @@ class ModelSyncRules:
             "patterns": [],
             "custom_check": lambda key: key.lower() not in ModelSyncRules.BIGMODEL_ALLOWED_KEYS,
             "description": "Allow only whitelisted bigmodel/glm-* keys (see BIGMODEL_ALLOWED_KEYS)",
+        },
+        "deepseek": {
+            # Reverse-whitelist: only DEEPSEEK_ALLOWED_KEYS pass through.
+            "patterns": [],
+            "custom_check": lambda key: key.lower() not in ModelSyncRules.DEEPSEEK_ALLOWED_KEYS,
+            "description": "Allow only whitelisted deepseek/* keys (see DEEPSEEK_ALLOWED_KEYS)",
         },
     }
 
@@ -776,6 +809,15 @@ class ModelSyncRules:
                 overrides.get(p.lower(), p.title()) for p in suffix.split("-")
             )
 
+        # DeepSeek:
+        #   deepseek/deepseek-v4-flash → DeepSeek-V4-Flash
+        #   deepseek/deepseek-v4-pro   → DeepSeek-V4-Pro
+        # Branded camel-case (DeepSeek) deliberately differs from str.title().
+        if provider == "deepseek" or key.startswith("deepseek/"):
+            suffix = re.sub(r"^deepseek/(deepseek-)?", "", key, flags=re.IGNORECASE)
+            # str.title() naturally produces V4 / R1 etc. — no overrides needed today.
+            return "DeepSeek-" + "-".join(p.title() for p in suffix.split("-"))
+
         # Google: gemini-2.5-flash → Gemini 2.5 Flash
         # gemini/gemini-2.5-flash → Gemini 2.5 Flash
         if provider == "google" or key.startswith("gemini"):
@@ -923,6 +965,28 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_deepseek_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Overlay official deepseek pricing-page metadata onto upstream entries.
+
+        Currently only patches ``max_output_tokens`` for the V4 series:
+        api-docs.deepseek.com states 384K, LiteLLM upstream reports 8K.
+        All pricing fields come from upstream (already correct).
+
+        SKUs absent from upstream stay absent — DEEPSEEK_SYNTH_DATA is a
+        pure overlay, not an injector (whitelist enforces presence).
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, synth in cls.DEEPSEEK_SYNTH_DATA.items():
+            existing = merged.get(key)
+            if existing is None:
+                continue
+            merged[key] = {**existing, **synth}
+        return merged
+
+    @classmethod
     def apply_bigmodel_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
         """
         Inject bigmodel/* SKUs and mirror pricing from their sibling zai/* entry.
@@ -965,7 +1029,9 @@ class ModelSyncRules:
         Returns:
             dict mapping model_key to transformed model data
         """
-        enriched = cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+        enriched = cls.apply_deepseek_synth(
+            cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+        )
         filtered: dict[str, dict[str, Any]] = {}
 
         for model_key, model_data in enriched.items():
@@ -982,7 +1048,9 @@ class ModelSyncRules:
 
         Mirrors filter_model's pipeline exactly so passed == len(filter_all_models(models)).
         """
-        enriched = cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+        enriched = cls.apply_deepseek_synth(
+            cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+        )
         total = len(enriched)
         passed = 0
         excluded_by_rule: dict[str, int] = {
