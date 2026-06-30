@@ -16,7 +16,15 @@ class ModelSyncRules:
     """Model sync rules configuration and utilities."""
 
     # Supported providers list
-    PROVIDERS = ["openai", "anthropic", "gemini", "zai", "bigmodel", "deepseek"]
+    PROVIDERS = [
+        "openai",
+        "anthropic",
+        "gemini",
+        "zai",
+        "bigmodel",
+        "deepseek",
+        "volcengine",
+    ]
 
     # Provider name mapping (lowercase for DB consistency)
     PROVIDER_MAPPING = {
@@ -26,6 +34,7 @@ class ModelSyncRules:
         "zai": "zai",
         "bigmodel": "bigmodel",
         "deepseek": "deepseek",
+        "volcengine": "volcengine",
     }
 
     # zai/glm whitelist — only these keys are allowed through provider filter.
@@ -363,6 +372,111 @@ class ModelSyncRules:
         "deepseek/deepseek-v4-pro",
     })
 
+    # ── Volcengine (ByteDance Ark — Doubao Seedance video) ────────────────
+    # Reverse-whitelist for volcengine/* video SKUs. Source:
+    #   https://www.volcengine.com/docs/82379/1544106 (Seedance 2.0 spec)
+    #   https://www.volcengine.com/pricing (CNY/M-token tiers)
+    # Both the dated official model ID (used by the Volcengine SDK by
+    # default) and the date-less alias (carried by the LiteLLM source as
+    # a long-lived shortcut) are whitelisted so deployments can pick
+    # either form without falling outside this filter.
+    VOLCENGINE_ALLOWED_KEYS = frozenset({
+        # Dated official IDs
+        "volcengine/doubao-seedance-2-0-260128",
+        "volcengine/doubao-seedance-2-0-fast-260128",
+        "volcengine/doubao-seedance-2-0-mini-260615",
+        # Date-less aliases
+        "volcengine/doubao-seedance-2-0",
+        "volcengine/doubao-seedance-2-0-fast",
+        "volcengine/doubao-seedance-2-0-mini",
+    })
+
+    # Volcengine Seedance pre-stage. Upstream BerriAI/litellm/main does
+    # not yet carry Seedance video entries (verified 2026-06-30: only
+    # chat / embedding doubao SKUs are upstream). We synthesise the 6
+    # video SKUs from the official Volcengine pricing page so the SaaS
+    # catalogue can list them today; when upstream eventually publishes
+    # these keys, the overlay merges on top with no shape change.
+    #
+    # Currency: CNY. Volcengine bills per million OUTPUT tokens, tiered
+    # by resolution (720p baseline / 1080p / 4K) and by whether the
+    # request includes a reference video (v2v cheaper). The keyed price
+    # fields below feed PRICE_FIELDS_BY_MODE["video_generation"] and
+    # flow through verbatim under `raw_data` for downstream consumers.
+    VOLCENGINE_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        # Seedance 2.0 (standard) — all three resolution tiers active
+        "volcengine/doubao-seedance-2-0-260128": {
+            "litellm_provider": "volcengine",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "provider_pricing_currency": "CNY",
+            "source": "https://www.volcengine.com/docs/82379/1544106",
+            "volcengine_video_output_cost_per_million_tokens_without_input_video": 46.0,
+            "volcengine_video_output_cost_per_million_tokens_with_input_video": 28.0,
+            "volcengine_video_output_cost_per_million_tokens_without_input_video_1080p": 51.0,
+            "volcengine_video_output_cost_per_million_tokens_with_input_video_1080p": 31.0,
+            "volcengine_video_output_cost_per_million_tokens_without_input_video_4k": 26.0,
+            "volcengine_video_output_cost_per_million_tokens_with_input_video_4k": 16.0,
+        },
+        "volcengine/doubao-seedance-2-0": {
+            "litellm_provider": "volcengine",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "provider_pricing_currency": "CNY",
+            "source": "https://www.volcengine.com/docs/82379/1544106",
+            "volcengine_video_output_cost_per_million_tokens_without_input_video": 46.0,
+            "volcengine_video_output_cost_per_million_tokens_with_input_video": 28.0,
+            "volcengine_video_output_cost_per_million_tokens_without_input_video_1080p": 51.0,
+            "volcengine_video_output_cost_per_million_tokens_with_input_video_1080p": 31.0,
+            "volcengine_video_output_cost_per_million_tokens_without_input_video_4k": 26.0,
+            "volcengine_video_output_cost_per_million_tokens_with_input_video_4k": 16.0,
+        },
+        # Seedance 2.0 Fast — 720p only
+        "volcengine/doubao-seedance-2-0-fast-260128": {
+            "litellm_provider": "volcengine",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "provider_pricing_currency": "CNY",
+            "source": "https://www.volcengine.com/docs/82379/1544106",
+            "volcengine_video_output_cost_per_million_tokens_without_input_video": 37.0,
+            "volcengine_video_output_cost_per_million_tokens_with_input_video": 22.0,
+        },
+        "volcengine/doubao-seedance-2-0-fast": {
+            "litellm_provider": "volcengine",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "provider_pricing_currency": "CNY",
+            "source": "https://www.volcengine.com/docs/82379/1544106",
+            "volcengine_video_output_cost_per_million_tokens_without_input_video": 37.0,
+            "volcengine_video_output_cost_per_million_tokens_with_input_video": 22.0,
+        },
+        # Seedance 2.0 Mini — 720p only
+        "volcengine/doubao-seedance-2-0-mini-260615": {
+            "litellm_provider": "volcengine",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "provider_pricing_currency": "CNY",
+            "source": "https://www.volcengine.com/docs/82379/1544106",
+            "volcengine_video_output_cost_per_million_tokens_without_input_video": 23.0,
+            "volcengine_video_output_cost_per_million_tokens_with_input_video": 14.0,
+        },
+        "volcengine/doubao-seedance-2-0-mini": {
+            "litellm_provider": "volcengine",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "provider_pricing_currency": "CNY",
+            "source": "https://www.volcengine.com/docs/82379/1544106",
+            "volcengine_video_output_cost_per_million_tokens_without_input_video": 23.0,
+            "volcengine_video_output_cost_per_million_tokens_with_input_video": 14.0,
+        },
+    }
+
     # DeepSeek overlays. Source: api-docs.deepseek.com/quick_start/pricing
     # (snapshot 2026-06-30). LiteLLM upstream carries correct prices and
     # context (1M input), but max_output_tokens is stuck at 8192 — official
@@ -377,7 +491,7 @@ class ModelSyncRules:
     }
 
     # Supported model modes
-    SUPPORTED_MODES = ["chat", "embedding", "image_generation"]
+    SUPPORTED_MODES = ["chat", "embedding", "image_generation", "video_generation"]
 
     # Mode to model type mapping
     MODE_MAPPING = {
@@ -385,6 +499,7 @@ class ModelSyncRules:
         "completion": "language",
         "embedding": "embedding",
         "image_generation": "image",
+        "video_generation": "video",
         "audio_transcription": "audio",
         "audio_speech": "audio",
     }
@@ -457,6 +572,14 @@ class ModelSyncRules:
             "patterns": [],
             "custom_check": lambda key: key.lower() not in ModelSyncRules.DEEPSEEK_ALLOWED_KEYS,
             "description": "Allow only whitelisted deepseek/* keys (see DEEPSEEK_ALLOWED_KEYS)",
+        },
+        "volcengine": {
+            # Reverse-whitelist: only VOLCENGINE_ALLOWED_KEYS pass through.
+            # Today this is Seedance 2.0 video models; chat/embedding SKUs
+            # carried by upstream under the same provider stay filtered out.
+            "patterns": [],
+            "custom_check": lambda key: key.lower() not in ModelSyncRules.VOLCENGINE_ALLOWED_KEYS,
+            "description": "Allow only whitelisted volcengine/doubao-seedance-* keys (see VOLCENGINE_ALLOWED_KEYS)",
         },
     }
 
@@ -673,6 +796,18 @@ class ModelSyncRules:
             "input_cost_per_image_token",
             "input_cost_per_image",
         ),
+        # Volcengine Seedance bills per million OUTPUT tokens in CNY, with
+        # tiered rates by resolution (720p baseline / 1080p / 4K) and by
+        # whether the request includes a reference video (v2v cheaper).
+        # Any one non-zero tier is sufficient to consider the SKU priced.
+        "video_generation": (
+            "volcengine_video_output_cost_per_million_tokens_without_input_video",
+            "volcengine_video_output_cost_per_million_tokens_with_input_video",
+            "volcengine_video_output_cost_per_million_tokens_without_input_video_1080p",
+            "volcengine_video_output_cost_per_million_tokens_with_input_video_1080p",
+            "volcengine_video_output_cost_per_million_tokens_without_input_video_4k",
+            "volcengine_video_output_cost_per_million_tokens_with_input_video_4k",
+        ),
     }
 
     @classmethod
@@ -684,6 +819,16 @@ class ModelSyncRules:
         # (some models bill per token, others per image)
         if mode == "image_generation":
             for field in cls.PRICE_FIELDS_BY_MODE["image_generation"]:
+                value = model_data.get(field)
+                if value is not None and value > 0:
+                    return False
+            return True
+
+        # Video generation: provider-specific keyed pricing (Volcengine
+        # uses volcengine_video_output_cost_per_million_tokens_*); a SKU
+        # is considered priced if any one resolution-tier field is set.
+        if mode == "video_generation":
+            for field in cls.PRICE_FIELDS_BY_MODE["video_generation"]:
                 value = model_data.get(field)
                 if value is not None and value > 0:
                     return False
@@ -809,6 +954,29 @@ class ModelSyncRules:
                 overrides.get(p.lower(), p.title()) for p in suffix.split("-")
             )
 
+        # Volcengine Seedance video:
+        #   volcengine/doubao-seedance-2-0-260128       → Seedance 2.0
+        #   volcengine/doubao-seedance-2-0-fast-260128  → Seedance 2.0 Fast
+        #   volcengine/doubao-seedance-2-0-mini-260615  → Seedance 2.0 Mini
+        #   volcengine/doubao-seedance-2-0              → Seedance 2.0
+        # Dated suffixes (-260128, -260615) are the official Volcengine
+        # model-version stamps (YYMMDD); strip them for the friendly name.
+        if provider == "volcengine" or key.startswith("volcengine/"):
+            suffix = re.sub(
+                r"^volcengine/doubao-seedance-", "", key, flags=re.IGNORECASE
+            )
+            suffix = re.sub(r"-\d{6}$", "", suffix)  # drop -YYMMDD
+            parts = suffix.split("-")
+            version = (
+                f"{parts[0]}.{parts[1]}" if len(parts) >= 2 else suffix
+            )
+            variant = (
+                " ".join(p.capitalize() for p in parts[2:])
+                if len(parts) > 2
+                else ""
+            )
+            return f"Seedance {version} {variant}".rstrip()
+
         # DeepSeek:
         #   deepseek/deepseek-v4-flash → DeepSeek-V4-Flash
         #   deepseek/deepseek-v4-pro   → DeepSeek-V4-Pro
@@ -857,8 +1025,8 @@ class ModelSyncRules:
         Returns:
             True if model is default available, False otherwise
         """
-        # Image models require special access by default
-        if model_type == "image":
+        # Image / video models require special access by default
+        if model_type in ("image", "video"):
             return False
 
         # Default is true
@@ -1022,6 +1190,30 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_volcengine_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Inject Volcengine Seedance video SKUs not yet on LiteLLM upstream.
+
+        Upstream BerriAI/litellm/main carries only chat / embedding doubao
+        SKUs under ``volcengine/*`` today; the six Seedance 2.0 video
+        entries are pre-staged from the official Volcengine pricing page
+        (https://www.volcengine.com/docs/82379/1544106). When upstream
+        eventually publishes any of these keys, ``VOLCENGINE_SYNTH_DATA``
+        continues to overlay on top — Volcengine remains the source of
+        truth for video pricing.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, synth in cls.VOLCENGINE_SYNTH_DATA.items():
+            existing = merged.get(key)
+            if existing is None:
+                merged[key] = dict(synth)
+            else:
+                merged[key] = {**existing, **synth}
+        return merged
+
+    @classmethod
     def filter_all_models(cls, models: dict[str, Any]) -> dict[str, dict[str, Any]]:
         """
         Filter all models and return a dict of valid models.
@@ -1029,8 +1221,10 @@ class ModelSyncRules:
         Returns:
             dict mapping model_key to transformed model data
         """
-        enriched = cls.apply_deepseek_synth(
-            cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+        enriched = cls.apply_volcengine_synth(
+            cls.apply_deepseek_synth(
+                cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+            )
         )
         filtered: dict[str, dict[str, Any]] = {}
 
@@ -1048,8 +1242,10 @@ class ModelSyncRules:
 
         Mirrors filter_model's pipeline exactly so passed == len(filter_all_models(models)).
         """
-        enriched = cls.apply_deepseek_synth(
-            cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+        enriched = cls.apply_volcengine_synth(
+            cls.apply_deepseek_synth(
+                cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+            )
         )
         total = len(enriched)
         passed = 0
