@@ -126,6 +126,10 @@ python filter_models.py --url https://custom-source.com/models.json
 - ❌ Exclude: any other `volcengine/*` SKU upstream may add (chat, embedding, audio); whitelist is exhaustive
 - ❌ Exclude: Volcengine chat/embedding models routed through non-Ark gateways
 
+> **dated vs date-less alias.** Each Seedance variant ships two whitelisted keys with **identical pricing** — the dated official ID (e.g. `volcengine/doubao-seedance-2-0-260128`, the snapshot the Volcengine SDK defaults to) and the date-less alias (e.g. `volcengine/doubao-seedance-2-0`, the long-lived shortcut Volcengine's gateway resolves to "latest stable"). Downstream consumers should **pick one form per environment and stick to it** — mixing the two over the same workload causes the billing aggregator to double-count usage, and tariff updates have to be made in both places.
+
+> **`supports_vision` semantics for video SKUs.** All Seedance entries report `supports_vision: false`. The field means **"can analyze image content to answer questions"** (a chat-vision capability), not "accepts an image as a generation reference". Image-to-video is supported (and priced via the separate `output_cost_per_token_with_input_video` tier in `raw_data`) — UIs that gate the "upload reference image" affordance on `supports_vision` will under-expose Seedance and should branch on `type == "video"` instead.
+
 > **What about new-api?** `volcengine_new_api` is **not** a separate provider here. It is a LiteLLM **routing-layer** label ("this deployment speaks new-api's relay protocol") used only when configuring a Volcengine deployment that sits behind a new-api gateway. The model catalogue keeps a single `volcengine/doubao-seedance-*` entry; deployments behind either the direct Volcengine API or a new-api relay both reference that same `model_key`.
 
 #### DeepSeek
