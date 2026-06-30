@@ -398,11 +398,14 @@ class ModelSyncRules:
     # catalogue can list them today; when upstream eventually publishes
     # these keys, the overlay merges on top with no shape change.
     #
-    # Currency: CNY. Volcengine bills per million OUTPUT tokens, tiered
-    # by resolution (720p baseline / 1080p / 4K) and by whether the
-    # request includes a reference video (v2v cheaper). The keyed price
-    # fields below feed PRICE_FIELDS_BY_MODE["video_generation"] and
-    # flow through verbatim under `raw_data` for downstream consumers.
+    # Currency: USD/token. Volcengine officially bills per million
+    # OUTPUT tokens in CNY (tiered by resolution and v2v); our internal
+    # LiteLLM fork stores the USD/token equivalent at a fixed
+    # 1 USD = 7.0 CNY policy rate (see
+    # litellm/proxy/spend_tracking/VOLCENGINE_FX_POLICY.md in the fork
+    # repo). The values below mirror that policy so saas-models-source
+    # and the LiteLLM billing manager always agree on the per-token
+    # USD figure they show / charge.
     VOLCENGINE_SYNTH_DATA: dict[str, dict[str, Any]] = {
         # Seedance 2.0 (standard) — all three resolution tiers active
         "volcengine/doubao-seedance-2-0-260128": {
@@ -410,28 +413,26 @@ class ModelSyncRules:
             "mode": "video_generation",
             "max_input_tokens": 1024,
             "max_output_tokens": 1024,
-            "provider_pricing_currency": "CNY",
             "source": "https://www.volcengine.com/docs/82379/1544106",
-            "volcengine_video_output_cost_per_million_tokens_without_input_video": 46.0,
-            "volcengine_video_output_cost_per_million_tokens_with_input_video": 28.0,
-            "volcengine_video_output_cost_per_million_tokens_without_input_video_1080p": 51.0,
-            "volcengine_video_output_cost_per_million_tokens_with_input_video_1080p": 31.0,
-            "volcengine_video_output_cost_per_million_tokens_without_input_video_4k": 26.0,
-            "volcengine_video_output_cost_per_million_tokens_with_input_video_4k": 16.0,
+            "output_cost_per_token": 6.571428571428571e-06,  # 46 CNY/M @ 7.0
+            "output_cost_per_token_with_input_video": 4.0e-06,  # 28 CNY/M
+            "output_cost_per_token_1080p": 7.285714285714286e-06,  # 51 CNY/M
+            "output_cost_per_token_1080p_with_input_video": 4.428571428571429e-06,  # 31 CNY/M
+            "output_cost_per_token_4k": 3.714285714285714e-06,  # 26 CNY/M
+            "output_cost_per_token_4k_with_input_video": 2.285714285714286e-06,  # 16 CNY/M
         },
         "volcengine/doubao-seedance-2-0": {
             "litellm_provider": "volcengine",
             "mode": "video_generation",
             "max_input_tokens": 1024,
             "max_output_tokens": 1024,
-            "provider_pricing_currency": "CNY",
             "source": "https://www.volcengine.com/docs/82379/1544106",
-            "volcengine_video_output_cost_per_million_tokens_without_input_video": 46.0,
-            "volcengine_video_output_cost_per_million_tokens_with_input_video": 28.0,
-            "volcengine_video_output_cost_per_million_tokens_without_input_video_1080p": 51.0,
-            "volcengine_video_output_cost_per_million_tokens_with_input_video_1080p": 31.0,
-            "volcengine_video_output_cost_per_million_tokens_without_input_video_4k": 26.0,
-            "volcengine_video_output_cost_per_million_tokens_with_input_video_4k": 16.0,
+            "output_cost_per_token": 6.571428571428571e-06,
+            "output_cost_per_token_with_input_video": 4.0e-06,
+            "output_cost_per_token_1080p": 7.285714285714286e-06,
+            "output_cost_per_token_1080p_with_input_video": 4.428571428571429e-06,
+            "output_cost_per_token_4k": 3.714285714285714e-06,
+            "output_cost_per_token_4k_with_input_video": 2.285714285714286e-06,
         },
         # Seedance 2.0 Fast — 720p only
         "volcengine/doubao-seedance-2-0-fast-260128": {
@@ -439,20 +440,18 @@ class ModelSyncRules:
             "mode": "video_generation",
             "max_input_tokens": 1024,
             "max_output_tokens": 1024,
-            "provider_pricing_currency": "CNY",
             "source": "https://www.volcengine.com/docs/82379/1544106",
-            "volcengine_video_output_cost_per_million_tokens_without_input_video": 37.0,
-            "volcengine_video_output_cost_per_million_tokens_with_input_video": 22.0,
+            "output_cost_per_token": 5.285714285714286e-06,  # 37 CNY/M @ 7.0
+            "output_cost_per_token_with_input_video": 3.142857142857143e-06,  # 22 CNY/M
         },
         "volcengine/doubao-seedance-2-0-fast": {
             "litellm_provider": "volcengine",
             "mode": "video_generation",
             "max_input_tokens": 1024,
             "max_output_tokens": 1024,
-            "provider_pricing_currency": "CNY",
             "source": "https://www.volcengine.com/docs/82379/1544106",
-            "volcengine_video_output_cost_per_million_tokens_without_input_video": 37.0,
-            "volcengine_video_output_cost_per_million_tokens_with_input_video": 22.0,
+            "output_cost_per_token": 5.285714285714286e-06,
+            "output_cost_per_token_with_input_video": 3.142857142857143e-06,
         },
         # Seedance 2.0 Mini — 720p only
         "volcengine/doubao-seedance-2-0-mini-260615": {
@@ -460,20 +459,18 @@ class ModelSyncRules:
             "mode": "video_generation",
             "max_input_tokens": 1024,
             "max_output_tokens": 1024,
-            "provider_pricing_currency": "CNY",
             "source": "https://www.volcengine.com/docs/82379/1544106",
-            "volcengine_video_output_cost_per_million_tokens_without_input_video": 23.0,
-            "volcengine_video_output_cost_per_million_tokens_with_input_video": 14.0,
+            "output_cost_per_token": 3.285714285714286e-06,  # 23 CNY/M @ 7.0
+            "output_cost_per_token_with_input_video": 2.0e-06,  # 14 CNY/M
         },
         "volcengine/doubao-seedance-2-0-mini": {
             "litellm_provider": "volcengine",
             "mode": "video_generation",
             "max_input_tokens": 1024,
             "max_output_tokens": 1024,
-            "provider_pricing_currency": "CNY",
             "source": "https://www.volcengine.com/docs/82379/1544106",
-            "volcengine_video_output_cost_per_million_tokens_without_input_video": 23.0,
-            "volcengine_video_output_cost_per_million_tokens_with_input_video": 14.0,
+            "output_cost_per_token": 3.285714285714286e-06,
+            "output_cost_per_token_with_input_video": 2.0e-06,
         },
     }
 
@@ -796,17 +793,20 @@ class ModelSyncRules:
             "input_cost_per_image_token",
             "input_cost_per_image",
         ),
-        # Volcengine Seedance bills per million OUTPUT tokens in CNY, with
-        # tiered rates by resolution (720p baseline / 1080p / 4K) and by
-        # whether the request includes a reference video (v2v cheaper).
-        # Any one non-zero tier is sufficient to consider the SKU priced.
+        # Volcengine Seedance: USD/token via the standard
+        # output_cost_per_token family, tiered by resolution (base 720p
+        # / 1080p / 4K) and v2v marker. Any one non-zero tier is
+        # sufficient to consider the SKU priced. CNY-source values are
+        # converted at the policy FX rate inside the LiteLLM fork (see
+        # the fork's VOLCENGINE_FX_POLICY.md); saas-models-source
+        # consumes USD directly.
         "video_generation": (
-            "volcengine_video_output_cost_per_million_tokens_without_input_video",
-            "volcengine_video_output_cost_per_million_tokens_with_input_video",
-            "volcengine_video_output_cost_per_million_tokens_without_input_video_1080p",
-            "volcengine_video_output_cost_per_million_tokens_with_input_video_1080p",
-            "volcengine_video_output_cost_per_million_tokens_without_input_video_4k",
-            "volcengine_video_output_cost_per_million_tokens_with_input_video_4k",
+            "output_cost_per_token",
+            "output_cost_per_token_with_input_video",
+            "output_cost_per_token_1080p",
+            "output_cost_per_token_1080p_with_input_video",
+            "output_cost_per_token_4k",
+            "output_cost_per_token_4k_with_input_video",
         ),
     }
 

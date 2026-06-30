@@ -21,7 +21,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1 family + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (11 SKUs: GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output)
-- **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (6 entries: standard / Fast / Mini × dated + alias). Bills per million **output** tokens in **CNY** with resolution tiers (720p baseline / 1080p / 4K); price fields are passthrough-only via `raw_data` — see Output Format below
+- **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (6 entries: standard / Fast / Mini × dated + alias). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
 
 ## Supported Model Types
 
@@ -119,8 +119,9 @@ python filter_models.py --url https://custom-source.com/models.json
 
 #### Volcengine (ByteDance Ark — Doubao Seedance video)
 - ✅ Include: only keys listed in `ModelSyncRules.VOLCENGINE_ALLOWED_KEYS` (reverse whitelist, 6 SKUs covering Seedance 2.0 / Fast / Mini × {dated official ID, date-less alias})
-- ✅ **Currency: CNY** (`provider_pricing_currency = "CNY"`). Volcengine bills per million **output** tokens, not per input token; tiered rates by resolution (720p baseline / 1080p / 4K) and by whether the request carries a reference video (v2v is cheaper).
-- ✅ Top-level `input_cost_per_token` and `output_cost_per_token` will be `null` for video SKUs — that is by design. The keyed pricing fields (`volcengine_video_output_cost_per_million_tokens_*`) flow through verbatim under `raw_data`, and downstream code should read them from there. Mixing them into the top-level token-rate fields would silently hide the CNY/USD currency split.
+- ✅ **Currency: USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family. Top-level `output_cost_per_token` carries the base 720p / no-input-video tier; resolution-suffixed (`_1080p` / `_4k`) and v2v-suffixed (`_with_input_video`) variants flow through under `raw_data` for tier-aware billing.
+- ✅ The underlying tariff is CNY (Volcengine publishes per-million-token CNY rates tiered by resolution and v2v). USD numbers in this catalogue are produced at a policy rate of **`1 USD = 7.0 CNY`**, mirroring the LiteLLM fork's `VOLCENGINE_FX_POLICY.md`. Refresh both sides together if the FX policy changes.
+- ✅ `input_cost_per_token` is `null` (Volcengine bills only the output tokens for video, not the text prompt).
 - ✅ `is_default_available = false` for all video SKUs (treated the same as image)
 - ❌ Exclude: any other `volcengine/*` SKU upstream may add (chat, embedding, audio); whitelist is exhaustive
 - ❌ Exclude: Volcengine chat/embedding models routed through non-Ark gateways
@@ -229,7 +230,7 @@ These models require special access or configuration and are not available to al
       "friendly_name": "Seedance 2.0",
       "is_default_available": false,
       "input_cost_per_token": null,
-      "output_cost_per_token": null,
+      "output_cost_per_token": 6.571428571428571e-06,
       "max_input_tokens": 1024,
       "max_output_tokens": 1024,
       "supports_vision": false,
@@ -237,13 +238,12 @@ These models require special access or configuration and are not available to al
       "supports_json_output": false,
       "raw_data": {
         "mode": "video_generation",
-        "provider_pricing_currency": "CNY",
-        "volcengine_video_output_cost_per_million_tokens_without_input_video": 46.0,
-        "volcengine_video_output_cost_per_million_tokens_with_input_video": 28.0,
-        "volcengine_video_output_cost_per_million_tokens_without_input_video_1080p": 51.0,
-        "volcengine_video_output_cost_per_million_tokens_with_input_video_1080p": 31.0,
-        "volcengine_video_output_cost_per_million_tokens_without_input_video_4k": 26.0,
-        "volcengine_video_output_cost_per_million_tokens_with_input_video_4k": 16.0
+        "output_cost_per_token": 6.571428571428571e-06,
+        "output_cost_per_token_with_input_video": 4e-06,
+        "output_cost_per_token_1080p": 7.285714285714286e-06,
+        "output_cost_per_token_1080p_with_input_video": 4.428571428571429e-06,
+        "output_cost_per_token_4k": 3.714285714285714e-06,
+        "output_cost_per_token_4k_with_input_video": 2.285714285714286e-06
       }
     },
     "zai/glm-4.5v": {
@@ -381,8 +381,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Add **Volcengine** as the seventh supported provider via reverse-whitelist (`VOLCENGINE_ALLOWED_KEYS`)
 - First **video** model type — `SUPPORTED_MODES` gains `video_generation`; `MODE_MAPPING` adds `video_generation → video`
 - 6 active Seedance 2.0 SKUs (standard / Fast / Mini × {dated official ID, date-less alias}) sourced from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106)
-- `PRICE_FIELDS_BY_MODE["video_generation"]` validates against the six `volcengine_video_output_cost_per_million_tokens_*` tier fields (720p / 1080p / 4K × {with, without} input video); any one non-zero tier passes the zero-price filter
-- Top-level `input_cost_per_token` / `output_cost_per_token` stay `null` for video SKUs — currency is **CNY** and pricing flows through verbatim under `raw_data`; downstream consumers must read the keyed fields from there
+- **Currency: USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family. Top-level `output_cost_per_token` carries the base 720p / no-input-video tier; resolution-suffixed (`_1080p`, `_4k`) and v2v-suffixed (`_with_input_video`) variants flow through under `raw_data`. The underlying CNY tariff is converted at a policy rate of `1 USD = 7.0 CNY` (mirrors the LiteLLM fork's `VOLCENGINE_FX_POLICY.md`)
+- `PRICE_FIELDS_BY_MODE["video_generation"]` validates against the six USD tiers (720p / 1080p / 4K × {with, without} input video); any one non-zero tier passes the zero-price filter
 - `format_model_name` volcengine branch outputs `Seedance 2.0` / `Seedance 2.0 Fast` / `Seedance 2.0 Mini` (strips the `-YYMMDD` version stamp)
 - `is_default_available = false` for all video SKUs (same default-deny rule as image)
 - `volcengine_new_api` (a LiteLLM routing-layer label for new-api relay deployments) is intentionally **not** a separate provider — the model catalogue exposes a single `volcengine/doubao-seedance-*` entry regardless of how deployments reach it
