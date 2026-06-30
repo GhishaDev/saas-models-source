@@ -6,8 +6,8 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Features
 
-- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), and DeepSeek
-- **Multi-Modal Support**: Chat (language), embedding, and image generation models
+- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, and Volcengine (ByteDance Ark — Doubao Seedance video)
+- **Multi-Modal Support**: Chat (language), embedding, image generation, and video generation models
 - **Smart Filtering Rules**: Comprehensive exclusion rules for deprecated, preview, and versioned models
 - **Mode-Aware Price Validation**: Validates pricing using mode-specific fields (per-token, per-image-token, per-image)
 - **Flexible Output**: JSON export ready for database synchronization
@@ -21,6 +21,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1 family + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (11 SKUs: GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output)
+- **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (6 entries: standard / Fast / Mini × dated + alias). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
 
 ## Supported Model Types
 
@@ -29,6 +30,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 | `language` | `chat` | `claude-opus-4-7`, `gpt-5.5`, `gemini/gemini-3-pro-preview`, `zai/glm-5`, `bigmodel/glm-5`, `deepseek/deepseek-v4-flash` |
 | `embedding` | `embedding` | `text-embedding-3-large`, `gemini/gemini-embedding-2` |
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
+| `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `volcengine/doubao-seedance-2-0-fast`, `volcengine/doubao-seedance-2-0-mini` |
 
 ## Installation
 
@@ -115,6 +117,17 @@ python filter_models.py --url https://custom-source.com/models.json
 
 > **Why two GLM providers?** `zai/` and `bigmodel/` describe the **same models served by two gateways** — z.ai (international) and bigmodel.cn (中国版). Pricing is currently unified to z.ai's USD tariff on both sides; the two namespaces remain distinct so downstream consumers can pick the gateway they actually call without rewriting the model key.
 
+#### Volcengine (ByteDance Ark — Doubao Seedance video)
+- ✅ Include: only keys listed in `ModelSyncRules.VOLCENGINE_ALLOWED_KEYS` (reverse whitelist, 6 SKUs covering Seedance 2.0 / Fast / Mini × {dated official ID, date-less alias})
+- ✅ **Currency: USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family. Top-level `output_cost_per_token` carries the base 720p / no-input-video tier; resolution-suffixed (`_1080p` / `_4k`) and v2v-suffixed (`_with_input_video`) variants flow through under `raw_data` for tier-aware billing.
+- ✅ The underlying tariff is CNY (Volcengine publishes per-million-token CNY rates tiered by resolution and v2v). USD numbers in this catalogue are produced at a policy rate of **`1 USD = 7.0 CNY`**, mirroring the LiteLLM fork's `VOLCENGINE_FX_POLICY.md`. Refresh both sides together if the FX policy changes.
+- ✅ `input_cost_per_token` is `null` (Volcengine bills only the output tokens for video, not the text prompt).
+- ✅ `is_default_available = false` for all video SKUs (treated the same as image)
+- ❌ Exclude: any other `volcengine/*` SKU upstream may add (chat, embedding, audio); whitelist is exhaustive
+- ❌ Exclude: Volcengine chat/embedding models routed through non-Ark gateways
+
+> **What about new-api?** `volcengine_new_api` is **not** a separate provider here. It is a LiteLLM **routing-layer** label ("this deployment speaks new-api's relay protocol") used only when configuring a Volcengine deployment that sits behind a new-api gateway. The model catalogue keeps a single `volcengine/doubao-seedance-*` entry; deployments behind either the direct Volcengine API or a new-api relay both reference that same `model_key`.
+
 #### DeepSeek
 - ✅ Include: only keys listed in `ModelSyncRules.DEEPSEEK_ALLOWED_KEYS` (reverse whitelist, 2 SKUs)
 - ✅ **Official DeepSeek pricing page as source of truth** ([api-docs.deepseek.com/quick_start/pricing](https://api-docs.deepseek.com/quick_start/pricing/), snapshot 2026-06-30):
@@ -142,6 +155,7 @@ Each model includes an `is_default_available` field indicating default user avai
 - **OpenAI o series** (o3, o4, o3-mini, o4-mini): `false`
 - **OpenAI chat series** (gpt-*-chat-*): `false`
 - **Image models** (all `image` type): `false`
+- **Video models** (all `video` type): `false`
 
 These models require special access or configuration and are not available to all users by default.
 
@@ -208,6 +222,29 @@ These models require special access or configuration and are not available to al
       "supports_vision": true,
       "supports_function_calling": true,
       "supports_json_output": false
+    },
+    "volcengine/doubao-seedance-2-0-260128": {
+      "model_key": "volcengine/doubao-seedance-2-0-260128",
+      "provider": "volcengine",
+      "type": "video",
+      "friendly_name": "Seedance 2.0",
+      "is_default_available": false,
+      "input_cost_per_token": null,
+      "output_cost_per_token": 6.571428571428571e-06,
+      "max_input_tokens": 1024,
+      "max_output_tokens": 1024,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "mode": "video_generation",
+        "output_cost_per_token": 6.571428571428571e-06,
+        "output_cost_per_token_with_input_video": 4e-06,
+        "output_cost_per_token_1080p": 7.285714285714286e-06,
+        "output_cost_per_token_1080p_with_input_video": 4.428571428571429e-06,
+        "output_cost_per_token_4k": 3.714285714285714e-06,
+        "output_cost_per_token_4k_with_input_video": 2.285714285714286e-06
+      }
     },
     "zai/glm-4.5v": {
       "model_key": "zai/glm-4.5v",
@@ -339,6 +376,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.11.0 (2026-06-30)
+- Add **Volcengine** as the seventh supported provider via reverse-whitelist (`VOLCENGINE_ALLOWED_KEYS`)
+- First **video** model type — `SUPPORTED_MODES` gains `video_generation`; `MODE_MAPPING` adds `video_generation → video`
+- 6 active Seedance 2.0 SKUs (standard / Fast / Mini × {dated official ID, date-less alias}) sourced from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106)
+- **Currency: USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family. Top-level `output_cost_per_token` carries the base 720p / no-input-video tier; resolution-suffixed (`_1080p`, `_4k`) and v2v-suffixed (`_with_input_video`) variants flow through under `raw_data`. The underlying CNY tariff is converted at a policy rate of `1 USD = 7.0 CNY` (mirrors the LiteLLM fork's `VOLCENGINE_FX_POLICY.md`)
+- `PRICE_FIELDS_BY_MODE["video_generation"]` validates against the six USD tiers (720p / 1080p / 4K × {with, without} input video); any one non-zero tier passes the zero-price filter
+- `format_model_name` volcengine branch outputs `Seedance 2.0` / `Seedance 2.0 Fast` / `Seedance 2.0 Mini` (strips the `-YYMMDD` version stamp)
+- `is_default_available = false` for all video SKUs (same default-deny rule as image)
+- `volcengine_new_api` (a LiteLLM routing-layer label for new-api relay deployments) is intentionally **not** a separate provider — the model catalogue exposes a single `volcengine/doubao-seedance-*` entry regardless of how deployments reach it
 
 ### v1.10.0 (2026-06-30)
 - Add **DeepSeek** as the sixth supported provider via reverse-whitelist (`DEEPSEEK_ALLOWED_KEYS`)
