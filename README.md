@@ -82,8 +82,11 @@ python filter_models.py --url https://custom-source.com/models.json
 - ❌ Exclude: Models with `openai/` prefix, search-api variants
 
 #### Anthropic
-- ✅ Include: Claude 4.5+ variants (Haiku, Sonnet, Opus)
+- ✅ Include: Claude 4.5+ variants (Haiku, Sonnet, Opus), plus Claude 5 (Sonnet), plus special-name flagships (`claude-fable-5`, etc.)
 - ✅ Include: Dated snapshots ≥ 4.5 (e.g. `claude-sonnet-4-5-20250929`)
+- ✅ **Introductory-price overlay** via `ANTHROPIC_SYNTH_DATA` / `apply_anthropic_synth`: when Anthropic runs a time-boxed intro price, LiteLLM upstream tracks the post-window standard tariff — we overlay the currently-effective numbers so the catalogue matches what customers actually get billed today
+  - Active window: **`claude-sonnet-5` through 2026-08-31** ($2 / $10 / $0.20 / $2.50 per M input / output / cache-read / cache-write-5m). Standard tariff ($3 / $15 / $0.30 / $3.75) resumes 2026-09-01 — remove the `ANTHROPIC_SYNTH_DATA["claude-sonnet-5"]` entry that day so upstream flows through unchanged
+- ✅ Friendly name: `Claude {ver} {Variant}` for the standard Opus/Sonnet/Haiku family (e.g. `Claude 5 Sonnet`, `Claude 4.5 Sonnet`); special-name flagships keep a capitalized fallback (`Claude Fable 5`)
 - ❌ Exclude: Claude 4.1 and below versions
 - ❌ Exclude: Non-claude prefixed models
 - ❌ Exclude: Dated snapshots < 4.5
@@ -380,6 +383,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.12.0 (2026-07-01)
+- Support **Claude Sonnet 5** (`claude-sonnet-5`, 1M context / 128K max output) — auto-flows through the existing Anthropic whitelist; no rule changes needed
+- Support **Claude Fable 5** (`claude-fable-5`, 1M context) — non-core variant with $10 / $50 / $1 tariff, whitelisted via the same anthropic-prefix rule
+- Add `_CORE_CLAUDE_VARIANTS = {opus, sonnet, haiku}` and fix `format_model_name` so major-only core keys render as `Claude {ver} {Variant}` (e.g. `claude-sonnet-5` → **Claude 5 Sonnet**, matching `Claude 4.5 Sonnet` pattern); non-core variants keep their capitalized fallback (`claude-fable-5` → `Claude Fable 5`)
+- Add `ANTHROPIC_SYNTH_DATA` + `apply_anthropic_synth` (time-boxed intro-price overlay). Currently patches `claude-sonnet-5` with the introductory tariff ($2 / $10 / $0.20 / $2.50 per M) in effect through 2026-08-31 per [claude.com/pricing](https://claude.com/pricing). **Remove this overlay on 2026-09-01** so upstream flows through unchanged
+- `apply_anthropic_synth` chained at the tail of both `filter_all_models` and `get_filter_stats` (stats remain consistent with export)
 
 ### v1.11.0 (2026-06-30)
 - Add **Volcengine** as the seventh supported provider via reverse-whitelist (`VOLCENGINE_ALLOWED_KEYS`)

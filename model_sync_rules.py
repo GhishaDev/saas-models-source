@@ -487,6 +487,30 @@ class ModelSyncRules:
         },
     }
 
+    # ── Anthropic overlays ────────────────────────────────────────────────
+    # Source: claude.com/pricing (snapshot 2026-07-01).
+    #
+    # LiteLLM upstream tracks Anthropic's post-introductory tariffs. When
+    # Anthropic runs a time-boxed introductory price we overlay the
+    # currently-effective numbers here so saas-models-source reflects what
+    # customers actually get billed today. Remove each entry once its
+    # window closes (upstream then flows through unchanged).
+    #
+    # Active window(s):
+    #   claude-sonnet-5 — introductory through 2026-08-31.
+    #     input:  $2/M   (standard $3/M kicks in 2026-09-01)
+    #     output: $10/M  (standard $15/M)
+    #     cache_read (0.1×): $0.20/M (standard $0.30/M)
+    #     cache_creation (1.25×, 5m):  $2.50/M (standard $3.75/M)
+    ANTHROPIC_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        "claude-sonnet-5": {
+            "input_cost_per_token": 2e-06,
+            "output_cost_per_token": 1e-05,
+            "cache_read_input_token_cost": 2e-07,
+            "cache_creation_input_token_cost": 2.5e-06,
+        },
+    }
+
     # Supported model modes
     SUPPORTED_MODES = ["chat", "embedding", "image_generation", "video_generation"]
 
@@ -639,6 +663,11 @@ class ModelSyncRules:
 
     # Minimum claude version allowed for dated snapshots
     CLAUDE_DATED_MIN_VERSION = (4, 5)
+
+    # Core claude variants that follow the "Claude {ver} {Variant}" naming
+    # pattern (e.g. Claude 4.5 Sonnet, Claude 5 Sonnet). Non-core variants
+    # (fable, mythos, ...) keep their fallback capitalized form.
+    _CORE_CLAUDE_VARIANTS = frozenset({"opus", "sonnet", "haiku"})
 
     # Include patterns (exceptions to exclude rules)
     INCLUDE_PATTERNS: list[re.Pattern] = [
@@ -907,7 +936,14 @@ class ModelSyncRules:
                 major_version = parts[1]  # 4
                 minor_version = parts[2]  # 1, 5
                 return f"Claude {major_version}.{minor_version} {variant}"
-            # Fallback: capitalize words
+            # Major-only for core variants, e.g. claude-sonnet-5 → "Claude 5 Sonnet".
+            # Restricted to the standard Opus/Sonnet/Haiku family so that
+            # non-core variants (fable, mythos, ...) keep their fallback form.
+            if len(parts) == 2 and parts[0] in cls._CORE_CLAUDE_VARIANTS:
+                variant = parts[0].capitalize()
+                major_version = parts[1]
+                return f"Claude {major_version} {variant}"
+            # Fallback: capitalize words (e.g. claude-fable-5 → "Claude Fable 5")
             return " ".join(w.capitalize() for w in key.split("-"))
 
         # OpenAI: gpt-5-mini → GPT-5 Mini, o3-mini → o3 Mini
@@ -1133,6 +1169,28 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_anthropic_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Overlay time-boxed Anthropic pricing on upstream entries.
+
+        Currently patches ``claude-sonnet-5`` with its introductory-window
+        prices (through 2026-08-31); LiteLLM upstream tracks the post-window
+        standard prices. Remove entries from ANTHROPIC_SYNTH_DATA as their
+        windows close — upstream then flows through unchanged.
+
+        Pure overlay: SKUs absent from upstream stay absent (no injection).
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, synth in cls.ANTHROPIC_SYNTH_DATA.items():
+            existing = merged.get(key)
+            if existing is None:
+                continue
+            merged[key] = {**existing, **synth}
+        return merged
+
+    @classmethod
     def apply_deepseek_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
         """
         Overlay official deepseek pricing-page metadata onto upstream entries.
@@ -1221,9 +1279,11 @@ class ModelSyncRules:
         Returns:
             dict mapping model_key to transformed model data
         """
-        enriched = cls.apply_volcengine_synth(
-            cls.apply_deepseek_synth(
-                cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+        enriched = cls.apply_anthropic_synth(
+            cls.apply_volcengine_synth(
+                cls.apply_deepseek_synth(
+                    cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+                )
             )
         )
         filtered: dict[str, dict[str, Any]] = {}
@@ -1242,9 +1302,11 @@ class ModelSyncRules:
 
         Mirrors filter_model's pipeline exactly so passed == len(filter_all_models(models)).
         """
-        enriched = cls.apply_volcengine_synth(
-            cls.apply_deepseek_synth(
-                cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+        enriched = cls.apply_anthropic_synth(
+            cls.apply_volcengine_synth(
+                cls.apply_deepseek_synth(
+                    cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+                )
             )
         )
         total = len(enriched)
