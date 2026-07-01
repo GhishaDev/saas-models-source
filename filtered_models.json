@@ -1571,6 +1571,175 @@
         "web_search_billing_unit": "per_query"
       }
     },
+    "gpt-4o": {
+      "model_key": "gpt-4o",
+      "provider": "openai",
+      "type": "language",
+      "friendly_name": "GPT-4o",
+      "is_default_available": true,
+      "input_cost_per_token": 2.5e-06,
+      "output_cost_per_token": 1e-05,
+      "cache_read_input_token_cost": 1.25e-06,
+      "max_input_tokens": 128000,
+      "max_output_tokens": 16384,
+      "supports_vision": true,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "cache_read_input_token_cost": 1.25e-06,
+        "cache_read_input_token_cost_priority": 2.125e-06,
+        "input_cost_per_token": 2.5e-06,
+        "input_cost_per_token_batches": 1.25e-06,
+        "input_cost_per_token_priority": 4.25e-06,
+        "litellm_provider": "openai",
+        "max_input_tokens": 128000,
+        "max_output_tokens": 16384,
+        "max_tokens": 16384,
+        "mode": "chat",
+        "output_cost_per_token": 1e-05,
+        "output_cost_per_token_batches": 5e-06,
+        "output_cost_per_token_priority": 1.7e-05,
+        "supports_function_calling": true,
+        "supports_parallel_function_calling": true,
+        "supports_pdf_input": true,
+        "supports_prompt_caching": true,
+        "supports_response_schema": true,
+        "supports_system_messages": true,
+        "supports_tool_choice": true,
+        "supports_vision": true
+      }
+    },
+    "gpt-4o-mini": {
+      "model_key": "gpt-4o-mini",
+      "provider": "openai",
+      "type": "language",
+      "friendly_name": "GPT-4o Mini",
+      "is_default_available": true,
+      "input_cost_per_token": 1.5e-07,
+      "output_cost_per_token": 6e-07,
+      "cache_read_input_token_cost": 7.5e-08,
+      "max_input_tokens": 128000,
+      "max_output_tokens": 16384,
+      "supports_vision": true,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "cache_read_input_token_cost": 7.5e-08,
+        "cache_read_input_token_cost_priority": 1.25e-07,
+        "input_cost_per_token": 1.5e-07,
+        "input_cost_per_token_batches": 7.5e-08,
+        "input_cost_per_token_priority": 2.5e-07,
+        "litellm_provider": "openai",
+        "max_input_tokens": 128000,
+        "max_output_tokens": 16384,
+        "max_tokens": 16384,
+        "mode": "chat",
+        "output_cost_per_token": 6e-07,
+        "output_cost_per_token_batches": 3e-07,
+        "output_cost_per_token_priority": 1e-06,
+        "supports_function_calling": true,
+        "supports_parallel_function_calling": true,
+        "supports_pdf_input": true,
+        "supports_prompt_caching": true,
+        "supports_response_schema": true,
+        "supports_system_messages": true,
+        "supports_tool_choice": true,
+        "supports_vision": true
+      }
+    },
+    "gpt-4o-mini-transcribe": {
+      "model_key": "gpt-4o-mini-transcribe",
+      "provider": "openai",
+      "type": "audio",
+      "friendly_name": "GPT-4o Mini Transcribe",
+      "is_default_available": true,
+      "input_cost_per_token": 1.25e-06,
+      "output_cost_per_token": 5e-06,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": 16000,
+      "max_output_tokens": 2000,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "input_cost_per_audio_token": 1.25e-06,
+        "input_cost_per_token": 1.25e-06,
+        "litellm_provider": "openai",
+        "max_input_tokens": 16000,
+        "max_output_tokens": 2000,
+        "mode": "audio_transcription",
+        "output_cost_per_token": 5e-06,
+        "supported_endpoints": [
+          "/v1/audio/transcriptions"
+        ]
+      }
+    },
+    "gpt-4o-mini-tts": {
+      "model_key": "gpt-4o-mini-tts",
+      "provider": "openai",
+      "type": "audio",
+      "friendly_name": "GPT-4o Mini TTS",
+      "is_default_available": true,
+      "input_cost_per_token": 2.5e-06,
+      "output_cost_per_token": 1e-05,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "input_cost_per_token": 2.5e-06,
+        "litellm_provider": "openai",
+        "mode": "audio_speech",
+        "output_cost_per_audio_token": 1.2e-05,
+        "output_cost_per_second": 0.00025,
+        "output_cost_per_token": 1e-05,
+        "supported_endpoints": [
+          "/v1/audio/speech"
+        ],
+        "supported_modalities": [
+          "text",
+          "audio"
+        ],
+        "supported_output_modalities": [
+          "audio"
+        ]
+      }
+    },
+    "gpt-4o-realtime-preview-2024-12-17": {
+      "model_key": "gpt-4o-realtime-preview-2024-12-17",
+      "provider": "openai",
+      "type": "language",
+      "friendly_name": "GPT-4o Realtime Preview 2024 12 17",
+      "is_default_available": true,
+      "input_cost_per_token": 5e-06,
+      "output_cost_per_token": 2e-05,
+      "cache_read_input_token_cost": 2.5e-06,
+      "max_input_tokens": 128000,
+      "max_output_tokens": 4096,
+      "supports_vision": false,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "cache_read_input_token_cost": 2.5e-06,
+        "input_cost_per_audio_token": 4e-05,
+        "input_cost_per_token": 5e-06,
+        "litellm_provider": "openai",
+        "max_input_tokens": 128000,
+        "max_output_tokens": 4096,
+        "max_tokens": 4096,
+        "mode": "chat",
+        "output_cost_per_audio_token": 8e-05,
+        "output_cost_per_token": 2e-05,
+        "supports_audio_input": true,
+        "supports_audio_output": true,
+        "supports_function_calling": true,
+        "supports_parallel_function_calling": true,
+        "supports_system_messages": true,
+        "supports_tool_choice": true
+      }
+    },
     "gpt-image-1.5": {
       "model_key": "gpt-image-1.5",
       "provider": "openai",
@@ -2418,6 +2587,53 @@
         ]
       }
     },
+    "gpt-realtime": {
+      "model_key": "gpt-realtime",
+      "provider": "openai",
+      "type": "language",
+      "friendly_name": "GPT Realtime",
+      "is_default_available": true,
+      "input_cost_per_token": 4e-06,
+      "output_cost_per_token": 1.6e-05,
+      "cache_read_input_token_cost": 4e-07,
+      "max_input_tokens": 32000,
+      "max_output_tokens": 4096,
+      "supports_vision": false,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "cache_creation_input_audio_token_cost": 4e-07,
+        "cache_read_input_token_cost": 4e-07,
+        "input_cost_per_audio_token": 3.2e-05,
+        "input_cost_per_image": 5e-06,
+        "input_cost_per_token": 4e-06,
+        "litellm_provider": "openai",
+        "max_input_tokens": 32000,
+        "max_output_tokens": 4096,
+        "max_tokens": 4096,
+        "mode": "chat",
+        "output_cost_per_audio_token": 6.4e-05,
+        "output_cost_per_token": 1.6e-05,
+        "supported_endpoints": [
+          "/v1/realtime"
+        ],
+        "supported_modalities": [
+          "text",
+          "image",
+          "audio"
+        ],
+        "supported_output_modalities": [
+          "text",
+          "audio"
+        ],
+        "supports_audio_input": true,
+        "supports_audio_output": true,
+        "supports_function_calling": true,
+        "supports_parallel_function_calling": true,
+        "supports_system_messages": true,
+        "supports_tool_choice": true
+      }
+    },
     "o3": {
       "model_key": "o3",
       "provider": "openai",
@@ -2593,6 +2809,30 @@
         "output_cost_per_token": 0.0,
         "output_cost_per_token_batches": 0.0,
         "output_vector_size": 1536
+      }
+    },
+    "whisper-1": {
+      "model_key": "whisper-1",
+      "provider": "openai",
+      "type": "audio",
+      "friendly_name": "Whisper 1",
+      "is_default_available": true,
+      "input_cost_per_token": null,
+      "output_cost_per_token": null,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "input_cost_per_second": 0.0001,
+        "litellm_provider": "openai",
+        "mode": "audio_transcription",
+        "output_cost_per_second": 0.0001,
+        "supported_endpoints": [
+          "/v1/audio/transcriptions"
+        ]
       }
     },
     "zai/glm-5": {

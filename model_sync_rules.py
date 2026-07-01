@@ -512,7 +512,14 @@ class ModelSyncRules:
     }
 
     # Supported model modes
-    SUPPORTED_MODES = ["chat", "embedding", "image_generation", "video_generation"]
+    SUPPORTED_MODES = [
+        "chat",
+        "embedding",
+        "image_generation",
+        "video_generation",
+        "audio_speech",
+        "audio_transcription",
+    ]
 
     # Mode to model type mapping
     MODE_MAPPING = {
@@ -528,14 +535,21 @@ class ModelSyncRules:
     # Provider-specific exclusion rules
     PROVIDER_EXCLUSION_RULES: dict[str, dict[str, Any]] = {
         "openai": {
-            # Exclude gpt-4 series (including gpt-4o, gpt-4o-mini)
-            # Exclude o1 series (keep o3, o4 series)
-            # Exclude gpt-*-chat without -latest suffix (keep gpt-*-chat-latest)
-            # Exclude ada embedding models (keep text-embedding-*-large/small only)
-            # Exclude search-api models
-            # Image: keep gpt-image-* only; exclude dall-e-* and chatgpt-image-*
+            # Exclude legacy GPT-4 (gpt-4, gpt-4-turbo, gpt-4-32k, gpt-4-YYYY-MM-DD)
+            # but *keep* the GPT-4o family (gpt-4o, gpt-4o-mini, gpt-4o-realtime-*,
+            # gpt-4o-mini-transcribe, gpt-4o-mini-tts, etc.) — filtered per-SKU
+            # via INCLUDE_PATTERNS + global excludes.
+            # Exclude o1 series (keep o3, o4 series).
+            # Exclude gpt-*-chat without -latest suffix (keep gpt-*-chat-latest).
+            # Exclude ada embedding models (keep text-embedding-*-large/small only).
+            # Exclude search-api models.
+            # Image: keep gpt-image-* only; exclude dall-e-* and chatgpt-image-*.
             "patterns": [
-                re.compile(r"^gpt-4", re.IGNORECASE),
+                # Exclude legacy GPT-4 (gpt-4, gpt-4-turbo, gpt-4-32k,
+                # gpt-4-YYYY-MM-DD, and the gpt-4.1 minor lineage) — but
+                # deliberately do NOT match the "4o" family (gpt-4o, gpt-4o-*),
+                # which is filtered per-SKU via INCLUDE_PATTERNS + global excludes.
+                re.compile(r"^gpt-4(?:$|-turbo|-32k|-\d|\.)", re.IGNORECASE),
                 re.compile(r"^o1", re.IGNORECASE),
                 re.compile(r"^gpt-.*-chat$", re.IGNORECASE),
                 re.compile(r"^text-embedding-ada", re.IGNORECASE),
@@ -544,7 +558,7 @@ class ModelSyncRules:
                 re.compile(r"^chatgpt-image", re.IGNORECASE),
             ],
             "custom_check": None,
-            "description": "Exclude gpt-4, o1, gpt-*-chat w/o -latest, ada, search-api, dall-e, chatgpt-image",
+            "description": "Exclude legacy gpt-4 (not 4o family), o1, gpt-*-chat w/o -latest, ada, search-api, dall-e, chatgpt-image",
         },
         "anthropic": {
             # Only allow models starting with 'claude-'
@@ -636,6 +650,12 @@ class ModelSyncRules:
         "gpt-4",
         "gpt-4-32k",
         "gpt-4-turbo",
+        # OpenAI audio-transcription variants not in the approved whitelist.
+        # (gpt-4o-mini-transcribe is the sanctioned SKU; the full-fat and
+        # diarize variants are intentionally kept out — narrow product scope,
+        # not a bug.)
+        "gpt-4o-transcribe",
+        "gpt-4o-transcribe-diarize",
         # Note: gpt-audio-* and gpt-realtime-* are excluded via EXCLUDE_PATTERNS
         # Gemini non-standard models
         "gemini/gemini-gemma-2-27b-it",
@@ -670,9 +690,22 @@ class ModelSyncRules:
     _CORE_CLAUDE_VARIANTS = frozenset({"opus", "sonnet", "haiku"})
 
     # Include patterns (exceptions to exclude rules)
+    # NOTE: INCLUDE_PATTERNS shortcuts every rule *after* PROVIDER_EXCLUSION_RULES
+    # (date_pattern, EXCLUDE_PATTERNS, EXCLUDE_MODEL_KEYS). It does NOT override
+    # provider-level exclusions — those must be narrowed at their own site.
     INCLUDE_PATTERNS: list[re.Pattern] = [
         re.compile(r"^gpt-.*-chat-latest$", re.IGNORECASE),  # Allow gpt-*-chat-latest despite -latest rule
         re.compile(r"^gemini/gemini-[3-9].*-preview$", re.IGNORECASE),  # Allow Gemini 3.x+ preview models
+        # OpenAI audio / realtime allow-list (exact match). Needed to
+        # bypass -preview- / date_pattern / ^gpt-realtime global excludes
+        # on the dated realtime preview and gpt-realtime bare key.
+        re.compile(r"^gpt-4o$", re.IGNORECASE),
+        re.compile(r"^gpt-4o-mini$", re.IGNORECASE),
+        re.compile(r"^gpt-realtime$", re.IGNORECASE),
+        re.compile(r"^gpt-4o-realtime-preview-2024-12-17$", re.IGNORECASE),
+        re.compile(r"^gpt-4o-mini-transcribe$", re.IGNORECASE),
+        re.compile(r"^gpt-4o-mini-tts$", re.IGNORECASE),
+        re.compile(r"^whisper-1$", re.IGNORECASE),
     ]
 
     # Data source URL
@@ -837,6 +870,23 @@ class ModelSyncRules:
             "output_cost_per_token_4k",
             "output_cost_per_token_4k_with_input_video",
         ),
+        # Audio speech (TTS): billed on text input + audio output. Different
+        # families bill differently — gpt-4o-*-tts uses per-token + per-audio-
+        # token, tts-1 uses per-second. Any one non-zero field means priced.
+        "audio_speech": (
+            "input_cost_per_token",
+            "output_cost_per_token",
+            "output_cost_per_audio_token",
+            "output_cost_per_second",
+        ),
+        # Audio transcription (ASR): billed on audio input. whisper-1 uses
+        # per-second, gpt-4o-*-transcribe uses per-token + per-audio-token
+        # (with a text output cost too). Any one non-zero field means priced.
+        "audio_transcription": (
+            "input_cost_per_second",
+            "input_cost_per_audio_token",
+            "input_cost_per_token",
+        ),
     }
 
     @classmethod
@@ -858,6 +908,15 @@ class ModelSyncRules:
         # is considered priced if any one resolution-tier field is set.
         if mode == "video_generation":
             for field in cls.PRICE_FIELDS_BY_MODE["video_generation"]:
+                value = model_data.get(field)
+                if value is not None and value > 0:
+                    return False
+            return True
+
+        # Audio speech / transcription: schema-heterogeneous (per-second vs
+        # per-token vs per-audio-token). Any one non-zero field is enough.
+        if mode in ("audio_speech", "audio_transcription"):
+            for field in cls.PRICE_FIELDS_BY_MODE.get(mode, ()):
                 value = model_data.get(field)
                 if value is not None and value > 0:
                     return False
@@ -970,8 +1029,23 @@ class ModelSyncRules:
             # GPT series: gpt-5-mini → GPT-5 Mini
             if key.startswith("gpt-"):
                 parts = key.replace("gpt-", "").split("-")
-                version = parts[0].upper()  # 5, 4.1, etc.
-                suffix = " ".join(w.capitalize() for w in parts[1:])
+                head = parts[0]
+                # str.title() mangles branded abbreviations (Tts → TTS); patch here.
+                overrides = {"tts": "TTS", "asr": "ASR"}
+                fmt = lambda w: overrides.get(w.lower(), w.capitalize())
+                # Non-numeric head (e.g. gpt-realtime, gpt-audio) → "GPT Realtime"
+                # (space, no dash — OpenAI's brand style for named products).
+                if not re.match(r"^\d", head):
+                    return "GPT " + " ".join(fmt(w) for w in parts)
+                # Numeric head with the branded "4o" lowercase-o family:
+                # keep the "o" lowercase per OpenAI's official spelling
+                # (GPT-4o, GPT-4o Mini). Guarded by a strict \d+o$ match so
+                # generic versions (5, 5.5, 4.1) still uppercase normally.
+                if re.match(r"^\d+o$", head, re.IGNORECASE):
+                    version = head.lower()
+                else:
+                    version = head.upper()
+                suffix = " ".join(fmt(w) for w in parts[1:])
                 return f"GPT-{version} {suffix}" if suffix else f"GPT-{version}"
 
             # Fallback

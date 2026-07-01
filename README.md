@@ -7,7 +7,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 ## Features
 
 - **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, and Volcengine (ByteDance Ark — Doubao Seedance video)
-- **Multi-Modal Support**: Chat (language), embedding, image generation, and video generation models
+- **Multi-Modal Support**: Chat (language), embedding, image generation, video generation, and audio (speech / transcription) models
 - **Smart Filtering Rules**: Comprehensive exclusion rules for deprecated, preview, and versioned models
 - **Mode-Aware Price Validation**: Validates pricing using mode-specific fields (per-token, per-image-token, per-image)
 - **Flexible Output**: JSON export ready for database synchronization
@@ -15,7 +15,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Supported Providers
 
-- **OpenAI**: GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series
+- **OpenAI**: GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series, plus a curated audio / realtime allow-list (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash Lite, Pro), Gemini embedding 2, `gemini-*-image*` series
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1 family + vision/OCR variants), priced in USD
@@ -31,6 +31,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 | `embedding` | `embedding` | `text-embedding-3-large`, `gemini/gemini-embedding-2` |
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
 | `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `volcengine/doubao-seedance-2-0-fast`, `volcengine/doubao-seedance-2-0-mini` |
+| `audio` | `audio_speech`, `audio_transcription` | `gpt-4o-mini-tts` (TTS), `gpt-4o-mini-transcribe` / `whisper-1` (ASR) |
 
 ## Installation
 
@@ -77,9 +78,15 @@ python filter_models.py --url https://custom-source.com/models.json
 
 #### OpenAI
 - ✅ Include: GPT-5 series, o3/o4 series, text-embedding-3-*, `gpt-image-*` series
-- ❌ Exclude: GPT-4 series, o1 series, ada embedding models
+- ✅ Include (audio / realtime allow-list, exact match via `INCLUDE_PATTERNS`): `gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `whisper-1`
+- ✅ Supports **audio_speech** (TTS) and **audio_transcription** (ASR) modes — `PRICE_FIELDS_BY_MODE` accepts either per-token or per-second billing (whisper-1 uses `input_cost_per_second`; gpt-4o-*-transcribe/tts use `input_cost_per_token` + `output_cost_per_audio_token`)
+- ❌ Exclude: GPT-4 legacy (`gpt-4`, `gpt-4-turbo`, `gpt-4-32k`, `gpt-4-YYYY-MM-DD`) — narrowed to preserve the GPT-4o family
+- ❌ Exclude: GPT-4.1 minor lineage (`gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`) — reserved for future explicit whitelisting
+- ❌ Exclude: o1 series, ada embedding models
 - ❌ Exclude: `dall-e-*`, `chatgpt-image-*` (legacy image models)
+- ❌ Exclude: `gpt-4o-transcribe` / `gpt-4o-transcribe-diarize` (via `EXCLUDE_MODEL_KEYS`) — outside the audio allow-list
 - ❌ Exclude: Models with `openai/` prefix, search-api variants
+- ✅ Friendly name: `GPT-4o` and `GPT-4o Mini` keep the lowercase branded `o`; `GPT Realtime` uses a spaced form (no version number); segment overrides upcase `TTS` / `ASR` abbreviations
 
 #### Anthropic
 - ✅ Include: Claude 4.5+ variants (Haiku, Sonnet, Opus), plus Claude 5 (Sonnet), plus special-name flagships (`claude-fable-5`, etc.)
@@ -383,6 +390,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.13.0 (2026-07-01)
+- Add curated OpenAI **audio / realtime allow-list** (7 SKUs): `gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `whisper-1`
+- New model type **`audio`** covering two modes:
+  - `audio_speech` (TTS) — validates `input_cost_per_token` / `output_cost_per_token` / `output_cost_per_audio_token` / `output_cost_per_second`
+  - `audio_transcription` (ASR) — validates `input_cost_per_second` / `input_cost_per_audio_token` / `input_cost_per_token` (whisper-1 is per-second only; gpt-4o-*-transcribe uses token fields)
+- Narrow `PROVIDER_EXCLUSION_RULES["openai"]` `^gpt-4` pattern to `^gpt-4($|-turbo|-32k|-\d|\.)` so the GPT-4o family passes provider filter; legacy `gpt-4 / gpt-4-turbo / gpt-4-32k / gpt-4-YYYY-MM-DD` and the `gpt-4.1` minor lineage stay excluded
+- Extend `INCLUDE_PATTERNS` with exact-match entries for the 7 SKUs — needed to bypass `-preview-` / `date_pattern` / `^gpt-realtime` global excludes on the dated realtime preview and the `gpt-realtime` bare key
+- Explicit `EXCLUDE_MODEL_KEYS` entries for `gpt-4o-transcribe` / `gpt-4o-transcribe-diarize` (upstream audio-transcription SKUs outside the sanctioned whitelist)
+- `format_model_name` OpenAI branch: `\d+o$` heads (e.g. `4o`) keep lowercase `o` per OpenAI brand (`GPT-4o`, `GPT-4o Mini`); non-numeric heads (`gpt-realtime`) render as `GPT Realtime` (space, no dash); `tts` / `asr` segment overrides upcase the branded abbreviations
 
 ### v1.12.0 (2026-07-01)
 - Support **Claude Sonnet 5** (`claude-sonnet-5`, 1M context / 128K max output) — auto-flows through the existing Anthropic whitelist; no rule changes needed
