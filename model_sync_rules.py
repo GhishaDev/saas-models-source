@@ -519,6 +519,7 @@ class ModelSyncRules:
         "video_generation",
         "audio_speech",
         "audio_transcription",
+        "responses",
     ]
 
     # Mode to model type mapping
@@ -530,6 +531,9 @@ class ModelSyncRules:
         "video_generation": "video",
         "audio_transcription": "audio",
         "audio_speech": "audio",
+        # OpenAI's /v1/responses endpoint (codex family, gpt-*-pro, deep-research)
+        # is still an LLM interaction. Downstream schema treats it as language.
+        "responses": "language",
     }
 
     # Provider-specific exclusion rules
@@ -546,10 +550,10 @@ class ModelSyncRules:
             # Image: keep gpt-image-* only; exclude dall-e-* and chatgpt-image-*.
             "patterns": [
                 # Exclude legacy GPT-4 (gpt-4, gpt-4-turbo, gpt-4-32k,
-                # gpt-4-YYYY-MM-DD, and the gpt-4.1 minor lineage) — but
-                # deliberately do NOT match the "4o" family (gpt-4o, gpt-4o-*),
-                # which is filtered per-SKU via INCLUDE_PATTERNS + global excludes.
-                re.compile(r"^gpt-4(?:$|-turbo|-32k|-\d|\.)", re.IGNORECASE),
+                # gpt-4-YYYY-MM-DD) — but keep the "4o" family (gpt-4o, gpt-4o-*)
+                # AND the "4.x" lineage (gpt-4.1{,-mini,-nano}). Both are filtered
+                # downstream via INCLUDE_PATTERNS + global excludes / date_pattern.
+                re.compile(r"^gpt-4(?:$|-turbo|-32k|-\d)", re.IGNORECASE),
                 re.compile(r"^o1", re.IGNORECASE),
                 re.compile(r"^gpt-.*-chat$", re.IGNORECASE),
                 re.compile(r"^text-embedding-ada", re.IGNORECASE),
@@ -656,6 +660,22 @@ class ModelSyncRules:
         # not a bug.)
         "gpt-4o-transcribe",
         "gpt-4o-transcribe-diarize",
+        # OpenAI responses-mode variants outside the approved whitelist.
+        # (gpt-5.3-codex is the sanctioned responses SKU; the wider codex /
+        # pro / deep-research families are intentionally kept out — same
+        # narrow-scope policy as audio.)
+        "gpt-5-codex",
+        "gpt-5-pro",
+        "gpt-5.1-codex",
+        "gpt-5.1-codex-max",
+        "gpt-5.1-codex-mini",
+        "gpt-5.2-codex",
+        "gpt-5.2-pro",
+        "gpt-5.4-pro",
+        "gpt-5.5-pro",
+        "o3-deep-research",
+        "o3-pro",
+        "o4-mini-deep-research",
         # Note: gpt-audio-* and gpt-realtime-* are excluded via EXCLUDE_PATTERNS
         # Gemini non-standard models
         "gemini/gemini-gemma-2-27b-it",

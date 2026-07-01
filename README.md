@@ -80,11 +80,14 @@ python filter_models.py --url https://custom-source.com/models.json
 - ✅ Include: GPT-5 series, o3/o4 series, text-embedding-3-*, `gpt-image-*` series
 - ✅ Include (audio / realtime allow-list, exact match via `INCLUDE_PATTERNS`): `gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `whisper-1`
 - ✅ Supports **audio_speech** (TTS) and **audio_transcription** (ASR) modes — `PRICE_FIELDS_BY_MODE` accepts either per-token or per-second billing (whisper-1 uses `input_cost_per_second`; gpt-4o-*-transcribe/tts use `input_cost_per_token` + `output_cost_per_audio_token`)
-- ❌ Exclude: GPT-4 legacy (`gpt-4`, `gpt-4-turbo`, `gpt-4-32k`, `gpt-4-YYYY-MM-DD`) — narrowed to preserve the GPT-4o family
-- ❌ Exclude: GPT-4.1 minor lineage (`gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`) — reserved for future explicit whitelisting
+- ✅ Include GPT-4.1 lineage: `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano` (passes narrowed `^gpt-4` pattern)
+- ✅ Supports `responses` mode (OpenAI's `/v1/responses` endpoint — used by codex, gpt-*-pro, deep-research families). `MODE_MAPPING["responses"] = "language"`. Only `gpt-5.3-codex` is whitelisted; wider codex / pro / deep-research variants stay excluded (see below)
+- ❌ Exclude: GPT-4 legacy (`gpt-4`, `gpt-4-turbo`, `gpt-4-32k`, `gpt-4-YYYY-MM-DD`) — narrowed pattern preserves GPT-4o and 4.1 families
 - ❌ Exclude: o1 series, ada embedding models
 - ❌ Exclude: `dall-e-*`, `chatgpt-image-*` (legacy image models)
-- ❌ Exclude: `gpt-4o-transcribe` / `gpt-4o-transcribe-diarize` (via `EXCLUDE_MODEL_KEYS`) — outside the audio allow-list
+- ❌ Exclude via `EXCLUDE_MODEL_KEYS` (outside sanctioned allow-lists):
+  - audio: `gpt-4o-transcribe`, `gpt-4o-transcribe-diarize`
+  - responses: `gpt-5-codex`, `gpt-5-pro`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.2-codex`, `gpt-5.2-pro`, `gpt-5.4-pro`, `gpt-5.5-pro`, `o3-deep-research`, `o3-pro`, `o4-mini-deep-research`
 - ❌ Exclude: Models with `openai/` prefix, search-api variants
 - ✅ Friendly name: `GPT-4o` and `GPT-4o Mini` keep the lowercase branded `o`; `GPT Realtime` uses a spaced form (no version number); segment overrides upcase `TTS` / `ASR` abbreviations
 
@@ -390,6 +393,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.14.0 (2026-07-01)
+- Support **GPT-4.1 lineage** (`gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`) — un-narrow `^gpt-4` pattern back to `^gpt-4($|-turbo|-32k|-\d)` (drops the `|\.` clause added in v1.13.0)
+- Add **`responses` mode** to `SUPPORTED_MODES` and `MODE_MAPPING["responses"] = "language"` (OpenAI `/v1/responses` endpoint — codex / pro / deep-research families)
+- Support **`gpt-5.3-codex`** (`responses` mode); render friendly name as `GPT-5.3 Codex`
+- Extend `EXCLUDE_MODEL_KEYS` with the 12 responses-mode SKUs outside the sanctioned allow-list: `gpt-5-codex`, `gpt-5-pro`, `gpt-5.1-codex{,-max,-mini}`, `gpt-5.2-{codex,pro}`, `gpt-5.4-pro`, `gpt-5.5-pro`, `o3-deep-research`, `o3-pro`, `o4-mini-deep-research`
+- Net effect: openai/language 20 → 24 (+3 GPT-4.1 + 1 GPT-5.3 Codex); zero unintended `responses` leaks
 
 ### v1.13.0 (2026-07-01)
 - Add curated OpenAI **audio / realtime allow-list** (7 SKUs): `gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `whisper-1`
