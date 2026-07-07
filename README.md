@@ -6,7 +6,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Features
 
-- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, and Volcengine (ByteDance Ark — Doubao Seedance video)
+- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, Volcengine (ByteDance Ark — Doubao Seedance video), and new-api (aggregator mirror)
 - **Multi-Modal Support**: Chat (language), embedding, image generation, video generation, and audio (speech / transcription) models
 - **Smart Filtering Rules**: Comprehensive exclusion rules for deprecated, preview, and versioned models
 - **Mode-Aware Price Validation**: Validates pricing using mode-specific fields (per-token, per-image-token, per-image)
@@ -22,6 +22,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (11 SKUs: GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output)
 - **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (6 entries: standard / Fast / Mini × dated + alias). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
+- **new-api (aggregator gateway)**: Reverse-whitelist mirror provider. Every `new-api/<sku>` is a full copy of an already-populated `<vendor>/<sku>` record with only `litellm_provider` re-labelled. Seedance is the first family mirrored (6 SKUs from `volcengine/doubao-seedance-*`); extending to more vendors is a two-line change (whitelist entry + `NEWAPI_MIRROR_SOURCES` mapping)
 
 ## Supported Model Types
 
@@ -30,7 +31,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 | `language` | `chat` | `claude-opus-4-7`, `gpt-5.5`, `gemini/gemini-3-pro-preview`, `zai/glm-5`, `bigmodel/glm-5`, `deepseek/deepseek-v4-flash` |
 | `embedding` | `embedding` | `text-embedding-3-large`, `gemini/gemini-embedding-2` |
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
-| `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `volcengine/doubao-seedance-2-0-fast`, `volcengine/doubao-seedance-2-0-mini` |
+| `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `volcengine/doubao-seedance-2-0-fast`, `new-api/doubao-seedance-2-0-mini` |
 | `audio` | `audio_speech`, `audio_transcription` | `gpt-4o-mini-tts` (TTS), `gpt-4o-mini-transcribe` / `whisper-1` (ASR) |
 
 ## Installation
@@ -143,7 +144,16 @@ python filter_models.py --url https://custom-source.com/models.json
 
 > **`supports_vision` semantics for video SKUs.** All Seedance entries report `supports_vision: false`. The field means **"can analyze image content to answer questions"** (a chat-vision capability), not "accepts an image as a generation reference". Image-to-video is supported (and priced via the separate `output_cost_per_token_with_input_video` tier in `raw_data`) — UIs that gate the "upload reference image" affordance on `supports_vision` will under-expose Seedance and should branch on `type == "video"` instead.
 
-> **What about new-api?** `volcengine_new_api` is **not** a separate provider here. It is a LiteLLM **routing-layer** label ("this deployment speaks new-api's relay protocol") used only when configuring a Volcengine deployment that sits behind a new-api gateway. The model catalogue keeps a single `volcengine/doubao-seedance-*` entry; deployments behind either the direct Volcengine API or a new-api relay both reference that same `model_key`.
+> **`volcengine_new_api` vs the `new-api/` mirror provider.** These are two distinct concepts. `volcengine_new_api` is a LiteLLM **routing-layer** label used inside a deployment's config to indicate "this Volcengine deployment sits behind a new-api relay" — it does not appear in the catalogue. Separately, the `new-api/*` prefix in this catalogue is a **catalogue-layer mirror provider**: a copy of vendor SKUs re-namespaced onto a `new-api/` prefix so consumers routing through new-api can address them by their aggregator-side names. See the `#### new-api` section for the mirror mechanic.
+
+#### new-api (aggregator mirror provider)
+- ✅ Include: only keys listed in `ModelSyncRules.NEWAPI_ALLOWED_KEYS` (reverse whitelist, 6 SKUs today — all Seedance)
+- ✅ **Source of truth: `NEWAPI_MIRROR_SOURCES`** maps each `new-api/<sku>` to its authoritative source key (currently `volcengine/doubao-seedance-*`). `apply_newapi_synth` runs *after* every other vendor synth so those sources are already populated; each new-api entry is a full copy of its source's raw record with only `litellm_provider` re-labelled to `"new-api"`
+- ✅ Prices, context, capabilities, and modes stay in **lock-step** with the source — Volcengine tariff change → new-api mirror updates on the next sync, no manual work
+- ✅ Missing sources fail silently (the mirror is skipped, its whitelist entry then drops via unsupported-provider / zero-price) — surfaces gaps instead of exporting stale duplicates
+- ✅ Adding a new mirrored SKU is a two-line change: append `new-api/<sku>` to `NEWAPI_ALLOWED_KEYS` and add a `NEWAPI_MIRROR_SOURCES[...]` mapping row
+- ❌ Exclude: any `new-api/<sku>` without a matching whitelist entry
+- ❌ Exclude: `new-api/<sku>` whose source key isn't present in the merged catalogue after all other synths run
 
 #### DeepSeek
 - ✅ Include: only keys listed in `ModelSyncRules.DEEPSEEK_ALLOWED_KEYS` (reverse whitelist, 2 SKUs)
@@ -393,6 +403,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.15.0 (2026-07-07)
+- Add **new-api** as the eighth supported provider — an **aggregator mirror**: `new-api/<sku>` entries are full copies of authoritative `<vendor>/<sku>` records with only `litellm_provider` re-labelled
+- `NEWAPI_ALLOWED_KEYS` reverse-whitelists the first 6 mirrored SKUs — the full Seedance 2.0 set (standard / Fast / Mini × {dated official ID, date-less alias}), sourced from `volcengine/doubao-seedance-*`
+- `NEWAPI_MIRROR_SOURCES` declares the source key for each mirror. `apply_newapi_synth` runs at the **head** of the synth chain (after every other vendor synth) so sources are already populated when it runs
+- No duplicated tariff bookkeeping — Volcengine price changes propagate to new-api automatically on the next sync
+- `format_model_name` unified branch: `volcengine/*` and `new-api/*` both format as `Seedance 2.0` / `Seedance 2.0 Fast` / `Seedance 2.0 Mini` (dated `-YYMMDD` stripped)
+- Distinguishes the catalogue-layer `new-api/` mirror provider from the LiteLLM routing-layer `volcengine_new_api` label (see README's `#### Volcengine` section closing note)
 
 ### v1.14.0 (2026-07-01)
 - Support **GPT-4.1 lineage** (`gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`) — un-narrow `^gpt-4` pattern back to `^gpt-4($|-turbo|-32k|-\d)` (drops the `|\.` clause added in v1.13.0)

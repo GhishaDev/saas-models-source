@@ -24,6 +24,7 @@ class ModelSyncRules:
         "bigmodel",
         "deepseek",
         "volcengine",
+        "new-api",
     ]
 
     # Provider name mapping (lowercase for DB consistency)
@@ -35,6 +36,7 @@ class ModelSyncRules:
         "bigmodel": "bigmodel",
         "deepseek": "deepseek",
         "volcengine": "volcengine",
+        "new-api": "new-api",
     }
 
     # zai/glm whitelist — only these keys are allowed through provider filter.
@@ -474,6 +476,41 @@ class ModelSyncRules:
         },
     }
 
+    # ── new-api (aggregator gateway) ──────────────────────────────────────
+    # new-api is a routing-layer aggregator: it exposes third-party models
+    # under a unified surface. As a *provider* here it acts as a mirror
+    # library — every new-api/<sku> entry is a duplicate of some already-
+    # populated <vendor>/<sku> record, kept on a separate provider namespace
+    # so downstream consumers can pick the gateway they call.
+    #
+    # Prices, context windows, capabilities, and modes are all copied at
+    # synth time via apply_newapi_synth (which runs *after* every other
+    # vendor synth), so the mirrored SKUs stay in lock-step with their
+    # authoritative source without duplicated tariff bookkeeping.
+    #
+    # Extending: add both a new-api/<sku> whitelist entry AND a matching
+    # NEWAPI_MIRROR_SOURCES row pointing at the source key.
+    NEWAPI_ALLOWED_KEYS = frozenset({
+        # Seedance video (mirrors volcengine/doubao-seedance-*)
+        "new-api/doubao-seedance-2-0",
+        "new-api/doubao-seedance-2-0-fast",
+        "new-api/doubao-seedance-2-0-mini",
+        "new-api/doubao-seedance-2-0-260128",
+        "new-api/doubao-seedance-2-0-fast-260128",
+        "new-api/doubao-seedance-2-0-mini-260615",
+    })
+
+    # Map new-api/<sku> → authoritative source key (after all other synths run).
+    # Every whitelisted new-api key MUST appear here; unmapped keys drop out.
+    NEWAPI_MIRROR_SOURCES: dict[str, str] = {
+        "new-api/doubao-seedance-2-0":              "volcengine/doubao-seedance-2-0",
+        "new-api/doubao-seedance-2-0-fast":         "volcengine/doubao-seedance-2-0-fast",
+        "new-api/doubao-seedance-2-0-mini":         "volcengine/doubao-seedance-2-0-mini",
+        "new-api/doubao-seedance-2-0-260128":       "volcengine/doubao-seedance-2-0-260128",
+        "new-api/doubao-seedance-2-0-fast-260128":  "volcengine/doubao-seedance-2-0-fast-260128",
+        "new-api/doubao-seedance-2-0-mini-260615":  "volcengine/doubao-seedance-2-0-mini-260615",
+    }
+
     # DeepSeek overlays. Source: api-docs.deepseek.com/quick_start/pricing
     # (snapshot 2026-06-30). LiteLLM upstream carries correct prices and
     # context (1M input), but max_output_tokens is stuck at 8192 — official
@@ -619,6 +656,14 @@ class ModelSyncRules:
             "patterns": [],
             "custom_check": lambda key: key.lower() not in ModelSyncRules.VOLCENGINE_ALLOWED_KEYS,
             "description": "Allow only whitelisted volcengine/doubao-seedance-* keys (see VOLCENGINE_ALLOWED_KEYS)",
+        },
+        "new-api": {
+            # Reverse-whitelist: only NEWAPI_ALLOWED_KEYS pass through.
+            # new-api mirrors third-party SKUs on a separate provider
+            # namespace; see NEWAPI_MIRROR_SOURCES for the source mapping.
+            "patterns": [],
+            "custom_check": lambda key: key.lower() not in ModelSyncRules.NEWAPI_ALLOWED_KEYS,
+            "description": "Allow only whitelisted new-api/* keys (see NEWAPI_ALLOWED_KEYS)",
         },
     }
 
@@ -1084,16 +1129,24 @@ class ModelSyncRules:
                 overrides.get(p.lower(), p.title()) for p in suffix.split("-")
             )
 
-        # Volcengine Seedance video:
+        # Volcengine / new-api Seedance video:
         #   volcengine/doubao-seedance-2-0-260128       → Seedance 2.0
         #   volcengine/doubao-seedance-2-0-fast-260128  → Seedance 2.0 Fast
         #   volcengine/doubao-seedance-2-0-mini-260615  → Seedance 2.0 Mini
         #   volcengine/doubao-seedance-2-0              → Seedance 2.0
+        #   new-api/doubao-seedance-2-0-fast            → Seedance 2.0 Fast
         # Dated suffixes (-260128, -260615) are the official Volcengine
         # model-version stamps (YYMMDD); strip them for the friendly name.
-        if provider == "volcengine" or key.startswith("volcengine/"):
+        # new-api mirrors Volcengine SKUs and reuses the same naming.
+        if (
+            provider in ("volcengine", "new-api")
+            or key.startswith(("volcengine/", "new-api/"))
+        ):
             suffix = re.sub(
-                r"^volcengine/doubao-seedance-", "", key, flags=re.IGNORECASE
+                r"^(?:volcengine|new-api)/doubao-seedance-",
+                "",
+                key,
+                flags=re.IGNORECASE,
             )
             suffix = re.sub(r"-\d{6}$", "", suffix)  # drop -YYMMDD
             parts = suffix.split("-")
@@ -1366,6 +1419,39 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_newapi_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Mirror authoritative <vendor>/<sku> entries onto new-api/<sku>.
+
+        new-api is a routing-layer aggregator; each ``new-api/<sku>`` here
+        is a duplicate of some already-populated source entry. This method
+        MUST run after every other vendor synth so those sources are
+        already in ``models`` (``filter_all_models`` /
+        ``get_filter_stats`` enforce the ordering).
+
+        For each whitelisted ``new-api/<sku>``:
+          1. Look up the source key in ``NEWAPI_MIRROR_SOURCES``.
+          2. Copy the source's raw entry verbatim, then override
+             ``litellm_provider = "new-api"`` so downstream picks the
+             new-api provider.
+          3. If the source is missing, skip — the mirror silently
+             disappears, surfacing the gap via the whitelist's
+             zero-price / unsupported-provider drop instead of exporting
+             stale duplicated data.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, source_key in cls.NEWAPI_MIRROR_SOURCES.items():
+            source = merged.get(source_key)
+            if source is None:
+                continue
+            mirrored = dict(source)
+            mirrored["litellm_provider"] = "new-api"
+            merged[key] = mirrored
+        return merged
+
+    @classmethod
     def filter_all_models(cls, models: dict[str, Any]) -> dict[str, dict[str, Any]]:
         """
         Filter all models and return a dict of valid models.
@@ -1373,10 +1459,12 @@ class ModelSyncRules:
         Returns:
             dict mapping model_key to transformed model data
         """
-        enriched = cls.apply_anthropic_synth(
-            cls.apply_volcengine_synth(
-                cls.apply_deepseek_synth(
-                    cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+        enriched = cls.apply_newapi_synth(
+            cls.apply_anthropic_synth(
+                cls.apply_volcengine_synth(
+                    cls.apply_deepseek_synth(
+                        cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+                    )
                 )
             )
         )
@@ -1396,10 +1484,12 @@ class ModelSyncRules:
 
         Mirrors filter_model's pipeline exactly so passed == len(filter_all_models(models)).
         """
-        enriched = cls.apply_anthropic_synth(
-            cls.apply_volcengine_synth(
-                cls.apply_deepseek_synth(
-                    cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+        enriched = cls.apply_newapi_synth(
+            cls.apply_anthropic_synth(
+                cls.apply_volcengine_synth(
+                    cls.apply_deepseek_synth(
+                        cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+                    )
                 )
             )
         )
