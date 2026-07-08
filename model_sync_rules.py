@@ -8,8 +8,33 @@ https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Callable
+
+
+# Volcengine FX policy (fixed, not live): 1 USD = 7.0 CNY. Mirrors the
+# internal LiteLLM fork's VOLCENGINE_FX_POLICY.md. Change both sides
+# together if the policy rate is repegged.
+_VOLCENGINE_FX_RATE = 7.0
+
+
+def _cny_per_m_to_usd_per_token(cny_per_m: float, sig: int = 4) -> float:
+    """Convert CNY per million tokens → USD per token, rounded to ``sig`` sig figs.
+
+    Volcengine's official Seedance tariff is quoted in integer CNY/M. The
+    raw division produces IEEE-754 float tails (46/7e6 →
+    6.571428571428571e-06) that read as false precision in JSON. Rounding
+    to 4 significant digits keeps the source CNY reversible
+    (round(val * FX * 1e6) recovers the integer CNY value) while shedding
+    the noise. Matches the precision the LiteLLM upstream uses for its
+    own USD prices (3–4 sig figs).
+    """
+    raw = cny_per_m / (_VOLCENGINE_FX_RATE * 1_000_000)
+    if raw == 0:
+        return 0.0
+    digits = sig - int(math.floor(math.log10(abs(raw)))) - 1
+    return round(raw, digits)
 
 
 class ModelSyncRules:
@@ -409,19 +434,21 @@ class ModelSyncRules:
     # and the LiteLLM billing manager always agree on the per-token
     # USD figure they show / charge.
     VOLCENGINE_SYNTH_DATA: dict[str, dict[str, Any]] = {
-        # Seedance 2.0 (standard) — all three resolution tiers active
+        # Seedance 2.0 (standard) — all three resolution tiers active.
+        # Price arg is the source CNY per million tokens; the helper
+        # converts at the fixed 7.0 FX and rounds to 4 sig figs.
         "volcengine/doubao-seedance-2-0-260128": {
             "litellm_provider": "volcengine",
             "mode": "video_generation",
             "max_input_tokens": 1024,
             "max_output_tokens": 1024,
             "source": "https://www.volcengine.com/docs/82379/1544106",
-            "output_cost_per_token": 6.571428571428571e-06,  # 46 CNY/M @ 7.0
-            "output_cost_per_token_with_input_video": 4.0e-06,  # 28 CNY/M
-            "output_cost_per_token_1080p": 7.285714285714286e-06,  # 51 CNY/M
-            "output_cost_per_token_1080p_with_input_video": 4.428571428571429e-06,  # 31 CNY/M
-            "output_cost_per_token_4k": 3.714285714285714e-06,  # 26 CNY/M
-            "output_cost_per_token_4k_with_input_video": 2.285714285714286e-06,  # 16 CNY/M
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(46),
+            "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(28),
+            "output_cost_per_token_1080p": _cny_per_m_to_usd_per_token(51),
+            "output_cost_per_token_1080p_with_input_video": _cny_per_m_to_usd_per_token(31),
+            "output_cost_per_token_4k": _cny_per_m_to_usd_per_token(26),
+            "output_cost_per_token_4k_with_input_video": _cny_per_m_to_usd_per_token(16),
         },
         "volcengine/doubao-seedance-2-0": {
             "litellm_provider": "volcengine",
@@ -429,12 +456,12 @@ class ModelSyncRules:
             "max_input_tokens": 1024,
             "max_output_tokens": 1024,
             "source": "https://www.volcengine.com/docs/82379/1544106",
-            "output_cost_per_token": 6.571428571428571e-06,
-            "output_cost_per_token_with_input_video": 4.0e-06,
-            "output_cost_per_token_1080p": 7.285714285714286e-06,
-            "output_cost_per_token_1080p_with_input_video": 4.428571428571429e-06,
-            "output_cost_per_token_4k": 3.714285714285714e-06,
-            "output_cost_per_token_4k_with_input_video": 2.285714285714286e-06,
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(46),
+            "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(28),
+            "output_cost_per_token_1080p": _cny_per_m_to_usd_per_token(51),
+            "output_cost_per_token_1080p_with_input_video": _cny_per_m_to_usd_per_token(31),
+            "output_cost_per_token_4k": _cny_per_m_to_usd_per_token(26),
+            "output_cost_per_token_4k_with_input_video": _cny_per_m_to_usd_per_token(16),
         },
         # Seedance 2.0 Fast — 720p only
         "volcengine/doubao-seedance-2-0-fast-260128": {
@@ -443,8 +470,8 @@ class ModelSyncRules:
             "max_input_tokens": 1024,
             "max_output_tokens": 1024,
             "source": "https://www.volcengine.com/docs/82379/1544106",
-            "output_cost_per_token": 5.285714285714286e-06,  # 37 CNY/M @ 7.0
-            "output_cost_per_token_with_input_video": 3.142857142857143e-06,  # 22 CNY/M
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(37),
+            "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(22),
         },
         "volcengine/doubao-seedance-2-0-fast": {
             "litellm_provider": "volcengine",
@@ -452,8 +479,8 @@ class ModelSyncRules:
             "max_input_tokens": 1024,
             "max_output_tokens": 1024,
             "source": "https://www.volcengine.com/docs/82379/1544106",
-            "output_cost_per_token": 5.285714285714286e-06,
-            "output_cost_per_token_with_input_video": 3.142857142857143e-06,
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(37),
+            "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(22),
         },
         # Seedance 2.0 Mini — 720p only
         "volcengine/doubao-seedance-2-0-mini-260615": {
@@ -462,8 +489,8 @@ class ModelSyncRules:
             "max_input_tokens": 1024,
             "max_output_tokens": 1024,
             "source": "https://www.volcengine.com/docs/82379/1544106",
-            "output_cost_per_token": 3.285714285714286e-06,  # 23 CNY/M @ 7.0
-            "output_cost_per_token_with_input_video": 2.0e-06,  # 14 CNY/M
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(23),
+            "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(14),
         },
         "volcengine/doubao-seedance-2-0-mini": {
             "litellm_provider": "volcengine",
@@ -471,8 +498,8 @@ class ModelSyncRules:
             "max_input_tokens": 1024,
             "max_output_tokens": 1024,
             "source": "https://www.volcengine.com/docs/82379/1544106",
-            "output_cost_per_token": 3.285714285714286e-06,
-            "output_cost_per_token_with_input_video": 2.0e-06,
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(23),
+            "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(14),
         },
     }
 

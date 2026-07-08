@@ -135,6 +135,7 @@ python filter_models.py --url https://custom-source.com/models.json
 - ✅ Include: only keys listed in `ModelSyncRules.VOLCENGINE_ALLOWED_KEYS` (reverse whitelist, 6 SKUs covering Seedance 2.0 / Fast / Mini × {dated official ID, date-less alias})
 - ✅ **Currency: USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family. Top-level `output_cost_per_token` carries the base 720p / no-input-video tier; resolution-suffixed (`_1080p` / `_4k`) and v2v-suffixed (`_with_input_video`) variants flow through under `raw_data` for tier-aware billing.
 - ✅ The underlying tariff is CNY (Volcengine publishes per-million-token CNY rates tiered by resolution and v2v). USD numbers in this catalogue are produced at a policy rate of **`1 USD = 7.0 CNY`**, mirroring the LiteLLM fork's `VOLCENGINE_FX_POLICY.md`. Refresh both sides together if the FX policy changes.
+- ✅ Prices are rounded to **4 significant digits** via `_cny_per_m_to_usd_per_token()` — matches upstream LiteLLM precision and stays reversible to the source integer CNY value (e.g. `6.571e-06 × 7.0 × 10⁶ ≈ 46 CNY/M`)
 - ✅ `input_cost_per_token` is `null` (Volcengine bills only the output tokens for video, not the text prompt).
 - ✅ `is_default_available = false` for all video SKUs (treated the same as image)
 - ❌ Exclude: any other `volcengine/*` SKU upstream may add (chat, embedding, audio); whitelist is exhaustive
@@ -403,6 +404,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.15.1 (2026-07-08)
+- Trim IEEE-754 float noise on Volcengine (and mirrored new-api) Seedance prices — all `output_cost_per_token[_<res>][_with_input_video]` fields now render as **4 significant digits** (e.g. `6.571e-06`) instead of the 15-digit division tails (`6.571428571428571e-06`)
+- Reintroduce `_cny_per_m_to_usd_per_token(cny_per_m, sig=4)` helper (previously dropped in v1.9.0 when bigmodel switched to mirroring zai); `_VOLCENGINE_FX_RATE = 7.0` module constant makes the FX policy explicit
+- Source CNY tariff values (`46`, `28`, `51`, ...) now visible directly in `VOLCENGINE_SYNTH_DATA` as helper arguments — reversible via `round(usd × 7.0 × 10⁶)`
+- No pricing changes; new-api mirrors automatically inherit the cleaner values
 
 ### v1.15.0 (2026-07-07)
 - Add **new-api** as the eighth supported provider — an **aggregator mirror**: `new-api/<sku>` entries are full copies of authoritative `<vendor>/<sku>` records with only `litellm_provider` re-labelled

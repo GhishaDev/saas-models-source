@@ -3898,7 +3898,7 @@
       "friendly_name": "Seedance 2.0",
       "is_default_available": false,
       "input_cost_per_token": null,
-      "output_cost_per_token": 6.571428571428571e-06,
+      "output_cost_per_token": 6.571e-06,
       "cache_read_input_token_cost": null,
       "max_input_tokens": 1024,
       "max_output_tokens": 1024,
@@ -3911,12 +3911,12 @@
         "max_input_tokens": 1024,
         "max_output_tokens": 1024,
         "source": "https://www.volcengine.com/docs/82379/1544106",
-        "output_cost_per_token": 6.571428571428571e-06,
+        "output_cost_per_token": 6.571e-06,
         "output_cost_per_token_with_input_video": 4e-06,
-        "output_cost_per_token_1080p": 7.285714285714286e-06,
-        "output_cost_per_token_1080p_with_input_video": 4.428571428571429e-06,
-        "output_cost_per_token_4k": 3.714285714285714e-06,
-        "output_cost_per_token_4k_with_input_video": 2.285714285714286e-06
+        "output_cost_per_token_1080p": 7.286e-06,
+        "output_cost_per_token_1080p_with_input_video": 4.429e-06,
+        "output_cost_per_token_4k": 3.714e-06,
+        "output_cost_per_token_4k_with_input_video": 2.286e-06
       }
     },
     "volcengine/doubao-seedance-2-0": {
@@ -3926,7 +3926,7 @@
       "friendly_name": "Seedance 2.0",
       "is_default_available": false,
       "input_cost_per_token": null,
-      "output_cost_per_token": 6.571428571428571e-06,
+      "output_cost_per_token": 6.571e-06,
       "cache_read_input_token_cost": null,
       "max_input_tokens": 1024,
       "max_output_tokens": 1024,
@@ -3939,12 +3939,12 @@
         "max_input_tokens": 1024,
         "max_output_tokens": 1024,
         "source": "https://www.volcengine.com/docs/82379/1544106",
-        "output_cost_per_token": 6.571428571428571e-06,
+        "output_cost_per_token": 6.571e-06,
         "output_cost_per_token_with_input_video": 4e-06,
-        "output_cost_per_token_1080p": 7.285714285714286e-06,
-        "output_cost_per_token_1080p_with_input_video": 4.428571428571429e-06,
-        "output_cost_per_token_4k": 3.714285714285714e-06,
-        "output_cost_per_token_4k_with_input_video": 2.285714285714286e-06
+        "output_cost_per_token_1080p": 7.286e-06,
+        "output_cost_per_token_1080p_with_input_video": 4.429e-06,
+        "output_cost_per_token_4k": 3.714e-06,
+        "output_cost_per_token_4k_with_input_video": 2.286e-06
       }
     },
     "volcengine/doubao-seedance-2-0-fast-260128": {
@@ -3954,7 +3954,7 @@
       "friendly_name": "Seedance 2.0 Fast",
       "is_default_available": false,
       "input_cost_per_token": null,
-      "output_cost_per_token": 5.285714285714286e-06,
+      "output_cost_per_token": 5.286e-06,
       "cache_read_input_token_cost": null,
       "max_input_tokens": 1024,
       "max_output_tokens": 1024,
@@ -3967,8 +3967,8 @@
         "max_input_tokens": 1024,
         "max_output_tokens": 1024,
         "source": "https://www.volcengine.com/docs/82379/1544106",
-        "output_cost_per_token": 5.285714285714286e-06,
-        "output_cost_per_token_with_input_video": 3.142857142857143e-06
+        "output_cost_per_token": 5.286e-06,
+        "output_cost_per_token_with_input_video": 3.143e-06
       }
     },
     "volcengine/doubao-seedance-2-0-fast": {
@@ -3978,7 +3978,7 @@
       "friendly_name": "Seedance 2.0 Fast",
       "is_default_available": false,
       "input_cost_per_token": null,
-      "output_cost_per_token": 5.285714285714286e-06,
+      "output_cost_per_token": 5.286e-06,
       "cache_read_input_token_cost": null,
       "max_input_tokens": 1024,
       "max_output_tokens": 1024,
@@ -3991,8 +3991,8 @@
         "max_input_tokens": 1024,
         "max_output_tokens": 1024,
         "source": "https://www.volcengine.com/docs/82379/1544106",
-        "output_cost_per_token": 5.285714285714286e-06,
-        "output_cost_per_token_with_input_video": 3.142857142857143e-06
+        "output_cost_per_token": 5.286e-06,
+        "output_cost_per_token_with_input_video": 3.143e-06
       }
     },
     "volcengine/doubao-seedance-2-0-mini-260615": {
@@ -4002,7 +4002,7 @@
       "friendly_name": "Seedance 2.0 Mini",
       "is_default_available": false,
       "input_cost_per_token": null,
-      "output_cost_per_token": 3.285714285714286e-06,
+      "output_cost_per_token": 3.286e-06,
       "cache_read_input_token_cost": null,
       "max_input_tokens": 1024,
       "max_output_tokens": 1024,
@@ -4015,7 +4015,7 @@
         "max_input_tokens": 1024,
         "max_output_tokens": 1024,
         "source": "https://www.volcengine.com/docs/82379/1544106",
-        "output_cost_per_token": 3.285714285714286e-06,
+        "output_cost_per_token": 3.286e-06,
         "output_cost_per_token_with_input_video": 2e-06
       }
     },
@@ -4026,7 +4026,7 @@
       "friendly_name": "Seedance 2.0 Mini",
       "is_default_available": false,
       "input_cost_per_token": null,
-      "output_cost_per_token": 3.285714285714286e-06,
+      "output_cost_per_token": 3.286e-06,
       "cache_read_input_token_cost": null,
       "max_input_tokens": 1024,
       "max_output_tokens": 1024,
@@ -4039,7 +4039,7 @@
         "max_input_tokens": 1024,
         "max_output_tokens": 1024,
         "source": "https://www.volcengine.com/docs/82379/1544106",
-        "output_cost_per_token": 3.285714285714286e-06,
+        "output_cost_per_token": 3.286e-06,
         "output_cost_per_token_with_input_video": 2e-06
       }
     },
@@ -4050,7 +4050,7 @@
       "friendly_name": "Seedance 2.0",
       "is_default_available": false,
       "input_cost_per_token": null,
-      "output_cost_per_token": 6.571428571428571e-06,
+      "output_cost_per_token": 6.571e-06,
       "cache_read_input_token_cost": null,
       "max_input_tokens": 1024,
       "max_output_tokens": 1024,
@@ -4063,12 +4063,12 @@
         "max_input_tokens": 1024,
         "max_output_tokens": 1024,
         "source": "https://www.volcengine.com/docs/82379/1544106",
-        "output_cost_per_token": 6.571428571428571e-06,
+        "output_cost_per_token": 6.571e-06,
         "output_cost_per_token_with_input_video": 4e-06,
-        "output_cost_per_token_1080p": 7.285714285714286e-06,
-        "output_cost_per_token_1080p_with_input_video": 4.428571428571429e-06,
-        "output_cost_per_token_4k": 3.714285714285714e-06,
-        "output_cost_per_token_4k_with_input_video": 2.285714285714286e-06
+        "output_cost_per_token_1080p": 7.286e-06,
+        "output_cost_per_token_1080p_with_input_video": 4.429e-06,
+        "output_cost_per_token_4k": 3.714e-06,
+        "output_cost_per_token_4k_with_input_video": 2.286e-06
       }
     },
     "new-api/doubao-seedance-2-0-fast": {
@@ -4078,7 +4078,7 @@
       "friendly_name": "Seedance 2.0 Fast",
       "is_default_available": false,
       "input_cost_per_token": null,
-      "output_cost_per_token": 5.285714285714286e-06,
+      "output_cost_per_token": 5.286e-06,
       "cache_read_input_token_cost": null,
       "max_input_tokens": 1024,
       "max_output_tokens": 1024,
@@ -4091,8 +4091,8 @@
         "max_input_tokens": 1024,
         "max_output_tokens": 1024,
         "source": "https://www.volcengine.com/docs/82379/1544106",
-        "output_cost_per_token": 5.285714285714286e-06,
-        "output_cost_per_token_with_input_video": 3.142857142857143e-06
+        "output_cost_per_token": 5.286e-06,
+        "output_cost_per_token_with_input_video": 3.143e-06
       }
     },
     "new-api/doubao-seedance-2-0-mini": {
@@ -4102,7 +4102,7 @@
       "friendly_name": "Seedance 2.0 Mini",
       "is_default_available": false,
       "input_cost_per_token": null,
-      "output_cost_per_token": 3.285714285714286e-06,
+      "output_cost_per_token": 3.286e-06,
       "cache_read_input_token_cost": null,
       "max_input_tokens": 1024,
       "max_output_tokens": 1024,
@@ -4115,7 +4115,7 @@
         "max_input_tokens": 1024,
         "max_output_tokens": 1024,
         "source": "https://www.volcengine.com/docs/82379/1544106",
-        "output_cost_per_token": 3.285714285714286e-06,
+        "output_cost_per_token": 3.286e-06,
         "output_cost_per_token_with_input_video": 2e-06
       }
     },
@@ -4126,7 +4126,7 @@
       "friendly_name": "Seedance 2.0",
       "is_default_available": false,
       "input_cost_per_token": null,
-      "output_cost_per_token": 6.571428571428571e-06,
+      "output_cost_per_token": 6.571e-06,
       "cache_read_input_token_cost": null,
       "max_input_tokens": 1024,
       "max_output_tokens": 1024,
@@ -4139,12 +4139,12 @@
         "max_input_tokens": 1024,
         "max_output_tokens": 1024,
         "source": "https://www.volcengine.com/docs/82379/1544106",
-        "output_cost_per_token": 6.571428571428571e-06,
+        "output_cost_per_token": 6.571e-06,
         "output_cost_per_token_with_input_video": 4e-06,
-        "output_cost_per_token_1080p": 7.285714285714286e-06,
-        "output_cost_per_token_1080p_with_input_video": 4.428571428571429e-06,
-        "output_cost_per_token_4k": 3.714285714285714e-06,
-        "output_cost_per_token_4k_with_input_video": 2.285714285714286e-06
+        "output_cost_per_token_1080p": 7.286e-06,
+        "output_cost_per_token_1080p_with_input_video": 4.429e-06,
+        "output_cost_per_token_4k": 3.714e-06,
+        "output_cost_per_token_4k_with_input_video": 2.286e-06
       }
     },
     "new-api/doubao-seedance-2-0-fast-260128": {
@@ -4154,7 +4154,7 @@
       "friendly_name": "Seedance 2.0 Fast",
       "is_default_available": false,
       "input_cost_per_token": null,
-      "output_cost_per_token": 5.285714285714286e-06,
+      "output_cost_per_token": 5.286e-06,
       "cache_read_input_token_cost": null,
       "max_input_tokens": 1024,
       "max_output_tokens": 1024,
@@ -4167,8 +4167,8 @@
         "max_input_tokens": 1024,
         "max_output_tokens": 1024,
         "source": "https://www.volcengine.com/docs/82379/1544106",
-        "output_cost_per_token": 5.285714285714286e-06,
-        "output_cost_per_token_with_input_video": 3.142857142857143e-06
+        "output_cost_per_token": 5.286e-06,
+        "output_cost_per_token_with_input_video": 3.143e-06
       }
     },
     "new-api/doubao-seedance-2-0-mini-260615": {
@@ -4178,7 +4178,7 @@
       "friendly_name": "Seedance 2.0 Mini",
       "is_default_available": false,
       "input_cost_per_token": null,
-      "output_cost_per_token": 3.285714285714286e-06,
+      "output_cost_per_token": 3.286e-06,
       "cache_read_input_token_cost": null,
       "max_input_tokens": 1024,
       "max_output_tokens": 1024,
@@ -4191,7 +4191,7 @@
         "max_input_tokens": 1024,
         "max_output_tokens": 1024,
         "source": "https://www.volcengine.com/docs/82379/1544106",
-        "output_cost_per_token": 3.285714285714286e-06,
+        "output_cost_per_token": 3.286e-06,
         "output_cost_per_token_with_input_video": 2e-06
       }
     }
