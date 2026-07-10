@@ -6,7 +6,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Features
 
-- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, Volcengine (ByteDance Ark — Doubao Seedance video), and new-api (aggregator mirror)
+- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, Volcengine (ByteDance Ark — Doubao Seedance video), and two aggregator mirrors: new-api and ecloud_aicc
 - **Multi-Modal Support**: Chat (language), embedding, image generation, video generation, and audio (speech / transcription) models
 - **Smart Filtering Rules**: Comprehensive exclusion rules for deprecated, preview, and versioned models
 - **Mode-Aware Price Validation**: Validates pricing using mode-specific fields (per-token, per-image-token, per-image)
@@ -23,6 +23,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output)
 - **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (6 entries: standard / Fast / Mini × dated + alias). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
 - **new-api (aggregator gateway)**: Reverse-whitelist mirror provider. Every `new-api/<sku>` is a full copy of an already-populated `<vendor>/<sku>` record with only `litellm_provider` re-labelled. Seedance is the first family mirrored (6 SKUs from `volcengine/doubao-seedance-*`); extending to more vendors is a two-line change (whitelist entry + `NEWAPI_MIRROR_SOURCES` mapping)
+- **ecloud_aicc (aggregator gateway)**: Second mirror provider — same mechanic as new-api, distinct namespace so deployments routing through the ecloud_aicc gateway can address SKUs by their aggregator-side name. Currently mirrors the same 6 Seedance SKUs from `volcengine/doubao-seedance-*`
 
 ## Supported Model Types
 
@@ -31,7 +32,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 | `language` | `chat` | `claude-opus-4-7`, `gpt-5.5`, `gemini/gemini-3-pro-preview`, `zai/glm-5`, `bigmodel/glm-5`, `deepseek/deepseek-v4-flash` |
 | `embedding` | `embedding` | `text-embedding-3-large`, `gemini/gemini-embedding-2` |
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
-| `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `volcengine/doubao-seedance-2-0-fast`, `new-api/doubao-seedance-2-0-mini` |
+| `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `new-api/doubao-seedance-2-0-fast`, `ecloud_aicc/doubao-seedance-2-0-mini` |
 | `audio` | `audio_speech`, `audio_transcription` | `gpt-4o-mini-tts` (TTS), `gpt-4o-mini-transcribe` / `whisper-1` (ASR) |
 
 ## Installation
@@ -155,6 +156,15 @@ python filter_models.py --url https://custom-source.com/models.json
 - ✅ Adding a new mirrored SKU is a two-line change: append `new-api/<sku>` to `NEWAPI_ALLOWED_KEYS` and add a `NEWAPI_MIRROR_SOURCES[...]` mapping row
 - ❌ Exclude: any `new-api/<sku>` without a matching whitelist entry
 - ❌ Exclude: `new-api/<sku>` whose source key isn't present in the merged catalogue after all other synths run
+
+#### ecloud_aicc (aggregator mirror provider)
+- ✅ Include: only keys listed in `ModelSyncRules.ECLOUD_AICC_ALLOWED_KEYS` (reverse whitelist, 6 SKUs today — all Seedance)
+- ✅ **Same mirror mechanic as `new-api`**: `ECLOUD_AICC_MIRROR_SOURCES` maps each `ecloud_aicc/<sku>` to its authoritative source key (currently `volcengine/doubao-seedance-*`). `apply_ecloud_aicc_synth` runs at the tail of the synth chain — every source is already populated by the time it runs
+- ✅ Prices / context / capabilities / mode stay in lock-step with the source (Volcengine tariff change → both `new-api/*` and `ecloud_aicc/*` refresh on next sync)
+- ✅ Underscore-in-name is intentional (matches how the ecloud_aicc gateway spells its own provider identifier); the friendly-name Seedance branch handles the prefix alongside `volcengine/` and `new-api/`
+- ✅ Extending: append a whitelist entry AND an `ECLOUD_AICC_MIRROR_SOURCES` row pointing at the source key (two lines)
+- ❌ Exclude: any `ecloud_aicc/<sku>` without a matching whitelist entry
+- ❌ Exclude: `ecloud_aicc/<sku>` whose source key isn't present in the merged catalogue after all other synths run
 
 #### DeepSeek
 - ✅ Include: only keys listed in `ModelSyncRules.DEEPSEEK_ALLOWED_KEYS` (reverse whitelist, 2 SKUs)
@@ -404,6 +414,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.0 (2026-07-10)
+- Add **ecloud_aicc** as the ninth supported provider — a second aggregator mirror alongside new-api (same mechanic, distinct namespace)
+- `ECLOUD_AICC_ALLOWED_KEYS` reverse-whitelists 6 Seedance SKUs (standard / Fast / Mini × {dated official ID, date-less alias}), all mirrored from `volcengine/doubao-seedance-*`
+- `ECLOUD_AICC_MIRROR_SOURCES` declares each mirror's source key; `apply_ecloud_aicc_synth` chained at the tail of the synth chain (after new-api synth) so sources are already populated
+- Friendly-name Seedance branch generalised from 2-prefix to 3-prefix coverage (`volcengine/` | `new-api/` | `ecloud_aicc/`)
+- Net effect: exported total 108 → 114 (+6 ecloud_aicc mirrors); no changes to existing providers
+- Underscore-in-name is intentional (matches the ecloud_aicc gateway's own identifier spelling)
 
 ### v1.15.2 (2026-07-10)
 - Sync **GPT-5.6 family** — 4 SKUs now flow through the existing openai whitelist with no rule changes:

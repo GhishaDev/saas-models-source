@@ -50,6 +50,7 @@ class ModelSyncRules:
         "deepseek",
         "volcengine",
         "new-api",
+        "ecloud_aicc",
     ]
 
     # Provider name mapping (lowercase for DB consistency)
@@ -62,6 +63,7 @@ class ModelSyncRules:
         "deepseek": "deepseek",
         "volcengine": "volcengine",
         "new-api": "new-api",
+        "ecloud_aicc": "ecloud_aicc",
     }
 
     # zai/glm whitelist — only these keys are allowed through provider filter.
@@ -538,6 +540,34 @@ class ModelSyncRules:
         "new-api/doubao-seedance-2-0-mini-260615":  "volcengine/doubao-seedance-2-0-mini-260615",
     }
 
+    # ── ecloud_aicc (aggregator gateway) ──────────────────────────────────
+    # Same mirror-provider model as new-api: each ecloud_aicc/<sku> record
+    # is a full copy of an authoritative <vendor>/<sku> with only
+    # litellm_provider re-labelled. See apply_ecloud_aicc_synth for the
+    # mechanic; NEWAPI's docstring above covers the shared rationale.
+    #
+    # Extending: append a whitelist entry AND a matching
+    # ECLOUD_AICC_MIRROR_SOURCES row pointing at the source key.
+    ECLOUD_AICC_ALLOWED_KEYS = frozenset({
+        # Seedance video (mirrors volcengine/doubao-seedance-*)
+        "ecloud_aicc/doubao-seedance-2-0",
+        "ecloud_aicc/doubao-seedance-2-0-fast",
+        "ecloud_aicc/doubao-seedance-2-0-mini",
+        "ecloud_aicc/doubao-seedance-2-0-260128",
+        "ecloud_aicc/doubao-seedance-2-0-fast-260128",
+        "ecloud_aicc/doubao-seedance-2-0-mini-260615",
+    })
+
+    # Map ecloud_aicc/<sku> → authoritative source key.
+    ECLOUD_AICC_MIRROR_SOURCES: dict[str, str] = {
+        "ecloud_aicc/doubao-seedance-2-0":              "volcengine/doubao-seedance-2-0",
+        "ecloud_aicc/doubao-seedance-2-0-fast":         "volcengine/doubao-seedance-2-0-fast",
+        "ecloud_aicc/doubao-seedance-2-0-mini":         "volcengine/doubao-seedance-2-0-mini",
+        "ecloud_aicc/doubao-seedance-2-0-260128":       "volcengine/doubao-seedance-2-0-260128",
+        "ecloud_aicc/doubao-seedance-2-0-fast-260128":  "volcengine/doubao-seedance-2-0-fast-260128",
+        "ecloud_aicc/doubao-seedance-2-0-mini-260615":  "volcengine/doubao-seedance-2-0-mini-260615",
+    }
+
     # DeepSeek overlays. Source: api-docs.deepseek.com/quick_start/pricing
     # (snapshot 2026-06-30). LiteLLM upstream carries correct prices and
     # context (1M input), but max_output_tokens is stuck at 8192 — official
@@ -691,6 +721,14 @@ class ModelSyncRules:
             "patterns": [],
             "custom_check": lambda key: key.lower() not in ModelSyncRules.NEWAPI_ALLOWED_KEYS,
             "description": "Allow only whitelisted new-api/* keys (see NEWAPI_ALLOWED_KEYS)",
+        },
+        "ecloud_aicc": {
+            # Reverse-whitelist: only ECLOUD_AICC_ALLOWED_KEYS pass through.
+            # Same mirror-provider mechanism as new-api; see
+            # ECLOUD_AICC_MIRROR_SOURCES for the source mapping.
+            "patterns": [],
+            "custom_check": lambda key: key.lower() not in ModelSyncRules.ECLOUD_AICC_ALLOWED_KEYS,
+            "description": "Allow only whitelisted ecloud_aicc/* keys (see ECLOUD_AICC_ALLOWED_KEYS)",
         },
     }
 
@@ -1156,21 +1194,23 @@ class ModelSyncRules:
                 overrides.get(p.lower(), p.title()) for p in suffix.split("-")
             )
 
-        # Volcengine / new-api Seedance video:
+        # Volcengine / new-api / ecloud_aicc Seedance video:
         #   volcengine/doubao-seedance-2-0-260128       → Seedance 2.0
         #   volcengine/doubao-seedance-2-0-fast-260128  → Seedance 2.0 Fast
         #   volcengine/doubao-seedance-2-0-mini-260615  → Seedance 2.0 Mini
         #   volcengine/doubao-seedance-2-0              → Seedance 2.0
         #   new-api/doubao-seedance-2-0-fast            → Seedance 2.0 Fast
+        #   ecloud_aicc/doubao-seedance-2-0-mini        → Seedance 2.0 Mini
         # Dated suffixes (-260128, -260615) are the official Volcengine
         # model-version stamps (YYMMDD); strip them for the friendly name.
-        # new-api mirrors Volcengine SKUs and reuses the same naming.
+        # new-api and ecloud_aicc are catalogue-layer mirror providers that
+        # reuse Volcengine's naming; the branch covers all three prefixes.
         if (
-            provider in ("volcengine", "new-api")
-            or key.startswith(("volcengine/", "new-api/"))
+            provider in ("volcengine", "new-api", "ecloud_aicc")
+            or key.startswith(("volcengine/", "new-api/", "ecloud_aicc/"))
         ):
             suffix = re.sub(
-                r"^(?:volcengine|new-api)/doubao-seedance-",
+                r"^(?:volcengine|new-api|ecloud_aicc)/doubao-seedance-",
                 "",
                 key,
                 flags=re.IGNORECASE,
@@ -1479,6 +1519,35 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_ecloud_aicc_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Mirror authoritative <vendor>/<sku> entries onto ecloud_aicc/<sku>.
+
+        Structurally identical to ``apply_newapi_synth`` — a catalogue-layer
+        aggregator mirror. Must run after every other vendor synth so the
+        source entries are already populated in ``models``.
+
+        For each whitelisted ``ecloud_aicc/<sku>``:
+          1. Look up the source key in ``ECLOUD_AICC_MIRROR_SOURCES``.
+          2. Copy the source's raw entry verbatim, then override
+             ``litellm_provider = "ecloud_aicc"`` so downstream picks the
+             ecloud_aicc provider.
+          3. If the source is missing, skip — surfaces the gap via the
+             standard downstream drops instead of exporting stale data.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, source_key in cls.ECLOUD_AICC_MIRROR_SOURCES.items():
+            source = merged.get(source_key)
+            if source is None:
+                continue
+            mirrored = dict(source)
+            mirrored["litellm_provider"] = "ecloud_aicc"
+            merged[key] = mirrored
+        return merged
+
+    @classmethod
     def filter_all_models(cls, models: dict[str, Any]) -> dict[str, dict[str, Any]]:
         """
         Filter all models and return a dict of valid models.
@@ -1486,11 +1555,13 @@ class ModelSyncRules:
         Returns:
             dict mapping model_key to transformed model data
         """
-        enriched = cls.apply_newapi_synth(
-            cls.apply_anthropic_synth(
-                cls.apply_volcengine_synth(
-                    cls.apply_deepseek_synth(
-                        cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+        enriched = cls.apply_ecloud_aicc_synth(
+            cls.apply_newapi_synth(
+                cls.apply_anthropic_synth(
+                    cls.apply_volcengine_synth(
+                        cls.apply_deepseek_synth(
+                            cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+                        )
                     )
                 )
             )
@@ -1511,11 +1582,13 @@ class ModelSyncRules:
 
         Mirrors filter_model's pipeline exactly so passed == len(filter_all_models(models)).
         """
-        enriched = cls.apply_newapi_synth(
-            cls.apply_anthropic_synth(
-                cls.apply_volcengine_synth(
-                    cls.apply_deepseek_synth(
-                        cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+        enriched = cls.apply_ecloud_aicc_synth(
+            cls.apply_newapi_synth(
+                cls.apply_anthropic_synth(
+                    cls.apply_volcengine_synth(
+                        cls.apply_deepseek_synth(
+                            cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+                        )
                     )
                 )
             )
