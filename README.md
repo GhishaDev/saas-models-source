@@ -405,6 +405,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Changelog
 
+### v1.15.2 (2026-07-10)
+- Sync **GPT-5.6 family** — 4 SKUs now flow through the existing openai whitelist with no rule changes:
+  - `gpt-5.6` → `GPT-5.6` ($5 / $30 / $0.50 per M input / output / cache-read, 1M ctx, 128K max output)
+  - `gpt-5.6-terra` → `GPT-5.6 Terra` ($2.5 / $15 / $0.25 per M, 1M ctx)
+  - `gpt-5.6-luna` → `GPT-5.6 Luna` ($1 / $6 / $0.10 per M, 1M ctx)
+  - `gpt-5.6-sol` → `GPT-5.6 Sol` ($5 / $30 / $0.50 per M, 1M ctx)
+- All four are `mode=chat`, reasoning + vision + function-calling capable; served on `/v1/chat/completions`, `/v1/batch`, and `/v1/responses` per upstream
+- Net: openai/language 24 → 28
+
 ### v1.15.1 (2026-07-08)
 - Trim IEEE-754 float noise on Volcengine (and mirrored new-api) Seedance prices — all `output_cost_per_token[_<res>][_with_input_video]` fields now render as **4 significant digits** (e.g. `6.571e-06`) instead of the 15-digit division tails (`6.571428571428571e-06`)
 - Reintroduce `_cny_per_m_to_usd_per_token(cny_per_m, sig=4)` helper (previously dropped in v1.9.0 when bigmodel switched to mirroring zai); `_VOLCENGINE_FX_RATE = 7.0` module constant makes the FX policy explicit
