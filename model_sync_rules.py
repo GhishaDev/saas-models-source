@@ -605,6 +605,90 @@ class ModelSyncRules:
         },
     }
 
+    # ── OpenAI overlays ───────────────────────────────────────────────────
+    # Source: developers.openai.com/api/docs/pricing (Standard / Batch / Flex /
+    # Priority tabs, snapshot 2026-07-15), cross-checked field-by-field against
+    # the pinned GhishaDev/litellm-internal ship/v1.89.0 backup.
+    #
+    # LiteLLM upstream (BerriAI/main) trailed OpenAI's July 2026 GPT-5 refresh,
+    # so we overlay the officially-published numbers here. The overlay is purely
+    # ADDITIVE (merged on top of upstream via {**existing, **synth}); it never
+    # removes richer upstream fields the project already carries. Corrections:
+    #   • gpt-5.5 priority tier — $12.50 in / $1.25 cached / $75 out per M
+    #     (upstream had the old $10 / $1 / $60).
+    #   • gpt-5.4-{mini,nano} — short-context only: max_input 272K (not 1.05M),
+    #     plus the batch cached-read rate absent upstream.
+    #   • gpt-5.6 family — the flex long-context (>272K) tier (4 fields).
+    #   • service-tier / regional-uplift billing flags missing upstream.
+    # NOTE: gpt-5.4 cached-read flex stays 1.3e-07 ($0.13) — that is OpenAI's
+    # own published figure (Flex/Batch tabs), NOT a rounding artefact.
+    # Remove an entry once BerriAI upstream carries the same values.
+    OPENAI_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        "gpt-5": {
+            "regional_processing_uplift_multiplier_eu": 1.1,
+            "regional_processing_uplift_multiplier_us": 1.1,
+            "supports_service_tier": True,
+        },
+        "gpt-5-mini": {
+            "regional_processing_uplift_multiplier_eu": 1.1,
+            "regional_processing_uplift_multiplier_us": 1.1,
+            "supports_service_tier": True,
+        },
+        "gpt-5-nano": {
+            "regional_processing_uplift_multiplier_eu": 1.1,
+            "regional_processing_uplift_multiplier_us": 1.1,
+        },
+        "gpt-5.1": {
+            "supports_service_tier": True,
+        },
+        "gpt-5.2": {
+            "supports_service_tier": True,
+        },
+        "gpt-5.4": {
+            "supports_service_tier": True,
+        },
+        "gpt-5.4-mini": {
+            "cache_read_input_token_cost_batches": 3.75e-08,
+            "max_input_tokens": 272000,
+            "supports_service_tier": True,
+        },
+        "gpt-5.4-nano": {
+            "cache_read_input_token_cost_batches": 1e-08,
+            "max_input_tokens": 272000,
+            "supports_service_tier": True,
+        },
+        "gpt-5.5": {
+            "cache_read_input_token_cost_priority": 1.25e-06,
+            "input_cost_per_token_priority": 1.25e-05,
+            "output_cost_per_token_priority": 7.5e-05,
+            "supports_service_tier": True,
+        },
+        "gpt-5.6": {
+            "cache_creation_input_token_cost_above_272k_tokens_flex": 6.25e-06,
+            "cache_read_input_token_cost_above_272k_tokens_flex": 5e-07,
+            "input_cost_per_token_above_272k_tokens_flex": 5e-06,
+            "output_cost_per_token_above_272k_tokens_flex": 2.25e-05,
+        },
+        "gpt-5.6-sol": {
+            "cache_creation_input_token_cost_above_272k_tokens_flex": 6.25e-06,
+            "cache_read_input_token_cost_above_272k_tokens_flex": 5e-07,
+            "input_cost_per_token_above_272k_tokens_flex": 5e-06,
+            "output_cost_per_token_above_272k_tokens_flex": 2.25e-05,
+        },
+        "gpt-5.6-terra": {
+            "cache_creation_input_token_cost_above_272k_tokens_flex": 3.125e-06,
+            "cache_read_input_token_cost_above_272k_tokens_flex": 2.5e-07,
+            "input_cost_per_token_above_272k_tokens_flex": 2.5e-06,
+            "output_cost_per_token_above_272k_tokens_flex": 1.125e-05,
+        },
+        "gpt-5.6-luna": {
+            "cache_creation_input_token_cost_above_272k_tokens_flex": 1.25e-06,
+            "cache_read_input_token_cost_above_272k_tokens_flex": 1e-07,
+            "input_cost_per_token_above_272k_tokens_flex": 1e-06,
+            "output_cost_per_token_above_272k_tokens_flex": 4.5e-06,
+        },
+    }
+
     # Supported model modes
     SUPPORTED_MODES = [
         "chat",
@@ -1462,6 +1546,30 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_openai_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Overlay OpenAI-authoritative GPT-5 pricing onto the upstream dict.
+
+        LiteLLM upstream trailed OpenAI's July 2026 GPT-5 pricing refresh, so
+        OPENAI_SYNTH_DATA carries the officially-published corrections and the
+        billing fields absent upstream. The overlay is additive — synth wins on
+        any overlapping key, but keys the project already carries and synth does
+        not touch (e.g. supported_endpoints, extra supports_* flags) survive.
+
+        SKUs absent from upstream stay absent; OPENAI_SYNTH_DATA only patches
+        keys already present, never injects wholesale models.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, synth in cls.OPENAI_SYNTH_DATA.items():
+            existing = merged.get(key)
+            if existing is None:
+                continue
+            merged[key] = {**existing, **synth}
+        return merged
+
+    @classmethod
     def apply_volcengine_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
         """
         Inject Volcengine Seedance video SKUs not yet on LiteLLM upstream.
@@ -1560,7 +1668,9 @@ class ModelSyncRules:
                 cls.apply_anthropic_synth(
                     cls.apply_volcengine_synth(
                         cls.apply_deepseek_synth(
-                            cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+                            cls.apply_bigmodel_synth(
+                                cls.apply_zai_synth(cls.apply_openai_synth(models))
+                            )
                         )
                     )
                 )
@@ -1587,7 +1697,9 @@ class ModelSyncRules:
                 cls.apply_anthropic_synth(
                     cls.apply_volcengine_synth(
                         cls.apply_deepseek_synth(
-                            cls.apply_bigmodel_synth(cls.apply_zai_synth(models))
+                            cls.apply_bigmodel_synth(
+                                cls.apply_zai_synth(cls.apply_openai_synth(models))
+                            )
                         )
                     )
                 )
