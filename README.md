@@ -415,6 +415,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Changelog
 
+### v1.16.1 (2026-07-15)
+- Overlay **OpenAI-authoritative GPT-5 pricing** via new `OPENAI_SYNTH_DATA` + `apply_openai_synth` (chained at the head of the synth chain). BerriAI/main trailed OpenAI's July 2026 GPT-5 refresh, so the officially-published numbers are overlaid on top. Verified field-by-field against `developers.openai.com/api/docs/pricing` (Standard / Batch / Flex / Priority tabs) and cross-checked with the pinned `litellm-internal` `ship/v1.89.0` backup:
+  - `gpt-5.5` **priority tier** corrected: `$10 / $1 / $60` → **`$12.50 / $1.25 / $75`** per M (input / cached-read / output)
+  - `gpt-5.4-mini` & `gpt-5.4-nano` are **short-context only**: `max_input_tokens` `1,050,000` → **`272,000`**; plus the batch cached-read rate absent upstream
+  - `gpt-5.6` / `gpt-5.6-sol` / `gpt-5.6-terra` / `gpt-5.6-luna` gain the **flex long-context (>272K) tier** (4 fields each)
+  - `gpt-5.4` cached-read flex stays **`1.3e-07` ($0.13)** — that is OpenAI's own published figure (Flex/Batch tabs), not a rounding artefact
+  - Backfill `supports_service_tier` and `regional_processing_uplift_multiplier_{eu,us}` where missing
+- Overlay is **purely additive** (`{**existing, **synth}`) — richer upstream fields the project already carries (e.g. the `/v1/batch` endpoint on the 5.6 family) are preserved
+- Net: no model-count change (114 total); pricing-only corrections to 13 GPT-5 SKUs
+
 ### v1.16.0 (2026-07-10)
 - Add **ecloud_aicc** as the ninth supported provider — a second aggregator mirror alongside new-api (same mechanic, distinct namespace)
 - `ECLOUD_AICC_ALLOWED_KEYS` reverse-whitelists 6 Seedance SKUs (standard / Fast / Mini × {dated official ID, date-less alias}), all mirrored from `volcengine/doubao-seedance-*`
