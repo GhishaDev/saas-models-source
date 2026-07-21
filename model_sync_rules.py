@@ -1184,23 +1184,29 @@ class ModelSyncRules:
         Format model key to friendly display name.
 
         Examples:
-            claude-opus-4-1 → Claude 4.1 Opus
+            claude-opus-4-1 → Claude Opus 4.1
             gpt-5-mini → GPT-5 Mini
             o3-mini → o3 Mini
             gemini-2.5-flash → Gemini 2.5 Flash
         """
         key = model_key.lower()
 
-        # Anthropic: claude-opus-4-1 → Claude 4.1 Opus
+        # Anthropic: claude-opus-4-1 → Claude Opus 4.1
+        # Official naming (Claude 4.x / 5 generation) is variant-first:
+        # "Claude Opus 4.7", "Claude Sonnet 5", "Claude Haiku 4.5"
+        # — matching platform.claude.com. (Claude 3 used version-first,
+        # e.g. "Claude 3.5 Sonnet"; Anthropic switched the order at Claude 4.)
         if provider == "anthropic" or key.startswith("claude-"):
-            # Dated snapshot: claude-sonnet-4-5-20250929 → Claude 4.5 Sonnet 20250929
+            # Dated snapshot: claude-sonnet-4-5-20250929 → Claude Sonnet 4.5
+            # Official display names carry NO date suffix — a dated snapshot
+            # shares its base model's display name (platform.claude.com); the
+            # date lives only in model_key, which still disambiguates the entry.
             dated = cls.CLAUDE_DATED_PATTERN.match(key)
             if dated:
                 variant = dated.group(1).capitalize()
                 major_version = dated.group(2)
                 minor_version = dated.group(3)
-                date_str = f"{dated.group(4)}{dated.group(5)}{dated.group(6)}"
-                return f"Claude {major_version}.{minor_version} {variant} {date_str}"
+                return f"Claude {variant} {major_version}.{minor_version}"
 
             parts = key.replace("claude-", "").split("-")
             # Expected format: opus-4-1, sonnet-4-5, haiku-4-5
@@ -1208,44 +1214,52 @@ class ModelSyncRules:
                 variant = parts[0].capitalize()  # Opus, Sonnet, Haiku
                 major_version = parts[1]  # 4
                 minor_version = parts[2]  # 1, 5
-                return f"Claude {major_version}.{minor_version} {variant}"
-            # Major-only for core variants, e.g. claude-sonnet-5 → "Claude 5 Sonnet".
+                return f"Claude {variant} {major_version}.{minor_version}"
+            # Major-only for core variants, e.g. claude-sonnet-5 → "Claude Sonnet 5".
             # Restricted to the standard Opus/Sonnet/Haiku family so that
             # non-core variants (fable, mythos, ...) keep their fallback form.
             if len(parts) == 2 and parts[0] in cls._CORE_CLAUDE_VARIANTS:
                 variant = parts[0].capitalize()
                 major_version = parts[1]
-                return f"Claude {major_version} {variant}"
+                return f"Claude {variant} {major_version}"
             # Fallback: capitalize words (e.g. claude-fable-5 → "Claude Fable 5")
             return " ".join(w.capitalize() for w in key.split("-"))
 
-        # OpenAI: gpt-5-mini → GPT-5 Mini, o3-mini → o3 Mini
+        # OpenAI — each family per OpenAI's own house style (openai.com):
+        #   gpt-5-mini → GPT-5 mini, gpt-5.4-nano → GPT-5.4 nano (mini/nano
+        #   lowercase); o3-mini → o3-mini, o4-mini → o4-mini (lowercase and
+        #   hyphenated, shown as the id); text-embedding-3-large kept as the
+        #   lowercase id; gpt-5.3-codex → GPT-5.3-Codex (hyphenated Codex);
+        #   gpt-4o-realtime-preview-<date> → GPT-4o Realtime (drop the snapshot).
         if provider == "openai":
+            # Embedding models are presented as their lowercase id.
+            if key.startswith("text-embedding-"):
+                return key
+
             # Image: gpt-image-1 → GPT Image 1, gpt-image-1.5 → GPT Image 1.5
             if key.startswith("gpt-image-"):
                 suffix = key.replace("gpt-image-", "")
                 suffix_formatted = " ".join(w.capitalize() for w in suffix.split("-"))
                 return f"GPT Image {suffix_formatted}"
 
-            # o series: o3-mini → o3 Mini, o4-mini → o4 Mini
+            # o series: shown exactly as the lowercase id — o3, o3-mini, o4-mini.
             if re.match(r"^o\d+", key):
-                match = re.match(r"^(o\d+)(?:-(.+))?$", key)
-                if match:
-                    main = match.group(1)  # o3, o4
-                    suffix = match.group(2)  # mini, etc.
-                    if suffix:
-                        suffix_formatted = " ".join(
-                            w.capitalize() for w in suffix.split("-")
-                        )
-                        return f"{main} {suffix_formatted}"
-                    return main
+                return key
 
-            # GPT series: gpt-5-mini → GPT-5 Mini
+            # GPT series: gpt-5-mini → GPT-5 mini
             if key.startswith("gpt-"):
-                parts = key.replace("gpt-", "").split("-")
+                # Dated realtime preview: gpt-4o-realtime-preview-2024-12-17
+                # → GPT-4o Realtime (drop the -preview-<date> snapshot tail).
+                gpt_key = re.sub(r"-preview-\d{4}-\d{2}-\d{2}$", "", key)
+                parts = gpt_key.replace("gpt-", "").split("-")
                 head = parts[0]
-                # str.title() mangles branded abbreviations (Tts → TTS); patch here.
-                overrides = {"tts": "TTS", "asr": "ASR"}
+                # Codex is hyphenated in OpenAI's naming (GPT-5.3-Codex).
+                if parts[1:] == ["codex"]:
+                    return f"GPT-{head.upper()}-Codex"
+                # str.title() mangles branded abbreviations (Tts → TTS) and would
+                # uppercase the size suffixes; patch both so mini / nano stay
+                # lowercase per OpenAI's house style.
+                overrides = {"tts": "TTS", "asr": "ASR", "mini": "mini", "nano": "nano"}
                 fmt = lambda w: overrides.get(w.lower(), w.capitalize())
                 # Non-numeric head (e.g. gpt-realtime, gpt-audio) → "GPT Realtime"
                 # (space, no dash — OpenAI's brand style for named products).
@@ -1279,12 +1293,12 @@ class ModelSyncRules:
             )
 
         # Volcengine / new-api / ecloud_aicc Seedance video:
-        #   volcengine/doubao-seedance-2-0-260128       → Seedance 2.0
-        #   volcengine/doubao-seedance-2-0-fast-260128  → Seedance 2.0 Fast
-        #   volcengine/doubao-seedance-2-0-mini-260615  → Seedance 2.0 Mini
-        #   volcengine/doubao-seedance-2-0              → Seedance 2.0
-        #   new-api/doubao-seedance-2-0-fast            → Seedance 2.0 Fast
-        #   ecloud_aicc/doubao-seedance-2-0-mini        → Seedance 2.0 Mini
+        #   volcengine/doubao-seedance-2-0-260128       → Doubao-Seedance 2.0
+        #   volcengine/doubao-seedance-2-0-fast-260128  → Doubao-Seedance 2.0 Fast
+        #   volcengine/doubao-seedance-2-0-mini-260615  → Doubao-Seedance 2.0 Mini
+        #   volcengine/doubao-seedance-2-0              → Doubao-Seedance 2.0
+        #   new-api/doubao-seedance-2-0-fast            → Doubao-Seedance 2.0 Fast
+        #   ecloud_aicc/doubao-seedance-2-0-mini        → Doubao-Seedance 2.0 Mini
         # Dated suffixes (-260128, -260615) are the official Volcengine
         # model-version stamps (YYMMDD); strip them for the friendly name.
         # new-api and ecloud_aicc are catalogue-layer mirror providers that
@@ -1309,7 +1323,7 @@ class ModelSyncRules:
                 if len(parts) > 2
                 else ""
             )
-            return f"Seedance {version} {variant}".rstrip()
+            return f"Doubao-Seedance {version} {variant}".rstrip()
 
         # DeepSeek:
         #   deepseek/deepseek-v4-flash → DeepSeek-V4-Flash
@@ -1330,10 +1344,18 @@ class ModelSyncRules:
             # Remove gemini- prefix
             clean_key = clean_key.replace("gemini-", "")
 
+            # Embedding models: gemini-embedding-2 → Gemini Embedding 2
+            # ("Embedding" capitalized, per Google's "Gemini Embedding" brand).
+            if clean_key.startswith("embedding"):
+                rest = clean_key[len("embedding"):].lstrip("-")
+                return f"Gemini Embedding {rest}".rstrip()
+
             parts = clean_key.split("-")
             if len(parts) >= 2:
                 version = parts[0]  # 2.5, 1.5
                 variant = " ".join(w.capitalize() for w in parts[1:])  # Flash, Flash Lite, Pro
+                # Flash-Lite is hyphenated in Google's official naming.
+                variant = variant.replace("Flash Lite", "Flash-Lite")
                 return f"Gemini {version} {variant}"
             return " ".join(w.capitalize() for w in clean_key.split("-"))
 
