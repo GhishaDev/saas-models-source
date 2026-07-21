@@ -17,7 +17,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 - **OpenAI**: GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series, plus a curated audio / realtime allow-list (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), including dated snapshots
-- **Google**: Gemini 2.5+ series (Flash, Flash Lite, Pro), Gemini embedding 2, `gemini-*-image*` series
+- **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro), Gemini Embedding 2, `gemini-*-image*` series
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1 family + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (11 SKUs: GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output)
@@ -91,14 +91,14 @@ python filter_models.py --url https://custom-source.com/models.json
   - audio: `gpt-4o-transcribe`, `gpt-4o-transcribe-diarize`
   - responses: `gpt-5-codex`, `gpt-5-pro`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.2-codex`, `gpt-5.2-pro`, `gpt-5.4-pro`, `gpt-5.5-pro`, `o3-deep-research`, `o3-pro`, `o4-mini-deep-research`
 - ❌ Exclude: Models with `openai/` prefix, search-api variants
-- ✅ Friendly name: `GPT-4o` and `GPT-4o Mini` keep the lowercase branded `o`; `GPT Realtime` uses a spaced form (no version number); segment overrides upcase `TTS` / `ASR` abbreviations
+- ✅ Friendly name follows OpenAI's own house style: size suffixes `mini` / `nano` stay **lowercase** (`GPT-5 mini`, `GPT-5.4 nano`, `GPT-4o mini`); `GPT-4o` keeps the lowercase branded `o`; the o-series is shown as its lowercase id (`o3`, `o3-mini`, `o4-mini`); `text-embedding-3-*` is shown as the lowercase id; `gpt-5.3-codex` → `GPT-5.3-Codex` (hyphenated); dated realtime preview drops the snapshot (`gpt-4o-realtime-preview-2024-12-17` → `GPT-4o Realtime`); `GPT Realtime` uses a spaced form; segment overrides upcase `TTS` / `ASR`
 
 #### Anthropic
 - ✅ Include: Claude 4.5+ variants (Haiku, Sonnet, Opus), plus Claude 5 (Sonnet), plus special-name flagships (`claude-fable-5`, etc.)
 - ✅ Include: Dated snapshots ≥ 4.5 (e.g. `claude-sonnet-4-5-20250929`)
 - ✅ **Introductory-price overlay** via `ANTHROPIC_SYNTH_DATA` / `apply_anthropic_synth`: when Anthropic runs a time-boxed intro price, LiteLLM upstream tracks the post-window standard tariff — we overlay the currently-effective numbers so the catalogue matches what customers actually get billed today
   - Active window: **`claude-sonnet-5` through 2026-08-31** ($2 / $10 / $0.20 / $2.50 per M input / output / cache-read / cache-write-5m). Standard tariff ($3 / $15 / $0.30 / $3.75) resumes 2026-09-01 — remove the `ANTHROPIC_SYNTH_DATA["claude-sonnet-5"]` entry that day so upstream flows through unchanged
-- ✅ Friendly name: `Claude {ver} {Variant}` for the standard Opus/Sonnet/Haiku family (e.g. `Claude 5 Sonnet`, `Claude 4.5 Sonnet`); special-name flagships keep a capitalized fallback (`Claude Fable 5`)
+- ✅ Friendly name follows Anthropic's official variant-first order: `Claude {Variant} {ver}` for the standard Opus/Sonnet/Haiku family (e.g. `Claude Sonnet 5`, `Claude Sonnet 4.5`, `Claude Opus 4.7`); special-name flagships keep a capitalized fallback (`Claude Fable 5`). Dated snapshots carry **no** date suffix — they share the base model's display name (e.g. `claude-sonnet-4-5-20250929` → `Claude Sonnet 4.5`), matching platform.claude.com
 - ❌ Exclude: Claude 4.1 and below versions
 - ❌ Exclude: Non-claude prefixed models
 - ❌ Exclude: Dated snapshots < 4.5
@@ -251,7 +251,7 @@ These models require special access or configuration and are not available to al
       "model_key": "claude-sonnet-4-5-20250929",
       "provider": "anthropic",
       "type": "language",
-      "friendly_name": "Claude 4.5 Sonnet 20250929",
+      "friendly_name": "Claude Sonnet 4.5",
       "is_default_available": true,
       "input_cost_per_token": 3e-06,
       "output_cost_per_token": 1.5e-05,
@@ -265,7 +265,7 @@ These models require special access or configuration and are not available to al
       "model_key": "volcengine/doubao-seedance-2-0-260128",
       "provider": "volcengine",
       "type": "video",
-      "friendly_name": "Seedance 2.0",
+      "friendly_name": "Doubao-Seedance 2.0",
       "is_default_available": false,
       "input_cost_per_token": null,
       "output_cost_per_token": 6.571428571428571e-06,
@@ -414,6 +414,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.2 (2026-07-21)
+- Align **all friendly names to each provider's own official naming** (not a single house style). `format_model_name` per-provider branches updated; 50 friendly names change, no other fields.
+  - **Anthropic** — variant-first order per platform.claude.com: `Claude {ver} {Variant}` → **`Claude {Variant} {ver}`** (`Claude Sonnet 5`, `Claude Opus 4.7`, `Claude Haiku 4.5`). Dated snapshots now carry **no date suffix** — they share the base display name (`claude-sonnet-4-5-20250929` → `Claude Sonnet 4.5`). (Claude 3 used version-first; Anthropic switched the order at Claude 4.)
+  - **OpenAI** — per openai.com: size suffixes `mini` / `nano` lowercase (`GPT-5 mini`, `GPT-5.4 nano`, `GPT-4o mini`); o-series shown as its lowercase id (`o3-mini`, `o4-mini`); `text-embedding-3-*` shown as the lowercase id; `gpt-5.3-codex` → **`GPT-5.3-Codex`** (hyphenated); dated realtime preview drops the snapshot (`gpt-4o-realtime-preview-2024-12-17` → **`GPT-4o Realtime`**, also fixing a date-split bug).
+  - **Google** — per ai.google.dev: **`Flash-Lite`** hyphenated (was `Flash Lite`); **`Gemini Embedding 2`** (was lowercase `embedding`).
+  - **Volcengine / new-api / ecloud_aicc** — Seedance now carries the official **`Doubao-`** brand prefix: `Seedance 2.0` → **`Doubao-Seedance 2.0`** (dated `-YYMMDD` still stripped).
+  - **z.ai / bigmodel (GLM)** and **DeepSeek** — already matched their vendors' naming; unchanged.
+- Net: friendly-name display only; no pricing, context, or capability fields touched.
 
 ### v1.16.1 (2026-07-15)
 - Overlay **OpenAI-authoritative GPT-5 pricing** via new `OPENAI_SYNTH_DATA` + `apply_openai_synth` (chained at the head of the synth chain). BerriAI/main trailed OpenAI's July 2026 GPT-5 refresh, so the officially-published numbers are overlaid on top. Verified field-by-field against `developers.openai.com/api/docs/pricing` (Standard / Batch / Flex / Priority tabs) and cross-checked with the pinned `litellm-internal` `ship/v1.89.0` backup:
