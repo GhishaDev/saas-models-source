@@ -94,7 +94,7 @@ python filter_models.py --url https://custom-source.com/models.json
 - ✅ Friendly name follows OpenAI's own house style: size suffixes `mini` / `nano` stay **lowercase** (`GPT-5 mini`, `GPT-5.4 nano`, `GPT-4o mini`); `GPT-4o` keeps the lowercase branded `o`; the o-series is shown as its lowercase id (`o3`, `o3-mini`, `o4-mini`); `text-embedding-3-*` is shown as the lowercase id; `gpt-5.3-codex` → `GPT-5.3-Codex` (hyphenated); dated realtime preview drops the snapshot (`gpt-4o-realtime-preview-2024-12-17` → `GPT-4o Realtime`); `GPT Realtime` uses a spaced form; segment overrides upcase `TTS` / `ASR`
 
 #### Anthropic
-- ✅ Include: Claude 4.5+ variants (Haiku, Sonnet, Opus), plus Claude 5 (Sonnet), plus special-name flagships (`claude-fable-5`, etc.)
+- ✅ Include: Claude 4.5+ variants (Haiku, Sonnet, Opus), plus Claude 5 (Sonnet, Opus), plus special-name flagships (`claude-fable-5`, etc.)
 - ✅ Include: Dated snapshots ≥ 4.5 (e.g. `claude-sonnet-4-5-20250929`)
 - ✅ **Introductory-price overlay** via `ANTHROPIC_SYNTH_DATA` / `apply_anthropic_synth`: when Anthropic runs a time-boxed intro price, LiteLLM upstream tracks the post-window standard tariff — we overlay the currently-effective numbers so the catalogue matches what customers actually get billed today
   - Active window: **`claude-sonnet-5` through 2026-08-31** ($2 / $10 / $0.20 / $2.50 per M input / output / cache-read / cache-write-5m). Standard tariff ($3 / $15 / $0.30 / $3.75) resumes 2026-09-01 — remove the `ANTHROPIC_SYNTH_DATA["claude-sonnet-5"]` entry that day so upstream flows through unchanged
@@ -414,6 +414,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.3 (2026-07-25)
+- Sync **newly released Claude and Gemini models** from vendor docs (not yet on BerriAI upstream) via wholesale-inject synth entries. Exported total **114 → 118** (+4); no existing entries changed.
+  - **Claude Opus 5** (`claude-opus-5`) — current flagship per platform.claude.com: $5 / $25 per M input / output, cache-read $0.50, 1M ctx, 128K max output; same request surface as Opus 4.8. Injected via `ANTHROPIC_SYNTH_DATA` (now inject-when-absent / overlay-when-present).
+  - **Gemini 3.6 Flash** (`gemini/gemini-3.6-flash`) — $1.50 / $7.50 per M, cache $0.15.
+  - **Gemini 3.5 Flash-Lite** (`gemini/gemini-3.5-flash-lite`) — $0.30 / $2.50 per M, cache $0.03.
+  - **Gemini 3.1 Flash-Lite Image** / Nano Banana 2 Lite (`gemini/gemini-3.1-flash-lite-image`) — image model: $0.25 in / $1.50 out text per M; images $30/M tokens ($0.0336/image).
+- New `GOOGLE_SYNTH_DATA` + `apply_google_synth` injector wired into `filter_all_models` / `get_filter_stats` (first Google synth channel).
+- Prices sourced from platform.claude.com and ai.google.dev/gemini-api/docs/pricing; context windows mirror the same-generation sibling (the pricing pages omit them). **Claude Mythos 5** is intentionally excluded — it is Project Glasswing invitation-only, not GA.
 
 ### v1.16.2 (2026-07-21)
 - Align **all friendly names to each provider's own official naming** (not a single house style). `format_model_name` per-provider branches updated; 50 friendly names change, no other fields.
