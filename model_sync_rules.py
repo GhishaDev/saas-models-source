@@ -596,12 +596,145 @@ class ModelSyncRules:
     #     output: $10/M  (standard $15/M)
     #     cache_read (0.1×): $0.20/M (standard $0.30/M)
     #     cache_creation (1.25×, 5m):  $2.50/M (standard $3.75/M)
+    # Two entry kinds live here (see apply_anthropic_synth):
+    #   • Partial overlay — patches an entry already carried by upstream
+    #     (e.g. claude-sonnet-5 introductory pricing). Overlaid, never injected.
+    #   • Complete pre-staged entry (carries `litellm_provider`) — a model not
+    #     yet on BerriAI upstream (e.g. claude-opus-5, current flagship per
+    #     platform.claude.com). Injected wholesale when absent upstream.
     ANTHROPIC_SYNTH_DATA: dict[str, dict[str, Any]] = {
         "claude-sonnet-5": {
             "input_cost_per_token": 2e-06,
             "output_cost_per_token": 1e-05,
             "cache_read_input_token_cost": 2e-07,
             "cache_creation_input_token_cost": 2.5e-06,
+        },
+        # Claude Opus 5 — current flagship ($5/$25 per M, 1M ctx, 128K out),
+        # GA 2026-06-09; source platform.claude.com/docs models overview +
+        # pricing. Same request surface / capabilities as Opus 4.8.
+        "claude-opus-5": {
+            "litellm_provider": "anthropic",
+            "mode": "chat",
+            "input_cost_per_token": 5e-06,
+            "output_cost_per_token": 2.5e-05,
+            "cache_read_input_token_cost": 5e-07,
+            "cache_creation_input_token_cost": 6.25e-06,
+            "cache_creation_input_token_cost_above_1hr": 1e-05,
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "max_tokens": 128000,
+            "search_context_cost_per_query": {
+                "search_context_size_high": 0.01,
+                "search_context_size_low": 0.01,
+                "search_context_size_medium": 0.01,
+            },
+            "supports_adaptive_thinking": True,
+            "supports_assistant_prefill": False,
+            "supports_computer_use": True,
+            "supports_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_sampling_params": False,
+            "supports_tool_choice": True,
+            "supports_vision": True,
+            "supports_xhigh_reasoning_effort": True,
+            "supports_max_reasoning_effort": True,
+            "supports_output_config": True,
+        },
+    }
+
+    # Google / Gemini pre-staged entries — models newly published on
+    # ai.google.dev but not yet on BerriAI upstream. Each is a complete
+    # litellm-style entry, injected wholesale by apply_google_synth. Prices
+    # from ai.google.dev/gemini-api/docs/pricing; context windows mirror the
+    # same-generation sibling (the pricing page omits them).
+    GOOGLE_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        # Gemini 3.6 Flash — $1.50 in / $7.50 out per M, cache $0.15.
+        "gemini/gemini-3.6-flash": {
+            "litellm_provider": "gemini",
+            "mode": "chat",
+            "input_cost_per_token": 1.5e-06,
+            "output_cost_per_token": 7.5e-06,
+            "output_cost_per_reasoning_token": 7.5e-06,
+            "cache_read_input_token_cost": 1.5e-07,
+            "max_input_tokens": 1048576,
+            "max_output_tokens": 65535,
+            "max_tokens": 65535,
+            "source": "https://ai.google.dev/gemini-api/docs/pricing",
+            "supported_endpoints": ["/v1/chat/completions", "/v1/completions", "/v1/batch"],
+            "supported_modalities": ["text", "image", "audio", "video"],
+            "supported_output_modalities": ["text"],
+            "supports_audio_input": True,
+            "supports_audio_output": False,
+            "supports_function_calling": True,
+            "supports_parallel_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_system_messages": True,
+            "supports_tool_choice": True,
+            "supports_url_context": True,
+            "supports_video_input": True,
+            "supports_vision": True,
+            "supports_web_search": True,
+            "supports_native_streaming": True,
+        },
+        # Gemini 3.5 Flash-Lite — $0.30 in / $2.50 out per M, cache $0.03.
+        "gemini/gemini-3.5-flash-lite": {
+            "litellm_provider": "gemini",
+            "mode": "chat",
+            "input_cost_per_token": 3e-07,
+            "output_cost_per_token": 2.5e-06,
+            "output_cost_per_reasoning_token": 2.5e-06,
+            "cache_read_input_token_cost": 3e-08,
+            "max_input_tokens": 1048576,
+            "max_output_tokens": 65536,
+            "max_tokens": 65536,
+            "source": "https://ai.google.dev/gemini-api/docs/pricing",
+            "supported_endpoints": ["/v1/chat/completions", "/v1/completions", "/v1/batch"],
+            "supported_modalities": ["text", "image", "audio", "video"],
+            "supported_output_modalities": ["text"],
+            "supports_audio_input": True,
+            "supports_audio_output": False,
+            "supports_function_calling": True,
+            "supports_parallel_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_system_messages": True,
+            "supports_tool_choice": True,
+            "supports_url_context": True,
+            "supports_video_input": True,
+            "supports_vision": True,
+            "supports_web_search": True,
+            "supports_native_streaming": True,
+        },
+        # Gemini 3.1 Flash-Lite Image (Nano Banana 2 Lite) — image model:
+        # $0.25 in / $1.50 out text per M; images $30/M tokens ($0.0336/image).
+        "gemini/gemini-3.1-flash-lite-image": {
+            "litellm_provider": "gemini",
+            "mode": "image_generation",
+            "input_cost_per_token": 2.5e-07,
+            "output_cost_per_token": 1.5e-06,
+            "output_cost_per_image_token": 3e-05,
+            "output_cost_per_image": 0.0336,
+            "max_input_tokens": 65536,
+            "max_output_tokens": 32768,
+            "max_tokens": 32768,
+            "source": "https://ai.google.dev/gemini-api/docs/pricing",
+            "supported_endpoints": ["/v1/chat/completions", "/v1/completions", "/v1/batch"],
+            "supported_modalities": ["text", "image"],
+            "supported_output_modalities": ["text", "image"],
+            "supports_function_calling": False,
+            "supports_prompt_caching": True,
+            "supports_response_schema": True,
+            "supports_system_messages": True,
+            "supports_vision": True,
+            "supports_web_search": True,
         },
     }
 
@@ -1493,21 +1626,39 @@ class ModelSyncRules:
         """
         Overlay time-boxed Anthropic pricing on upstream entries.
 
-        Currently patches ``claude-sonnet-5`` with its introductory-window
-        prices (through 2026-08-31); LiteLLM upstream tracks the post-window
-        standard prices. Remove entries from ANTHROPIC_SYNTH_DATA as their
-        windows close — upstream then flows through unchanged.
-
-        Pure overlay: SKUs absent from upstream stay absent (no injection).
+        Two behaviours, keyed on whether upstream already carries the SKU:
+          • Present upstream → overlay (``{**existing, **synth}``). Used for
+            time-boxed price patches like ``claude-sonnet-5`` introductory
+            pricing; remove such entries once their window closes.
+          • Absent upstream → inject the synth entry wholesale. Used for
+            complete pre-staged models not yet on LiteLLM (e.g.
+            ``claude-opus-5``). A partial overlay entry whose SKU is missing
+            upstream would inject a broken record, so only pre-stage entries
+            that are complete (carry ``litellm_provider``).
 
         Does not mutate the input.
         """
         merged: dict[str, Any] = dict(models)
         for key, synth in cls.ANTHROPIC_SYNTH_DATA.items():
             existing = merged.get(key)
-            if existing is None:
-                continue
-            merged[key] = {**existing, **synth}
+            merged[key] = dict(synth) if existing is None else {**existing, **synth}
+        return merged
+
+    @classmethod
+    def apply_google_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Inject Google / Gemini SKUs newly published on ai.google.dev but not
+        yet carried by BerriAI upstream (GOOGLE_SYNTH_DATA). Entries are
+        complete litellm-style records; a present upstream key is overlaid,
+        an absent one is injected wholesale. Remove an entry once upstream
+        carries the same model.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, synth in cls.GOOGLE_SYNTH_DATA.items():
+            existing = merged.get(key)
+            merged[key] = dict(synth) if existing is None else {**existing, **synth}
         return merged
 
     @classmethod
@@ -1691,7 +1842,9 @@ class ModelSyncRules:
                     cls.apply_volcengine_synth(
                         cls.apply_deepseek_synth(
                             cls.apply_bigmodel_synth(
-                                cls.apply_zai_synth(cls.apply_openai_synth(models))
+                                cls.apply_zai_synth(
+                                    cls.apply_google_synth(cls.apply_openai_synth(models))
+                                )
                             )
                         )
                     )
@@ -1720,7 +1873,9 @@ class ModelSyncRules:
                     cls.apply_volcengine_synth(
                         cls.apply_deepseek_synth(
                             cls.apply_bigmodel_synth(
-                                cls.apply_zai_synth(cls.apply_openai_synth(models))
+                                cls.apply_zai_synth(
+                                    cls.apply_google_synth(cls.apply_openai_synth(models))
+                                )
                             )
                         )
                     )
