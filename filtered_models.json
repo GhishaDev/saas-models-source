@@ -4854,6 +4854,55 @@
         "supports_vision": true,
         "supports_web_search": true
       }
+    },
+    "claude-mythos-5": {
+      "model_key": "claude-mythos-5",
+      "provider": "anthropic",
+      "type": "language",
+      "friendly_name": "Claude Mythos 5",
+      "is_default_available": true,
+      "input_cost_per_token": 1e-05,
+      "output_cost_per_token": 5e-05,
+      "cache_read_input_token_cost": 1e-06,
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "supports_vision": true,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "anthropic",
+        "mode": "chat",
+        "input_cost_per_token": 1e-05,
+        "output_cost_per_token": 5e-05,
+        "cache_read_input_token_cost": 1e-06,
+        "cache_creation_input_token_cost": 1.25e-05,
+        "cache_creation_input_token_cost_above_1hr": 2e-05,
+        "max_input_tokens": 1000000,
+        "max_output_tokens": 128000,
+        "max_tokens": 128000,
+        "search_context_cost_per_query": {
+          "search_context_size_high": 0.01,
+          "search_context_size_low": 0.01,
+          "search_context_size_medium": 0.01
+        },
+        "supports_adaptive_thinking": true,
+        "supports_assistant_prefill": false,
+        "supports_computer_use": true,
+        "supports_function_calling": true,
+        "supports_pdf_input": true,
+        "supports_prompt_caching": true,
+        "supports_reasoning": true,
+        "supports_response_schema": true,
+        "supports_sampling_params": false,
+        "supports_tool_choice": true,
+        "supports_vision": true,
+        "supports_xhigh_reasoning_effort": true,
+        "supports_max_reasoning_effort": true,
+        "provider_specific_entry": {
+          "us": 1.1
+        },
+        "supports_output_config": true
+      }
     }
   }
 }

@@ -643,6 +643,43 @@ class ModelSyncRules:
             "supports_max_reasoning_effort": True,
             "supports_output_config": True,
         },
+        # Claude Mythos 5 — Project Glasswing limited-availability sibling of
+        # Fable 5 (defensive-cyber). Same specs, pricing, and API surface as
+        # Fable 5: $10 / $50 per M, cache-read $1, 5m write $12.50, 1h $20,
+        # 1M ctx, 128K out. Source platform.claude.com models overview +
+        # pricing. Not on BerriAI upstream — injected wholesale.
+        "claude-mythos-5": {
+            "litellm_provider": "anthropic",
+            "mode": "chat",
+            "input_cost_per_token": 1e-05,
+            "output_cost_per_token": 5e-05,
+            "cache_read_input_token_cost": 1e-06,
+            "cache_creation_input_token_cost": 1.25e-05,
+            "cache_creation_input_token_cost_above_1hr": 2e-05,
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "max_tokens": 128000,
+            "search_context_cost_per_query": {
+                "search_context_size_high": 0.01,
+                "search_context_size_low": 0.01,
+                "search_context_size_medium": 0.01,
+            },
+            "supports_adaptive_thinking": True,
+            "supports_assistant_prefill": False,
+            "supports_computer_use": True,
+            "supports_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_sampling_params": False,
+            "supports_tool_choice": True,
+            "supports_vision": True,
+            "supports_xhigh_reasoning_effort": True,
+            "supports_max_reasoning_effort": True,
+            "provider_specific_entry": {"us": 1.1},
+            "supports_output_config": True,
+        },
     }
 
     # Google / Gemini pre-staged entries — models newly published on
