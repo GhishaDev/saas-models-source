@@ -1835,7 +1835,7 @@
       "type": "audio",
       "friendly_name": "GPT-4o mini TTS",
       "is_default_available": true,
-      "input_cost_per_token": 2.5e-06,
+      "input_cost_per_token": 6e-07,
       "output_cost_per_token": 1e-05,
       "cache_read_input_token_cost": null,
       "max_input_tokens": null,
@@ -1844,7 +1844,7 @@
       "supports_function_calling": false,
       "supports_json_output": false,
       "raw_data": {
-        "input_cost_per_token": 2.5e-06,
+        "input_cost_per_token": 6e-07,
         "litellm_provider": "openai",
         "mode": "audio_speech",
         "output_cost_per_audio_token": 1.2e-05,
@@ -4902,6 +4902,103 @@
           "us": 1.1
         },
         "supports_output_config": true
+      }
+    },
+    "tts-1": {
+      "model_key": "tts-1",
+      "provider": "openai",
+      "type": "audio",
+      "friendly_name": "tts-1",
+      "is_default_available": true,
+      "input_cost_per_token": null,
+      "output_cost_per_token": null,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "openai",
+        "mode": "audio_speech",
+        "output_cost_per_character": 1.5e-05,
+        "supported_endpoints": [
+          "/v1/audio/speech"
+        ],
+        "supported_modalities": [
+          "text"
+        ],
+        "supported_output_modalities": [
+          "audio"
+        ]
+      }
+    },
+    "tts-1-hd": {
+      "model_key": "tts-1-hd",
+      "provider": "openai",
+      "type": "audio",
+      "friendly_name": "tts-1-hd",
+      "is_default_available": true,
+      "input_cost_per_token": null,
+      "output_cost_per_token": null,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "openai",
+        "mode": "audio_speech",
+        "output_cost_per_character": 3e-05,
+        "supported_endpoints": [
+          "/v1/audio/speech"
+        ],
+        "supported_modalities": [
+          "text"
+        ],
+        "supported_output_modalities": [
+          "audio"
+        ]
+      }
+    },
+    "moonshot/kimi-k3": {
+      "model_key": "moonshot/kimi-k3",
+      "provider": "moonshot",
+      "type": "language",
+      "friendly_name": "Kimi K3",
+      "is_default_available": true,
+      "input_cost_per_token": 3e-06,
+      "output_cost_per_token": 1.5e-05,
+      "cache_read_input_token_cost": 3e-07,
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 1048576,
+      "supports_vision": true,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "moonshot",
+        "mode": "chat",
+        "input_cost_per_token": 3e-06,
+        "output_cost_per_token": 1.5e-05,
+        "cache_read_input_token_cost": 3e-07,
+        "input_cost_per_token_cache_hit": 3e-07,
+        "max_input_tokens": 1048576,
+        "max_output_tokens": 1048576,
+        "max_tokens": 1048576,
+        "source": "https://platform.kimi.ai/docs/pricing/chat-k3",
+        "supported_endpoints": [
+          "/v1/chat/completions"
+        ],
+        "supports_reasoning": true,
+        "supports_prompt_caching": true,
+        "supports_response_schema": true,
+        "supports_tool_choice": true,
+        "supports_vision": true,
+        "supports_function_calling": true,
+        "supports_system_messages": true,
+        "supports_native_streaming": true,
+        "supports_parallel_function_calling": true
       }
     }
   }

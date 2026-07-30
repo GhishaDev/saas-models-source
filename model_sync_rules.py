@@ -48,6 +48,7 @@ class ModelSyncRules:
         "zai",
         "bigmodel",
         "deepseek",
+        "moonshot",
         "volcengine",
         "new-api",
         "ecloud_aicc",
@@ -61,6 +62,7 @@ class ModelSyncRules:
         "zai": "zai",
         "bigmodel": "bigmodel",
         "deepseek": "deepseek",
+        "moonshot": "moonshot",
         "volcengine": "volcengine",
         "new-api": "new-api",
         "ecloud_aicc": "ecloud_aicc",
@@ -400,6 +402,42 @@ class ModelSyncRules:
         "deepseek/deepseek-v4-flash",
         "deepseek/deepseek-v4-pro",
     })
+
+    # Moonshot (Kimi) whitelist — reverse-whitelist for moonshot/* keys.
+    # Pre-staged: not on the LiteLLM source yet; injected via MOONSHOT_SYNTH_DATA.
+    MOONSHOT_ALLOWED_KEYS = frozenset({
+        "moonshot/kimi-k3",
+    })
+
+    # Moonshot / Kimi pre-staged entries — models on platform.kimi.ai not yet
+    # carried by BerriAI upstream. Complete litellm-style records, injected
+    # wholesale by apply_moonshot_synth. Prices from platform.kimi.ai/docs.
+    MOONSHOT_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        # Kimi K3 — $3 in / $15 out per M, cache-hit $0.30; 1M context.
+        # Source https://platform.kimi.ai/docs/pricing/chat-k3.
+        "moonshot/kimi-k3": {
+            "litellm_provider": "moonshot",
+            "mode": "chat",
+            "input_cost_per_token": 3e-06,
+            "output_cost_per_token": 1.5e-05,
+            "cache_read_input_token_cost": 3e-07,
+            "input_cost_per_token_cache_hit": 3e-07,
+            "max_input_tokens": 1048576,
+            "max_output_tokens": 1048576,
+            "max_tokens": 1048576,
+            "source": "https://platform.kimi.ai/docs/pricing/chat-k3",
+            "supported_endpoints": ["/v1/chat/completions"],
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
+            "supports_response_schema": True,
+            "supports_tool_choice": True,
+            "supports_vision": True,
+            "supports_function_calling": True,
+            "supports_system_messages": True,
+            "supports_native_streaming": True,
+            "supports_parallel_function_calling": True,
+        },
+    }
 
     # ── Volcengine (ByteDance Ark — Doubao Seedance video) ────────────────
     # Reverse-whitelist for volcengine/* video SKUs. Source:
@@ -857,6 +895,30 @@ class ModelSyncRules:
             "input_cost_per_token_above_272k_tokens_flex": 1e-06,
             "output_cost_per_token_above_272k_tokens_flex": 4.5e-06,
         },
+        # gpt-4o-mini-tts text input — OpenAI official is $0.60 / 1M tokens
+        # (developers.openai.com); upstream carried the Azure/aggregator
+        # $2.50 rate. Audio output ($12/1M) is already correct upstream.
+        "gpt-4o-mini-tts": {
+            "input_cost_per_token": 6e-07,
+        },
+        # Standalone TTS models — pre-staged (character-billed). Source
+        # openai.com: tts-1 $15 / 1M characters, tts-1-hd $30 / 1M characters.
+        "tts-1": {
+            "litellm_provider": "openai",
+            "mode": "audio_speech",
+            "output_cost_per_character": 1.5e-05,
+            "supported_endpoints": ["/v1/audio/speech"],
+            "supported_modalities": ["text"],
+            "supported_output_modalities": ["audio"],
+        },
+        "tts-1-hd": {
+            "litellm_provider": "openai",
+            "mode": "audio_speech",
+            "output_cost_per_character": 3e-05,
+            "supported_endpoints": ["/v1/audio/speech"],
+            "supported_modalities": ["text"],
+            "supported_output_modalities": ["audio"],
+        },
     }
 
     # Supported model modes
@@ -959,6 +1021,12 @@ class ModelSyncRules:
             "patterns": [],
             "custom_check": lambda key: key.lower() not in ModelSyncRules.DEEPSEEK_ALLOWED_KEYS,
             "description": "Allow only whitelisted deepseek/* keys (see DEEPSEEK_ALLOWED_KEYS)",
+        },
+        "moonshot": {
+            # Reverse-whitelist: only MOONSHOT_ALLOWED_KEYS pass through.
+            "patterns": [],
+            "custom_check": lambda key: key.lower() not in ModelSyncRules.MOONSHOT_ALLOWED_KEYS,
+            "description": "Allow only whitelisted moonshot/* keys (see MOONSHOT_ALLOWED_KEYS)",
         },
         "volcengine": {
             # Reverse-whitelist: only VOLCENGINE_ALLOWED_KEYS pass through.
@@ -1090,6 +1158,8 @@ class ModelSyncRules:
         re.compile(r"^gpt-4o-mini-transcribe$", re.IGNORECASE),
         re.compile(r"^gpt-4o-mini-tts$", re.IGNORECASE),
         re.compile(r"^whisper-1$", re.IGNORECASE),
+        re.compile(r"^tts-1$", re.IGNORECASE),
+        re.compile(r"^tts-1-hd$", re.IGNORECASE),
     ]
 
     # Data source URL
@@ -1256,12 +1326,15 @@ class ModelSyncRules:
         ),
         # Audio speech (TTS): billed on text input + audio output. Different
         # families bill differently — gpt-4o-*-tts uses per-token + per-audio-
-        # token, tts-1 uses per-second. Any one non-zero field means priced.
+        # token; tts-1 / tts-1-hd bill per character. Any one non-zero field
+        # means priced.
         "audio_speech": (
             "input_cost_per_token",
             "output_cost_per_token",
             "output_cost_per_audio_token",
             "output_cost_per_second",
+            "input_cost_per_character",
+            "output_cost_per_character",
         ),
         # Audio transcription (ASR): billed on audio input. whisper-1 uses
         # per-second, gpt-4o-*-transcribe uses per-token + per-audio-token
@@ -1402,8 +1475,10 @@ class ModelSyncRules:
         #   lowercase id; gpt-5.3-codex → GPT-5.3-Codex (hyphenated Codex);
         #   gpt-4o-realtime-preview-<date> → GPT-4o Realtime (drop the snapshot).
         if provider == "openai":
-            # Embedding models are presented as their lowercase id.
-            if key.startswith("text-embedding-"):
+            # Embedding and standalone TTS models are presented as their
+            # lowercase id (openai.com utility-model style): text-embedding-3-*,
+            # tts-1, tts-1-hd.
+            if key.startswith(("text-embedding-", "tts-")):
                 return key
 
             # Image: gpt-image-1 → GPT Image 1, gpt-image-1.5 → GPT Image 1.5
@@ -1503,6 +1578,17 @@ class ModelSyncRules:
             suffix = re.sub(r"^deepseek/(deepseek-)?", "", key, flags=re.IGNORECASE)
             # str.title() naturally produces V4 / R1 etc. — no overrides needed today.
             return "DeepSeek-" + "-".join(p.title() for p in suffix.split("-"))
+
+        # Moonshot (Kimi): moonshot/kimi-k3 → Kimi K3,
+        #   moonshot/kimi-k2.7-code → Kimi K2.7 Code. Space-separated per
+        #   Kimi's official brand; version tokens (k3, k2.7) upcase.
+        if provider == "moonshot" or key.startswith("moonshot/"):
+            suffix = re.sub(r"^moonshot/(kimi-)?", "", key, flags=re.IGNORECASE)
+            parts = [
+                p.upper() if re.match(r"^k\d", p, re.IGNORECASE) else p.capitalize()
+                for p in suffix.split("-")
+            ]
+            return "Kimi " + " ".join(parts)
 
         # Google: gemini-2.5-flash → Gemini 2.5 Flash
         # gemini/gemini-2.5-flash → Gemini 2.5 Flash
@@ -1721,6 +1807,22 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_moonshot_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Inject Moonshot / Kimi SKUs published on platform.kimi.ai but not yet
+        carried by BerriAI upstream (MOONSHOT_SYNTH_DATA). Complete litellm-style
+        entries; injected wholesale when absent, overlaid when present. Remove an
+        entry once upstream carries the same model.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, synth in cls.MOONSHOT_SYNTH_DATA.items():
+            existing = merged.get(key)
+            merged[key] = dict(synth) if existing is None else {**existing, **synth}
+        return merged
+
+    @classmethod
     def apply_bigmodel_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
         """
         Inject bigmodel/* SKUs and mirror pricing from their sibling zai/* entry.
@@ -1774,9 +1876,11 @@ class ModelSyncRules:
         merged: dict[str, Any] = dict(models)
         for key, synth in cls.OPENAI_SYNTH_DATA.items():
             existing = merged.get(key)
-            if existing is None:
-                continue
-            merged[key] = {**existing, **synth}
+            # Overlay when upstream carries the SKU (partial corrections like
+            # the gpt-5.5 priority tier); inject wholesale when absent (complete
+            # pre-staged entries such as tts-1 / tts-1-hd). Only pre-stage
+            # entries that are complete (carry litellm_provider).
+            merged[key] = dict(synth) if existing is None else {**existing, **synth}
         return merged
 
     @classmethod
@@ -1880,7 +1984,9 @@ class ModelSyncRules:
                         cls.apply_deepseek_synth(
                             cls.apply_bigmodel_synth(
                                 cls.apply_zai_synth(
-                                    cls.apply_google_synth(cls.apply_openai_synth(models))
+                                    cls.apply_google_synth(
+                                        cls.apply_moonshot_synth(cls.apply_openai_synth(models))
+                                    )
                                 )
                             )
                         )
@@ -1911,7 +2017,9 @@ class ModelSyncRules:
                         cls.apply_deepseek_synth(
                             cls.apply_bigmodel_synth(
                                 cls.apply_zai_synth(
-                                    cls.apply_google_synth(cls.apply_openai_synth(models))
+                                    cls.apply_google_synth(
+                                        cls.apply_moonshot_synth(cls.apply_openai_synth(models))
+                                    )
                                 )
                             )
                         )

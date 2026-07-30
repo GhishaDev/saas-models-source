@@ -6,7 +6,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Features
 
-- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, Volcengine (ByteDance Ark — Doubao Seedance video), and two aggregator mirrors: new-api and ecloud_aicc
+- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, Moonshot (Kimi), Volcengine (ByteDance Ark — Doubao Seedance video), and two aggregator mirrors: new-api and ecloud_aicc
 - **Multi-Modal Support**: Chat (language), embedding, image generation, video generation, and audio (speech / transcription) models
 - **Smart Filtering Rules**: Comprehensive exclusion rules for deprecated, preview, and versioned models
 - **Mode-Aware Price Validation**: Validates pricing using mode-specific fields (per-token, per-image-token, per-image)
@@ -15,12 +15,13 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Supported Providers
 
-- **OpenAI**: GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series, plus a curated audio / realtime allow-list (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `whisper-1`)
+- **OpenAI**: GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series, plus a curated audio / realtime allow-list (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro), Gemini Embedding 2, `gemini-*-image*` series
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1 family + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (11 SKUs: GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output)
+- **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` (1 SKU: Kimi K3 — $3 / $15 per M input / output, cache-hit $0.30, 1M context). Pre-staged via `MOONSHOT_SYNTH_DATA` (injected — not yet on LiteLLM upstream)
 - **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (6 entries: standard / Fast / Mini × dated + alias). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
 - **new-api (aggregator gateway)**: Reverse-whitelist mirror provider. Every `new-api/<sku>` is a full copy of an already-populated `<vendor>/<sku>` record with only `litellm_provider` re-labelled. Seedance is the first family mirrored (6 SKUs from `volcengine/doubao-seedance-*`); extending to more vendors is a two-line change (whitelist entry + `NEWAPI_MIRROR_SOURCES` mapping)
 - **ecloud_aicc (aggregator gateway)**: Second mirror provider — same mechanic as new-api, distinct namespace so deployments routing through the ecloud_aicc gateway can address SKUs by their aggregator-side name. Currently mirrors the same 6 Seedance SKUs from `volcengine/doubao-seedance-*`
@@ -33,7 +34,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 | `embedding` | `embedding` | `text-embedding-3-large`, `gemini/gemini-embedding-2` |
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
 | `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `new-api/doubao-seedance-2-0-fast`, `ecloud_aicc/doubao-seedance-2-0-mini` |
-| `audio` | `audio_speech`, `audio_transcription` | `gpt-4o-mini-tts` (TTS), `gpt-4o-mini-transcribe` / `whisper-1` (ASR) |
+| `audio` | `audio_speech`, `audio_transcription` | `gpt-4o-mini-tts` / `tts-1` / `tts-1-hd` (TTS), `gpt-4o-mini-transcribe` / `whisper-1` (ASR) |
 
 ## Installation
 
@@ -80,8 +81,8 @@ python filter_models.py --url https://custom-source.com/models.json
 
 #### OpenAI
 - ✅ Include: GPT-5 series, o3/o4 series, text-embedding-3-*, `gpt-image-*` series
-- ✅ Include (audio / realtime allow-list, exact match via `INCLUDE_PATTERNS`): `gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `whisper-1`
-- ✅ Supports **audio_speech** (TTS) and **audio_transcription** (ASR) modes — `PRICE_FIELDS_BY_MODE` accepts either per-token or per-second billing (whisper-1 uses `input_cost_per_second`; gpt-4o-*-transcribe/tts use `input_cost_per_token` + `output_cost_per_audio_token`)
+- ✅ Include (audio / realtime allow-list, exact match via `INCLUDE_PATTERNS`): `gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`
+- ✅ Supports **audio_speech** (TTS) and **audio_transcription** (ASR) modes — `PRICE_FIELDS_BY_MODE` accepts per-token, per-second, or per-character billing (whisper-1 uses `input_cost_per_second`; gpt-4o-*-transcribe/tts use `input_cost_per_token` + `output_cost_per_audio_token`; `tts-1` / `tts-1-hd` use `output_cost_per_character`). Standalone `tts-1` / `tts-1-hd` render as their lowercase id, per OpenAI's utility-model style
 - ✅ Include GPT-4.1 lineage: `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano` (passes narrowed `^gpt-4` pattern)
 - ✅ Supports `responses` mode (OpenAI's `/v1/responses` endpoint — used by codex, gpt-*-pro, deep-research families). `MODE_MAPPING["responses"] = "language"`. Only `gpt-5.3-codex` is whitelisted; wider codex / pro / deep-research variants stay excluded (see below)
 - ❌ Exclude: GPT-4 legacy (`gpt-4`, `gpt-4-turbo`, `gpt-4-32k`, `gpt-4-YYYY-MM-DD`) — narrowed pattern preserves GPT-4o and 4.1 families
@@ -414,6 +415,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.6 (2026-07-30)
+- Add **Moonshot (Kimi)** as a supported provider (reverse-whitelist `MOONSHOT_ALLOWED_KEYS`), with **Kimi K3** (`moonshot/kimi-k3`). Prices verified against platform.kimi.ai/docs/pricing/chat-k3: **$3 / $15 per M** input / output, cache-hit **$0.30**, 1M context. `raw_data.supports_reasoning: true` (so the downstream mock emits reasoning tokens). Exported total **121 → 122** (+1); no existing entries changed.
+- New `MOONSHOT_SYNTH_DATA` + `apply_moonshot_synth` injector (wholesale-inject, not yet on LiteLLM upstream) wired into `filter_all_models` / `get_filter_stats`; `PROVIDERS` / `PROVIDER_MAPPING` / `PROVIDER_EXCLUSION_RULES` register `moonshot`; `format_model_name` renders `moonshot/kimi-k3` → `Kimi K3`.
+- Kimi K2.7-code / K2.7-code-highspeed **not added** — pricing not verifiable on platform.kimi.ai (chat-k2.7-code page lists 256K context + a highspeed variant but no per-token rates). Add once an official price source is confirmed.
+
+### v1.16.5 (2026-07-28)
+- Add standalone OpenAI **TTS** models `tts-1` and `tts-1-hd` to the audio allow-list. Character-billed: `tts-1` **$15 / 1M chars** (`output_cost_per_character` 1.5e-05), `tts-1-hd` **$30 / 1M chars** (3e-05); source openai.com. Exported total **119 → 121** (+2); no existing entries changed.
+- `PRICE_FIELDS_BY_MODE["audio_speech"]` now also accepts `input_cost_per_character` / `output_cost_per_character` (previously per-token / per-second only), so per-character TTS models are not zero-price dropped.
+- `apply_openai_synth` upgraded to inject-when-absent / overlay-when-present (mirrors the anthropic/google injectors); `INCLUDE_PATTERNS` allows `^tts-1$` / `^tts-1-hd$`; `format_model_name` renders `tts-1` / `tts-1-hd` as their lowercase id.
+- Correct `gpt-4o-mini-tts` **text input price** 2.5e-06 → **6e-07 ($0.60 / 1M)** to match OpenAI's official rate (developers.openai.com); upstream carried the Azure/aggregator $2.50 figure. Audio output ($12 / 1M, `output_cost_per_audio_token`) was already correct. OpenAI has marked the model deprecated but it is still available.
 
 ### v1.16.4 (2026-07-25)
 - Include **Claude Mythos 5** (`claude-mythos-5`) — supersedes the v1.16.3 note that excluded it. Project Glasswing limited-availability sibling of Fable 5 (defensive-cyber); same specs, pricing, and API surface as Fable 5: **$10 / $50 per M** input / output, cache-read $1, 5m write $12.50, 1h write $20, 1M ctx, 128K out. Prices verified against the platform.claude.com pricing table. Injected wholesale via `ANTHROPIC_SYNTH_DATA`. Exported total **118 → 119** (+1); no existing entries changed.
