@@ -407,6 +407,8 @@ class ModelSyncRules:
     # Pre-staged: not on the LiteLLM source yet; injected via MOONSHOT_SYNTH_DATA.
     MOONSHOT_ALLOWED_KEYS = frozenset({
         "moonshot/kimi-k3",
+        "moonshot/kimi-k2.7-code",
+        "moonshot/kimi-k2.7-code-highspeed",
     })
 
     # Moonshot / Kimi pre-staged entries — models on platform.kimi.ai not yet
@@ -426,6 +428,55 @@ class ModelSyncRules:
             "max_output_tokens": 1048576,
             "max_tokens": 1048576,
             "source": "https://platform.kimi.ai/docs/pricing/chat-k3",
+            "supported_endpoints": ["/v1/chat/completions"],
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
+            "supports_response_schema": True,
+            "supports_tool_choice": True,
+            "supports_vision": True,
+            "supports_function_calling": True,
+            "supports_system_messages": True,
+            "supports_native_streaming": True,
+            "supports_parallel_function_calling": True,
+        },
+        # Kimi K2.7 Code — coding model, 256K (262,144) context; text/image/
+        # video input, thinking, ToolCalls, JSON Mode. $0.95 in / $4.00 out
+        # per M, cache-hit $0.19. Source chat-k2.7-code pricing page.
+        "moonshot/kimi-k2.7-code": {
+            "litellm_provider": "moonshot",
+            "mode": "chat",
+            "input_cost_per_token": 9.5e-07,
+            "output_cost_per_token": 4e-06,
+            "cache_read_input_token_cost": 1.9e-07,
+            "input_cost_per_token_cache_hit": 1.9e-07,
+            "max_input_tokens": 262144,
+            "max_output_tokens": 262144,
+            "max_tokens": 262144,
+            "source": "https://platform.kimi.ai/docs/pricing/chat-k2.7-code",
+            "supported_endpoints": ["/v1/chat/completions"],
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
+            "supports_response_schema": True,
+            "supports_tool_choice": True,
+            "supports_vision": True,
+            "supports_function_calling": True,
+            "supports_system_messages": True,
+            "supports_native_streaming": True,
+            "supports_parallel_function_calling": True,
+        },
+        # Kimi K2.7 Code HighSpeed — same model, higher output speed. $1.90 in
+        # / $8.00 out per M, cache-hit $0.38; 256K context.
+        "moonshot/kimi-k2.7-code-highspeed": {
+            "litellm_provider": "moonshot",
+            "mode": "chat",
+            "input_cost_per_token": 1.9e-06,
+            "output_cost_per_token": 8e-06,
+            "cache_read_input_token_cost": 3.8e-07,
+            "input_cost_per_token_cache_hit": 3.8e-07,
+            "max_input_tokens": 262144,
+            "max_output_tokens": 262144,
+            "max_tokens": 262144,
+            "source": "https://platform.kimi.ai/docs/pricing/chat-k2.7-code",
             "supported_endpoints": ["/v1/chat/completions"],
             "supports_reasoning": True,
             "supports_prompt_caching": True,
@@ -1584,10 +1635,16 @@ class ModelSyncRules:
         #   Kimi's official brand; version tokens (k3, k2.7) upcase.
         if provider == "moonshot" or key.startswith("moonshot/"):
             suffix = re.sub(r"^moonshot/(kimi-)?", "", key, flags=re.IGNORECASE)
-            parts = [
-                p.upper() if re.match(r"^k\d", p, re.IGNORECASE) else p.capitalize()
-                for p in suffix.split("-")
-            ]
+            # Branded segment casing (Kimi's official spelling).
+            overrides = {"highspeed": "HighSpeed"}
+            parts = []
+            for p in suffix.split("-"):
+                if p.lower() in overrides:
+                    parts.append(overrides[p.lower()])
+                elif re.match(r"^k\d", p, re.IGNORECASE):  # version token: k3, k2.7
+                    parts.append(p.upper())
+                else:
+                    parts.append(p.capitalize())
             return "Kimi " + " ".join(parts)
 
         # Google: gemini-2.5-flash → Gemini 2.5 Flash

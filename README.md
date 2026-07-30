@@ -21,7 +21,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1 family + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (11 SKUs: GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output)
-- **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` (1 SKU: Kimi K3 — $3 / $15 per M input / output, cache-hit $0.30, 1M context). Pre-staged via `MOONSHOT_SYNTH_DATA` (injected — not yet on LiteLLM upstream)
+- **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` (3 SKUs: Kimi K3 — $3 / $15 per M, cache-hit $0.30, 1M context; Kimi K2.7 Code — $0.95 / $4.00, cache-hit $0.19, 256K; Kimi K2.7 Code HighSpeed — $1.90 / $8.00, cache-hit $0.38, 256K). Pre-staged via `MOONSHOT_SYNTH_DATA` (injected — not yet on LiteLLM upstream)
 - **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (6 entries: standard / Fast / Mini × dated + alias). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
 - **new-api (aggregator gateway)**: Reverse-whitelist mirror provider. Every `new-api/<sku>` is a full copy of an already-populated `<vendor>/<sku>` record with only `litellm_provider` re-labelled. Seedance is the first family mirrored (6 SKUs from `volcengine/doubao-seedance-*`); extending to more vendors is a two-line change (whitelist entry + `NEWAPI_MIRROR_SOURCES` mapping)
 - **ecloud_aicc (aggregator gateway)**: Second mirror provider — same mechanic as new-api, distinct namespace so deployments routing through the ecloud_aicc gateway can address SKUs by their aggregator-side name. Currently mirrors the same 6 Seedance SKUs from `volcengine/doubao-seedance-*`
@@ -415,6 +415,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.7 (2026-07-30)
+- Add Moonshot **Kimi K2.7 Code** (`moonshot/kimi-k2.7-code`) and **Kimi K2.7 Code HighSpeed** (`moonshot/kimi-k2.7-code-highspeed`) — completes the deferral noted in v1.16.6 now that official prices are confirmed (platform.kimi.ai chat-k2.7-code pricing page). Both 256K (262,144) context, text/image/video input, thinking, ToolCalls, JSON Mode:
+  - Kimi K2.7 Code — **$0.95 in / $4.00 out** per M, cache-hit **$0.19**.
+  - Kimi K2.7 Code HighSpeed — **$1.90 in / $8.00 out** per M, cache-hit **$0.38**.
+- `raw_data.supports_reasoning: true` on both; `format_model_name` renders `HighSpeed` with the official camel-case. Exported total **122 → 124** (+2); no existing entries changed.
 
 ### v1.16.6 (2026-07-30)
 - Add **Moonshot (Kimi)** as a supported provider (reverse-whitelist `MOONSHOT_ALLOWED_KEYS`), with **Kimi K3** (`moonshot/kimi-k3`). Prices verified against platform.kimi.ai/docs/pricing/chat-k3: **$3 / $15 per M** input / output, cache-hit **$0.30**, 1M context. `raw_data.supports_reasoning: true` (so the downstream mock emits reasoning tokens). Exported total **121 → 122** (+1); no existing entries changed.
