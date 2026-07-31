@@ -935,16 +935,16 @@ class ModelSyncRules:
             "output_cost_per_token_above_272k_tokens_flex": 2.25e-05,
         },
         "gpt-5.6-terra": {
-            "cache_creation_input_token_cost_above_272k_tokens_flex": 3.125e-06,
-            "cache_read_input_token_cost_above_272k_tokens_flex": 2.5e-07,
-            "input_cost_per_token_above_272k_tokens_flex": 2.5e-06,
-            "output_cost_per_token_above_272k_tokens_flex": 1.125e-05,
+            "cache_creation_input_token_cost_above_272k_tokens_flex": 2.5e-06,
+            "cache_read_input_token_cost_above_272k_tokens_flex": 2e-07,
+            "input_cost_per_token_above_272k_tokens_flex": 2e-06,
+            "output_cost_per_token_above_272k_tokens_flex": 9e-06,
         },
         "gpt-5.6-luna": {
-            "cache_creation_input_token_cost_above_272k_tokens_flex": 1.25e-06,
-            "cache_read_input_token_cost_above_272k_tokens_flex": 1e-07,
-            "input_cost_per_token_above_272k_tokens_flex": 1e-06,
-            "output_cost_per_token_above_272k_tokens_flex": 4.5e-06,
+            "cache_creation_input_token_cost_above_272k_tokens_flex": 2.5e-07,
+            "cache_read_input_token_cost_above_272k_tokens_flex": 2e-08,
+            "input_cost_per_token_above_272k_tokens_flex": 2e-07,
+            "output_cost_per_token_above_272k_tokens_flex": 9e-07,
         },
         # gpt-4o-mini-tts text input — OpenAI official is $0.60 / 1M tokens
         # (developers.openai.com); upstream carried the Azure/aggregator

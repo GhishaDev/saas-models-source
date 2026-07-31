@@ -416,6 +416,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Changelog
 
+### v1.16.8 (2026-07-31)
+- **GPT-5.6 Luna −80%, GPT-5.6 Terra −20%** price cut (OpenAI, effective 2026-07-31; developers.openai.com/api/docs/pricing). Every cost field across all tiers (standard / flex / batch / priority × short / long context) rescaled by the announced factor — verified field-by-field against the official page:
+  - `gpt-5.6-terra` ×0.80 — standard $2.50 / $15 / $0.25 → **$2.00 / $12 / $0.20**.
+  - `gpt-5.6-luna` ×0.20 — standard $1.00 / $6 / $0.10 → **$0.20 / $1.20 / $0.02**.
+- `gpt-5.6-sol` and the `gpt-5.6` base alias unchanged ($5 / $30 / $0.50). No other OpenAI models changed (all still match the official page). `OPENAI_SYNTH_DATA` flex-long-context overlays for terra/luna updated to match. Only 2 entries changed; no additions.
+
 ### v1.16.7 (2026-07-30)
 - Add Moonshot **Kimi K2.7 Code** (`moonshot/kimi-k2.7-code`) and **Kimi K2.7 Code HighSpeed** (`moonshot/kimi-k2.7-code-highspeed`) — completes the deferral noted in v1.16.6 now that official prices are confirmed (platform.kimi.ai chat-k2.7-code pricing page). Both 256K (262,144) context, text/image/video input, thinking, ToolCalls, JSON Mode:
   - Kimi K2.7 Code — **$0.95 in / $4.00 out** per M, cache-hit **$0.19**.
