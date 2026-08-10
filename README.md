@@ -22,9 +22,9 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (11 SKUs: GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output)
 - **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` (3 SKUs: Kimi K3 — $3 / $15 per M, cache-hit $0.30, 1M context; Kimi K2.7 Code — $0.95 / $4.00, cache-hit $0.19, 256K; Kimi K2.7 Code HighSpeed — $1.90 / $8.00, cache-hit $0.38, 256K). Pre-staged via `MOONSHOT_SYNTH_DATA` (injected — not yet on LiteLLM upstream)
-- **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 + 2.5 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (7 entries: 2.0 standard / Fast / Mini × {dated + alias}, plus Seedance 2.5 date-less alias — $70 CNY/M no-input-video, $42 CNY/M with-input-video). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
-- **new-api (aggregator gateway)**: Reverse-whitelist mirror provider. Every `new-api/<sku>` is a full copy of an already-populated `<vendor>/<sku>` record with only `litellm_provider` re-labelled. Seedance is the first family mirrored (7 SKUs from `volcengine/doubao-seedance-*`); extending to more vendors is a two-line change (whitelist entry + `NEWAPI_MIRROR_SOURCES` mapping)
-- **ecloud_aicc (aggregator gateway)**: Second mirror provider — same mechanic as new-api, distinct namespace so deployments routing through the ecloud_aicc gateway can address SKUs by their aggregator-side name. Currently mirrors the same 7 Seedance SKUs from `volcengine/doubao-seedance-*`
+- **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 + 2.5 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (8 entries: 2.0 standard / Fast / Mini × {dated + alias}, plus Seedance 2.5 {dated `-260628` + alias} — $70 CNY/M no-input-video, $42 CNY/M with-input-video). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
+- **new-api (aggregator gateway)**: Reverse-whitelist mirror provider. Every `new-api/<sku>` is a full copy of an already-populated `<vendor>/<sku>` record with only `litellm_provider` re-labelled. Seedance is the first family mirrored (8 SKUs from `volcengine/doubao-seedance-*`); extending to more vendors is a two-line change (whitelist entry + `NEWAPI_MIRROR_SOURCES` mapping)
+- **ecloud_aicc (aggregator gateway)**: Second mirror provider — same mechanic as new-api, distinct namespace so deployments routing through the ecloud_aicc gateway can address SKUs by their aggregator-side name. Currently mirrors the same 8 Seedance SKUs from `volcengine/doubao-seedance-*`
 
 ## Supported Model Types
 
@@ -134,7 +134,7 @@ python filter_models.py --url https://custom-source.com/models.json
 > **Why two GLM providers?** `zai/` and `bigmodel/` describe the **same models served by two gateways** — z.ai (international) and bigmodel.cn (中国版). Pricing is currently unified to z.ai's USD tariff on both sides; the two namespaces remain distinct so downstream consumers can pick the gateway they actually call without rewriting the model key.
 
 #### Volcengine (ByteDance Ark — Doubao Seedance video)
-- ✅ Include: only keys listed in `ModelSyncRules.VOLCENGINE_ALLOWED_KEYS` (reverse whitelist, 7 SKUs: Seedance 2.0 / Fast / Mini × {dated official ID, date-less alias}, plus Seedance 2.5 date-less alias)
+- ✅ Include: only keys listed in `ModelSyncRules.VOLCENGINE_ALLOWED_KEYS` (reverse whitelist, 8 SKUs: Seedance 2.0 / Fast / Mini × {dated official ID, date-less alias}, plus Seedance 2.5 {dated + alias})
 - ✅ **Currency: USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family. Top-level `output_cost_per_token` carries the base 720p / no-input-video tier; resolution-suffixed (`_1080p` / `_4k`) and v2v-suffixed (`_with_input_video`) variants flow through under `raw_data` for tier-aware billing.
 - ✅ The underlying tariff is CNY (Volcengine publishes per-million-token CNY rates tiered by resolution and v2v). USD numbers in this catalogue are produced at a policy rate of **`1 USD = 7.0 CNY`**, mirroring the LiteLLM fork's `VOLCENGINE_FX_POLICY.md`. Refresh both sides together if the FX policy changes.
 - ✅ Prices are rounded to **4 significant digits** via `_cny_per_m_to_usd_per_token()` — matches upstream LiteLLM precision and stays reversible to the source integer CNY value (e.g. `6.571e-06 × 7.0 × 10⁶ ≈ 46 CNY/M`)
@@ -150,7 +150,7 @@ python filter_models.py --url https://custom-source.com/models.json
 > **`volcengine_new_api` vs the `new-api/` mirror provider.** These are two distinct concepts. `volcengine_new_api` is a LiteLLM **routing-layer** label used inside a deployment's config to indicate "this Volcengine deployment sits behind a new-api relay" — it does not appear in the catalogue. Separately, the `new-api/*` prefix in this catalogue is a **catalogue-layer mirror provider**: a copy of vendor SKUs re-namespaced onto a `new-api/` prefix so consumers routing through new-api can address them by their aggregator-side names. See the `#### new-api` section for the mirror mechanic.
 
 #### new-api (aggregator mirror provider)
-- ✅ Include: only keys listed in `ModelSyncRules.NEWAPI_ALLOWED_KEYS` (reverse whitelist, 7 SKUs today — all Seedance)
+- ✅ Include: only keys listed in `ModelSyncRules.NEWAPI_ALLOWED_KEYS` (reverse whitelist, 8 SKUs today — all Seedance)
 - ✅ **Source of truth: `NEWAPI_MIRROR_SOURCES`** maps each `new-api/<sku>` to its authoritative source key (currently `volcengine/doubao-seedance-*`). `apply_newapi_synth` runs *after* every other vendor synth so those sources are already populated; each new-api entry is a full copy of its source's raw record with only `litellm_provider` re-labelled to `"new-api"`
 - ✅ Prices, context, capabilities, and modes stay in **lock-step** with the source — Volcengine tariff change → new-api mirror updates on the next sync, no manual work
 - ✅ Missing sources fail silently (the mirror is skipped, its whitelist entry then drops via unsupported-provider / zero-price) — surfaces gaps instead of exporting stale duplicates
@@ -159,7 +159,7 @@ python filter_models.py --url https://custom-source.com/models.json
 - ❌ Exclude: `new-api/<sku>` whose source key isn't present in the merged catalogue after all other synths run
 
 #### ecloud_aicc (aggregator mirror provider)
-- ✅ Include: only keys listed in `ModelSyncRules.ECLOUD_AICC_ALLOWED_KEYS` (reverse whitelist, 7 SKUs today — all Seedance)
+- ✅ Include: only keys listed in `ModelSyncRules.ECLOUD_AICC_ALLOWED_KEYS` (reverse whitelist, 8 SKUs today — all Seedance)
 - ✅ **Same mirror mechanic as `new-api`**: `ECLOUD_AICC_MIRROR_SOURCES` maps each `ecloud_aicc/<sku>` to its authoritative source key (currently `volcengine/doubao-seedance-*`). `apply_ecloud_aicc_synth` runs at the tail of the synth chain — every source is already populated by the time it runs
 - ✅ Prices / context / capabilities / mode stay in lock-step with the source (Volcengine tariff change → both `new-api/*` and `ecloud_aicc/*` refresh on next sync)
 - ✅ Underscore-in-name is intentional (matches how the ecloud_aicc gateway spells its own provider identifier); the friendly-name Seedance branch handles the prefix alongside `volcengine/` and `new-api/`
@@ -415,6 +415,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.10 (2026-08-10)
+- Add the **dated official Model ID** for Seedance 2.5: `volcengine/doubao-seedance-2-5-260628` (+ `new-api` / `ecloud_aicc` mirrors), alongside the existing date-less alias — matching the 2.0 family's {dated + alias} pattern. Same pricing (70 / 42 CNY per M). Exported total **127 → 130** (+3); no existing entries changed.
 
 ### v1.16.9 (2026-08-10)
 - Add **Doubao Seedance 2.5** video model (`volcengine/doubao-seedance-2-5`) + its `new-api` / `ecloud_aicc` mirrors. Source: docs.volcengine.com/docs/82379/2191775 (Tokens 抵扣规则). 480P/720P only (no 1080p/4k tier), two input scenarios:

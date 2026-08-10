@@ -507,7 +507,8 @@ class ModelSyncRules:
         "volcengine/doubao-seedance-2-0",
         "volcengine/doubao-seedance-2-0-fast",
         "volcengine/doubao-seedance-2-0-mini",
-        # Seedance 2.5 (date-less alias; dated snapshot ID not yet published)
+        # Seedance 2.5 — dated official ID + date-less alias
+        "volcengine/doubao-seedance-2-5-260628",
         "volcengine/doubao-seedance-2-5",
     })
 
@@ -597,6 +598,16 @@ class ModelSyncRules:
         # Seedance 2.5 — 480P/720P only (no 1080p/4k tier). Source
         # docs.volcengine.com/docs/82379/2191775 (Tokens 抵扣规则 table):
         # 无视频输入 0.070 元/千 = 70 CNY/M; 含视频输入 0.042 元/千 = 42 CNY/M.
+        # Official Model ID doubao-seedance-2-5-260628 + date-less alias.
+        "volcengine/doubao-seedance-2-5-260628": {
+            "litellm_provider": "volcengine",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://docs.volcengine.com/docs/82379/2191775",
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(70),
+            "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(42),
+        },
         "volcengine/doubao-seedance-2-5": {
             "litellm_provider": "volcengine",
             "mode": "video_generation",
@@ -630,6 +641,7 @@ class ModelSyncRules:
         "new-api/doubao-seedance-2-0-260128",
         "new-api/doubao-seedance-2-0-fast-260128",
         "new-api/doubao-seedance-2-0-mini-260615",
+        "new-api/doubao-seedance-2-5-260628",
         "new-api/doubao-seedance-2-5",
     })
 
@@ -642,6 +654,7 @@ class ModelSyncRules:
         "new-api/doubao-seedance-2-0-260128":       "volcengine/doubao-seedance-2-0-260128",
         "new-api/doubao-seedance-2-0-fast-260128":  "volcengine/doubao-seedance-2-0-fast-260128",
         "new-api/doubao-seedance-2-0-mini-260615":  "volcengine/doubao-seedance-2-0-mini-260615",
+        "new-api/doubao-seedance-2-5-260628":       "volcengine/doubao-seedance-2-5-260628",
         "new-api/doubao-seedance-2-5":              "volcengine/doubao-seedance-2-5",
     }
 
@@ -661,6 +674,7 @@ class ModelSyncRules:
         "ecloud_aicc/doubao-seedance-2-0-260128",
         "ecloud_aicc/doubao-seedance-2-0-fast-260128",
         "ecloud_aicc/doubao-seedance-2-0-mini-260615",
+        "ecloud_aicc/doubao-seedance-2-5-260628",
         "ecloud_aicc/doubao-seedance-2-5",
     })
 
@@ -672,6 +686,7 @@ class ModelSyncRules:
         "ecloud_aicc/doubao-seedance-2-0-260128":       "volcengine/doubao-seedance-2-0-260128",
         "ecloud_aicc/doubao-seedance-2-0-fast-260128":  "volcengine/doubao-seedance-2-0-fast-260128",
         "ecloud_aicc/doubao-seedance-2-0-mini-260615":  "volcengine/doubao-seedance-2-0-mini-260615",
+        "ecloud_aicc/doubao-seedance-2-5-260628":       "volcengine/doubao-seedance-2-5-260628",
         "ecloud_aicc/doubao-seedance-2-5":              "volcengine/doubao-seedance-2-5",
     }
 
