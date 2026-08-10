@@ -507,8 +507,9 @@ class ModelSyncRules:
         "volcengine/doubao-seedance-2-0",
         "volcengine/doubao-seedance-2-0-fast",
         "volcengine/doubao-seedance-2-0-mini",
-        # Seedance 2.5 (date-less alias; dated snapshot ID not yet published)
+        # Seedance 2.5 (date-less alias + dated snapshot)
         "volcengine/doubao-seedance-2-5",
+        "volcengine/doubao-seedance-2-5-260628",
     })
 
     # Volcengine Seedance pre-stage. Upstream BerriAI/litellm/main does
@@ -606,6 +607,15 @@ class ModelSyncRules:
             "output_cost_per_token": _cny_per_m_to_usd_per_token(70),
             "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(42),
         },
+        "volcengine/doubao-seedance-2-5-260628": {
+            "litellm_provider": "volcengine",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://docs.volcengine.com/docs/82379/2191775",
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(70),
+            "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(42),
+        },
     }
 
     # ── new-api (aggregator gateway) ──────────────────────────────────────
@@ -631,6 +641,7 @@ class ModelSyncRules:
         "new-api/doubao-seedance-2-0-fast-260128",
         "new-api/doubao-seedance-2-0-mini-260615",
         "new-api/doubao-seedance-2-5",
+        "new-api/doubao-seedance-2-5-260628",
     })
 
     # Map new-api/<sku> → authoritative source key (after all other synths run).
@@ -643,6 +654,7 @@ class ModelSyncRules:
         "new-api/doubao-seedance-2-0-fast-260128":  "volcengine/doubao-seedance-2-0-fast-260128",
         "new-api/doubao-seedance-2-0-mini-260615":  "volcengine/doubao-seedance-2-0-mini-260615",
         "new-api/doubao-seedance-2-5":              "volcengine/doubao-seedance-2-5",
+        "new-api/doubao-seedance-2-5-260628":       "volcengine/doubao-seedance-2-5-260628",
     }
 
     # ── ecloud_aicc (aggregator gateway) ──────────────────────────────────
@@ -662,6 +674,7 @@ class ModelSyncRules:
         "ecloud_aicc/doubao-seedance-2-0-fast-260128",
         "ecloud_aicc/doubao-seedance-2-0-mini-260615",
         "ecloud_aicc/doubao-seedance-2-5",
+        "ecloud_aicc/doubao-seedance-2-5-260628",
     })
 
     # Map ecloud_aicc/<sku> → authoritative source key.
@@ -673,6 +686,7 @@ class ModelSyncRules:
         "ecloud_aicc/doubao-seedance-2-0-fast-260128":  "volcengine/doubao-seedance-2-0-fast-260128",
         "ecloud_aicc/doubao-seedance-2-0-mini-260615":  "volcengine/doubao-seedance-2-0-mini-260615",
         "ecloud_aicc/doubao-seedance-2-5":              "volcengine/doubao-seedance-2-5",
+        "ecloud_aicc/doubao-seedance-2-5-260628":       "volcengine/doubao-seedance-2-5-260628",
     }
 
     # DeepSeek overlays. Source: api-docs.deepseek.com/quick_start/pricing
