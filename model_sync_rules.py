@@ -86,6 +86,7 @@ class ModelSyncRules:
         "zai/glm-4-32b-0414-128k",
         # Pre-staged: announced on docs.z.ai but missing from LiteLLM source
         "zai/glm-5.2",
+        "zai/glm-5.3",
         "zai/glm-5.1",
         "zai/glm-5-turbo",
         "zai/glm-4.7-flashx",
@@ -121,6 +122,22 @@ class ModelSyncRules:
             # Long-horizon flagship: bigmodel.cn advertises "真正可用的 1M 上下文"
             # (genuinely usable 1M context). Priced identically to GLM-5.1 on
             # z.ai international (input $1.4 / output $4.4 / cached $0.26 per M).
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "input_cost_per_token": 1.4e-06,
+            "output_cost_per_token": 4.4e-06,
+            "cache_read_input_token_cost": 0.26e-06,
+            "supports_function_calling": True,
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        "zai/glm-5.3": {
+            # Pre-staged: GLM-5.3 not yet officially released. Config + price
+            # deliberately mirror GLM-5.2 (input $1.4 / output $4.4 / cached
+            # $0.26 per M, 1M ctx) per request; update once z.ai publishes
+            # official GLM-5.3 pricing.
             "litellm_provider": "zai",
             "mode": "chat",
             "max_input_tokens": 1000000,
@@ -257,6 +274,7 @@ class ModelSyncRules:
     # free-tier and filtered separately via the Zero Price rule.
     BIGMODEL_ALLOWED_KEYS = frozenset({
         "bigmodel/glm-5.2",
+        "bigmodel/glm-5.3",
         "bigmodel/glm-5",
         "bigmodel/glm-4.7",
         "bigmodel/glm-4.5v",
@@ -281,6 +299,16 @@ class ModelSyncRules:
     BIGMODEL_SYNTH_DATA: dict[str, dict[str, Any]] = {
         # Text models
         "bigmodel/glm-5.2": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "supports_function_calling": True,
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        # Pre-staged mirror of GLM-5.2 (price mirrored from zai/glm-5.3 sibling).
+        "bigmodel/glm-5.3": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 1000000,
