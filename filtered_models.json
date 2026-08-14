@@ -5222,6 +5222,60 @@
         "output_cost_per_token": 1e-05,
         "output_cost_per_token_with_input_video": 6e-06
       }
+    },
+    "zai/glm-5.3": {
+      "model_key": "zai/glm-5.3",
+      "provider": "zai",
+      "type": "language",
+      "friendly_name": "GLM-5.3",
+      "is_default_available": true,
+      "input_cost_per_token": 1.4e-06,
+      "output_cost_per_token": 4.4e-06,
+      "cache_read_input_token_cost": 2.6e-07,
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "supports_vision": false,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "zai",
+        "mode": "chat",
+        "max_input_tokens": 1000000,
+        "max_output_tokens": 128000,
+        "input_cost_per_token": 1.4e-06,
+        "output_cost_per_token": 4.4e-06,
+        "cache_read_input_token_cost": 2.6e-07,
+        "supports_function_calling": true,
+        "supports_vision": false,
+        "supports_json_mode": false
+      }
+    },
+    "bigmodel/glm-5.3": {
+      "model_key": "bigmodel/glm-5.3",
+      "provider": "bigmodel",
+      "type": "language",
+      "friendly_name": "GLM-5.3",
+      "is_default_available": true,
+      "input_cost_per_token": 1.4e-06,
+      "output_cost_per_token": 4.4e-06,
+      "cache_read_input_token_cost": 2.6e-07,
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "supports_vision": false,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "bigmodel",
+        "mode": "chat",
+        "max_input_tokens": 1000000,
+        "max_output_tokens": 128000,
+        "supports_function_calling": true,
+        "supports_vision": false,
+        "supports_json_mode": false,
+        "input_cost_per_token": 1.4e-06,
+        "output_cost_per_token": 4.4e-06,
+        "cache_read_input_token_cost": 2.6e-07
+      }
     }
   }
 }
