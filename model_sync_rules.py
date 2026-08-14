@@ -623,9 +623,10 @@ class ModelSyncRules:
             "output_cost_per_token": _cny_per_m_to_usd_per_token(23),
             "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(14),
         },
-        # Seedance 2.5 — 480P/720P only (no 1080p/4k tier). Source
+        # Seedance 2.5 — 480P/720P + 1080P tiers (no 4k). Source
         # docs.volcengine.com/docs/82379/2191775 (Tokens 抵扣规则 table):
-        # 无视频输入 0.070 元/千 = 70 CNY/M; 含视频输入 0.042 元/千 = 42 CNY/M.
+        #   480P/720P: 无视频输入 0.070 元/千 = 70 CNY/M; 含视频输入 0.042 = 42.
+        #   1080P:     无视频输入 0.077 元/千 = 77 CNY/M; 含视频输入 0.046 = 46.
         "volcengine/doubao-seedance-2-5": {
             "litellm_provider": "volcengine",
             "mode": "video_generation",
@@ -634,6 +635,8 @@ class ModelSyncRules:
             "source": "https://docs.volcengine.com/docs/82379/2191775",
             "output_cost_per_token": _cny_per_m_to_usd_per_token(70),
             "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(42),
+            "output_cost_per_token_1080p": _cny_per_m_to_usd_per_token(77),
+            "output_cost_per_token_1080p_with_input_video": _cny_per_m_to_usd_per_token(46),
         },
         "volcengine/doubao-seedance-2-5-260628": {
             "litellm_provider": "volcengine",
@@ -643,6 +646,8 @@ class ModelSyncRules:
             "source": "https://docs.volcengine.com/docs/82379/2191775",
             "output_cost_per_token": _cny_per_m_to_usd_per_token(70),
             "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(42),
+            "output_cost_per_token_1080p": _cny_per_m_to_usd_per_token(77),
+            "output_cost_per_token_1080p_with_input_video": _cny_per_m_to_usd_per_token(46),
         },
     }
 
