@@ -637,6 +637,12 @@ class ModelSyncRules:
             "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(42),
             "output_cost_per_token_1080p": _cny_per_m_to_usd_per_token(77),
             "output_cost_per_token_1080p_with_input_video": _cny_per_m_to_usd_per_token(46),
+            # 4K: ESTIMATED — the official 2.5 table has no 4K row. Scaled from
+            # 2.5's 1080P by the 2.0 4K:1080P ratio (~0.51×): 无视频 77×26/51≈39,
+            # 含视频 46×16/31≈24 CNY/M. Replace with the official rate once
+            # Volcengine publishes a 2.5 4K tier.
+            "output_cost_per_token_4k": _cny_per_m_to_usd_per_token(39),
+            "output_cost_per_token_4k_with_input_video": _cny_per_m_to_usd_per_token(24),
         },
         "volcengine/doubao-seedance-2-5-260628": {
             "litellm_provider": "volcengine",
@@ -648,6 +654,12 @@ class ModelSyncRules:
             "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(42),
             "output_cost_per_token_1080p": _cny_per_m_to_usd_per_token(77),
             "output_cost_per_token_1080p_with_input_video": _cny_per_m_to_usd_per_token(46),
+            # 4K: ESTIMATED — the official 2.5 table has no 4K row. Scaled from
+            # 2.5's 1080P by the 2.0 4K:1080P ratio (~0.51×): 无视频 77×26/51≈39,
+            # 含视频 46×16/31≈24 CNY/M. Replace with the official rate once
+            # Volcengine publishes a 2.5 4K tier.
+            "output_cost_per_token_4k": _cny_per_m_to_usd_per_token(39),
+            "output_cost_per_token_4k_with_input_video": _cny_per_m_to_usd_per_token(24),
         },
     }
 
