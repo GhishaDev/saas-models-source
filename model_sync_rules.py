@@ -13,24 +13,25 @@ import re
 from typing import Any, Callable
 
 
-# Volcengine FX policy (fixed, not live): 1 USD = 7.0 CNY. Mirrors the
+# CNY→USD FX policy (fixed, not live): 1 USD = 7.0 CNY. Mirrors the
 # internal LiteLLM fork's VOLCENGINE_FX_POLICY.md. Change both sides
-# together if the policy rate is repegged.
-_VOLCENGINE_FX_RATE = 7.0
+# together if the policy rate is repegged. Shared by every CNY-quoted
+# vendor tariff in this file (Volcengine Seedance, DeepSeek).
+_CNY_USD_FX_RATE = 7.0
 
 
 def _cny_per_m_to_usd_per_token(cny_per_m: float, sig: int = 4) -> float:
     """Convert CNY per million tokens → USD per token, rounded to ``sig`` sig figs.
 
-    Volcengine's official Seedance tariff is quoted in integer CNY/M. The
+    Vendors billing in RMB (Volcengine Seedance, DeepSeek) quote CNY/M. The
     raw division produces IEEE-754 float tails (46/7e6 →
     6.571428571428571e-06) that read as false precision in JSON. Rounding
     to 4 significant digits keeps the source CNY reversible
-    (round(val * FX * 1e6) recovers the integer CNY value) while shedding
+    (round(val * FX * 1e6) recovers the source CNY value) while shedding
     the noise. Matches the precision the LiteLLM upstream uses for its
     own USD prices (3–4 sig figs).
     """
-    raw = cny_per_m / (_VOLCENGINE_FX_RATE * 1_000_000)
+    raw = cny_per_m / (_CNY_USD_FX_RATE * 1_000_000)
     if raw == 0:
         return 0.0
     digits = sig - int(math.floor(math.log10(abs(raw)))) - 1
@@ -735,15 +736,42 @@ class ModelSyncRules:
     }
 
     # DeepSeek overlays. Source: api-docs.deepseek.com/quick_start/pricing
-    # (snapshot 2026-06-30). LiteLLM upstream carries correct prices and
-    # context (1M input), but max_output_tokens is stuck at 8192 — official
-    # docs state 384K. Overlay just that field; everything else is upstream.
+    # (snapshot 2026-08-20). LiteLLM upstream carries the correct context
+    # (1M input) but trails on two points: max_output_tokens is stuck at
+    # 8192 (official 384K) and its prices predate the 2026-08 tariff.
+    #
+    # Currency: the official page quotes CNY/M. Stored as USD/token via the
+    # shared policy FX rate (see _cny_per_m_to_usd_per_token) so the billing
+    # manager needs no runtime FX lookup — same treatment as Seedance.
+    #
+    # Peak vs off-peak: DeepSeek halves every rate outside Beijing-time
+    # 09:00–12:00 / 14:00–18:00. LiteLLM has no time-of-day price axis, so
+    # we carry the PEAK tariff (the ceiling — never under-bills). Off-peak
+    # is exactly 0.5x if a discount axis is ever added.
+    #
+    #   Peak CNY/M          flash        pro
+    #   cache-miss input      3.0        9.0
+    #   cache-hit input       0.10       0.30
+    #   output                9.0       27.0
+    #
+    # input_cost_per_token_cache_hit is DeepSeek's own upstream field name;
+    # cache_read_input_token_cost is the litellm-generic one. Both carry the
+    # same number, mirroring the upstream entry shape. Cache writes are free
+    # (cache_creation_input_token_cost stays 0.0 from upstream).
     DEEPSEEK_SYNTH_DATA: dict[str, dict[str, Any]] = {
         "deepseek/deepseek-v4-flash": {
             "max_output_tokens": 384000,
+            "input_cost_per_token": _cny_per_m_to_usd_per_token(3.0),
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(9.0),
+            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.10),
+            "input_cost_per_token_cache_hit": _cny_per_m_to_usd_per_token(0.10),
         },
         "deepseek/deepseek-v4-pro": {
             "max_output_tokens": 384000,
+            "input_cost_per_token": _cny_per_m_to_usd_per_token(9.0),
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(27.0),
+            "cache_read_input_token_cost": _cny_per_m_to_usd_per_token(0.30),
+            "input_cost_per_token_cache_hit": _cny_per_m_to_usd_per_token(0.30),
         },
     }
 
@@ -1923,9 +1951,10 @@ class ModelSyncRules:
         """
         Overlay official deepseek pricing-page metadata onto upstream entries.
 
-        Currently only patches ``max_output_tokens`` for the V4 series:
-        api-docs.deepseek.com states 384K, LiteLLM upstream reports 8K.
-        All pricing fields come from upstream (already correct).
+        Patches ``max_output_tokens`` (api-docs.deepseek.com states 384K,
+        LiteLLM upstream reports 8K) plus the peak-hour token prices, which
+        upstream trails. See DEEPSEEK_SYNTH_DATA for the CNY source tariff
+        and the peak/off-peak policy.
 
         SKUs absent from upstream stay absent — DEEPSEEK_SYNTH_DATA is a
         pure overlay, not an injector (whitelist enforces presence).

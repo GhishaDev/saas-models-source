@@ -20,7 +20,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro), Gemini Embedding 2, `gemini-*-image*` series
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (12 SKUs: GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
-- **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output)
+- **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output). The official tariff is quoted in CNY/M and split into peak / off-peak windows; we carry the **peak** rate converted to USD/token at the policy FX rate (`1 USD = 7.0 CNY`)
 - **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` (3 SKUs: Kimi K3 — $3 / $15 per M, cache-hit $0.30, 1M context; Kimi K2.7 Code — $0.95 / $4.00, cache-hit $0.19, 256K; Kimi K2.7 Code HighSpeed — $1.90 / $8.00, cache-hit $0.38, 256K). Pre-staged via `MOONSHOT_SYNTH_DATA` (injected — not yet on LiteLLM upstream)
 - **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 + 2.5 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (8 entries: 2.0 standard / Fast / Mini × {dated + alias}, plus Seedance 2.5 {dated `-260628` + alias} — 480P/720P 70 / 42 CNY/M no-video / with-video, 1080P 77 / 46 CNY/M, 4K 39 / 24 CNY/M *estimated*). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
 - **new-api (aggregator gateway)**: Reverse-whitelist mirror provider. Every `new-api/<sku>` is a full copy of an already-populated `<vendor>/<sku>` record with only `litellm_provider` re-labelled. Seedance is the first family mirrored (8 SKUs from `volcengine/doubao-seedance-*`); extending to more vendors is a two-line change (whitelist entry + `NEWAPI_MIRROR_SOURCES` mapping)
@@ -169,9 +169,11 @@ python filter_models.py --url https://custom-source.com/models.json
 
 #### DeepSeek
 - ✅ Include: only keys listed in `ModelSyncRules.DEEPSEEK_ALLOWED_KEYS` (reverse whitelist, 2 SKUs)
-- ✅ **Official DeepSeek pricing page as source of truth** ([api-docs.deepseek.com/quick_start/pricing](https://api-docs.deepseek.com/quick_start/pricing/), snapshot 2026-06-30):
-  - LiteLLM upstream carries correct prices, context (1M input), and capabilities; the only mismatch is `max_output_tokens` (upstream `8192`, official `384000`)
-  - `DEEPSEEK_SYNTH_DATA` overlays just that field via `apply_deepseek_synth` — no price synthesis needed
+- ✅ **Official DeepSeek pricing page as source of truth** ([api-docs.deepseek.com/quick_start/pricing](https://api-docs.deepseek.com/quick_start/pricing/), snapshot 2026-08-20):
+  - LiteLLM upstream carries correct context (1M input) and capabilities, but trails on `max_output_tokens` (upstream `8192`, official `384000`) and on the 2026-08 tariff
+  - `DEEPSEEK_SYNTH_DATA` overlays both via `apply_deepseek_synth`
+  - **Peak-hour tariff is what we carry.** DeepSeek halves every rate outside Beijing-time 09:00–12:00 / 14:00–18:00; LiteLLM has no time-of-day price axis, so the peak (ceiling) rate is stored and off-peak is exactly `0.5x` of it. Peak CNY/M — DeepSeek-V4-Flash `3.0` in (cache-miss) / `0.10` in (cache-hit) / `9.0` out; DeepSeek-V4-Pro `9.0` / `0.30` / `27.0`. Cache writes are free
+  - Prices stored as **USD/token**, converted from the official CNY tariff at the shared policy FX rate (`1 USD = 7.0 CNY`, same as Seedance) so the billing manager needs no runtime FX lookup
 - ❌ Exclude `deepseek-chat` / `deepseek-reasoner`: scheduled for deprecation on 2026-07-24 (currently aliases of `deepseek-v4-flash` thinking/non-thinking modes)
 - ❌ Exclude `deepseek-v3` / `deepseek-v3.2` / `deepseek-r1` / `deepseek-coder`: superseded by V4, no longer listed on the official pricing page
 - ❌ Exclude all bare-key forms (`deepseek-chat`, `deepseek-v4-flash`, etc.): the `deepseek/` namespace is canonical
@@ -415,6 +417,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.13 (2026-08-20)
+- **DeepSeek V4 price update** (api-docs.deepseek.com/quick_start/pricing). The official table now quotes CNY/M split into peak / off-peak windows (off-peak = exactly half of peak; peak is Beijing-time 09:00–12:00 and 14:00–18:00). LiteLLM has no time-of-day price axis, so `DEEPSEEK_SYNTH_DATA` carries the **peak** rate — the ceiling, so we never under-bill:
+  - `deepseek/deepseek-v4-flash` — cache-miss input **3.0 CNY/M** → `input_cost_per_token` 4.286e-07, cache-hit input **0.10 CNY/M** → `cache_read_input_token_cost` / `input_cost_per_token_cache_hit` 1.429e-08, output **9.0 CNY/M** → `output_cost_per_token` 1.286e-06
+  - `deepseek/deepseek-v4-pro` — cache-miss input **9.0 CNY/M** → 1.286e-06, cache-hit input **0.30 CNY/M** → 4.286e-08, output **27.0 CNY/M** → 3.857e-06
+  - Converted at the policy FX rate `1 USD = 7.0 CNY` via `_cny_per_m_to_usd_per_token`, 4 sig figs (reversible back to the source CNY). Cache writes stay free (`cache_creation_input_token_cost` 0.0)
+  - Renamed the FX constant `_VOLCENGINE_FX_RATE` → `_CNY_USD_FX_RATE`: it is now shared by two CNY-quoted vendors (Seedance, DeepSeek). Same value, single use site, no behaviour change
+- Net: pricing-only change to 2 SKUs; context (1M), max output (384K), capabilities, and exported total (132) unchanged.
 
 ### v1.16.12 (2026-08-19)
 - Add an **estimated 4K tier** to Doubao Seedance 2.5 (all 6 entries: dated + alias × volcengine / new-api / ecloud_aicc). ⚠️ **Not official** — the Volcengine 2.5 table has no 4K row. Derived from 2.5's 1080P scaled by the 2.0 4K:1080P ratio (~0.51×): 无视频 **39 CNY/M** → `output_cost_per_token_4k` 5.571e-06, 含视频 **24 CNY/M** → `output_cost_per_token_4k_with_input_video` 3.429e-06 (USD @ 7.0 FX). Marked as an estimate in code; replace with the official rate when Volcengine publishes a 2.5 4K tier. Only the two 4K fields added per entry; no other changes.
