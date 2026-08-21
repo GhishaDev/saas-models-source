@@ -5270,7 +5270,9 @@
         "output_cost_per_token": 1.07e-05,
         "output_cost_per_token_with_input_video": 6.4e-06,
         "output_cost_per_token_1080p": 1.17e-05,
-        "output_cost_per_token_1080p_with_input_video": 7e-06
+        "output_cost_per_token_1080p_with_input_video": 7e-06,
+        "output_cost_per_token_4k": 6.08e-06,
+        "output_cost_per_token_4k_with_input_video": 3.57e-06
       }
     },
     "byteplus/dreamina-seedance-2-5": {
@@ -5296,7 +5298,9 @@
         "output_cost_per_token": 1.07e-05,
         "output_cost_per_token_with_input_video": 6.4e-06,
         "output_cost_per_token_1080p": 1.17e-05,
-        "output_cost_per_token_1080p_with_input_video": 7e-06
+        "output_cost_per_token_1080p_with_input_video": 7e-06,
+        "output_cost_per_token_4k": 6.08e-06,
+        "output_cost_per_token_4k_with_input_video": 3.57e-06
       }
     },
     "byteplus/dreamina-seedance-2-0-260128": {
