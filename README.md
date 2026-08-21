@@ -86,11 +86,12 @@ python filter_models.py --url https://custom-source.com/models.json
 - ✅ Supports **audio_speech** (TTS) and **audio_transcription** (ASR) modes — `PRICE_FIELDS_BY_MODE` accepts per-token, per-second, or per-character billing (whisper-1 uses `input_cost_per_second`; gpt-4o-*-transcribe/tts use `input_cost_per_token` + `output_cost_per_audio_token`; `tts-1` / `tts-1-hd` use `output_cost_per_character`). Standalone `tts-1` / `tts-1-hd` render as their lowercase id, per OpenAI's utility-model style
 - ✅ Include GPT-4.1 lineage: `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano` (passes narrowed `^gpt-4` pattern)
 - ✅ Supports `responses` mode (OpenAI's `/v1/responses` endpoint — used by codex, gpt-*-pro, deep-research families). `MODE_MAPPING["responses"] = "language"`. Only `gpt-5.3-codex` is whitelisted; wider codex / pro / deep-research variants stay excluded (see below)
+- ✅ Supports `realtime` mode (OpenAI's `/v1/realtime` endpoint). LiteLLM re-classified these SKUs out of `chat` in 2026-08; `MODE_MAPPING["realtime"] = "language"` keeps them where downstream already had them. `PRICE_FIELDS_BY_MODE["realtime"]` accepts any of the four billing axes (text in/out, audio in/out) plus `input_cost_per_image`. Only the two allow-listed keys pass; the wider `gpt-realtime-*` family stays excluded via `EXCLUDE_PATTERNS`
 - ❌ Exclude: GPT-4 legacy (`gpt-4`, `gpt-4-turbo`, `gpt-4-32k`, `gpt-4-YYYY-MM-DD`) — narrowed pattern preserves GPT-4o and 4.1 families
 - ❌ Exclude: o1 series, ada embedding models
 - ❌ Exclude: `dall-e-*`, `chatgpt-image-*` (legacy image models)
 - ❌ Exclude via `EXCLUDE_MODEL_KEYS` (outside sanctioned allow-lists):
-  - audio: `gpt-4o-transcribe`, `gpt-4o-transcribe-diarize`
+  - audio: `gpt-4o-transcribe`, `gpt-4o-transcribe-diarize`, `gpt-transcribe`, `gpt-live-transcribe` (the 2026-08 generation dropped the `4o` infix; same narrow-scope policy)
   - responses: `gpt-5-codex`, `gpt-5-pro`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.2-codex`, `gpt-5.2-pro`, `gpt-5.4-pro`, `gpt-5.5-pro`, `o3-deep-research`, `o3-pro`, `o4-mini-deep-research`
 - ❌ Exclude: Models with `openai/` prefix, search-api variants
 - ✅ Friendly name follows OpenAI's own house style: size suffixes `mini` / `nano` stay **lowercase** (`GPT-5 mini`, `GPT-5.4 nano`, `GPT-4o mini`); `GPT-4o` keeps the lowercase branded `o`; the o-series is shown as its lowercase id (`o3`, `o3-mini`, `o4-mini`); `text-embedding-3-*` is shown as the lowercase id; `gpt-5.3-codex` → `GPT-5.3-Codex` (hyphenated); dated realtime preview drops the snapshot (`gpt-4o-realtime-preview-2024-12-17` → `GPT-4o Realtime`); `GPT Realtime` uses a spaced form; segment overrides upcase `TTS` / `ASR`
@@ -111,6 +112,7 @@ python filter_models.py --url https://custom-source.com/models.json
 - ❌ Exclude: Gemini 1.x and 2.0–2.4 series
 - ❌ Exclude: Gemma models, deprecated versions
 - ❌ Exclude: `imagen-*`, `flash-exp-image` (legacy/experimental image models)
+- ❌ Exclude (special-purpose / non-conversational, via `EXCLUDE_MODEL_KEYS`): `gemini/gemini-3.1-pro-preview-customtools`, `gemini/gemini-3.1-flash-live-preview`, `gemini/gemini-3.1-flash-tts-preview`, `gemini/gemini-3.5-live-translate-preview`. The Google scope is Gemini 2.5+ **chat**, Gemini Embedding, and `gemini-*-image*` — audio is not in it. These keys only reach the filter because the `^gemini/gemini-[3-9].*-preview$` include pattern (written to admit 3.x *chat* previews) is broader than its intent, so keeping them out is a scope decision rather than a data problem. Remove an entry here if the product scope widens to Gemini speech.
 
 #### Z.AI
 - ✅ Include: only keys listed in `ModelSyncRules.ZAI_ALLOWED_KEYS` (reverse whitelist)
@@ -430,6 +432,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.15 (2026-08-21)
+- **LiteLLM upstream sync**, with every notable change verified against the vendor's own docs rather than taken on trust. Exported total **140 → 142**.
+- **Regression fixed — the realtime allow-list had silently dropped out.** Upstream re-classified `gpt-realtime` and `gpt-4o-realtime-preview-2024-12-17` from `mode: "chat"` to a new `mode: "realtime"`; neither key was removed upstream, but `SUPPORTED_MODES` didn't list `realtime`, so both were discarded as `unsupported_mode`. Adds `realtime` to `SUPPORTED_MODES`, maps it to type **`language`** in `MODE_MAPPING` (an LLM interaction, same reasoning as `responses` — and it preserves the downstream contract, since these SKUs already exported as `language`), and gives it a `PRICE_FIELDS_BY_MODE` entry covering all four billing axes (text in/out, audio in/out) plus `input_cost_per_image`. Restores exactly the 2 allow-listed SKUs — the other 15 `realtime` keys upstream stay out via the existing `^gpt-realtime` global exclude.
+- **`gpt-5.6` family context corrected back to 1,050,000.** Upstream regressed `max_input_tokens` to `922000` (that is GPT-5.5's input figure). `developers.openai.com/api/docs/models/gpt-5.6-{sol,terra,luna}` all state **1,050,000 context / 128,000 max output** — verified page by page on 2026-08-21 — so `OPENAI_SYNTH_DATA` now overlays it for `gpt-5.6`, `-sol`, `-terra`, `-luna`.
+- **Upstream corrections accepted after verification:**
+  - `claude-sonnet-4-6` `max_output_tokens` **64,000 → 128,000** — correct per the Legacy models table on platform.claude.com (Sonnet 4.6 max output 128k; it is also in the 300k Batches-API beta list). Upstream was previously wrong.
+  - `gemini/gemini-3.1-flash-image` (+ its `-preview` sibling) input **$0.25 → $0.50**, output **$1.50 → $3.00** per M — a **real price increase**, confirmed against ai.google.dev/gemini-api/docs/pricing ("Input price $0.50 (text/image)", "Output price $3 (text and thinking)").
+- **New models included (2):**
+  - `gemini/gemini-3.7-flash` — Gemini 3.7 Flash, 1,048,576 ctx / 65,536 out, $0.75 / $3.75 per M
+  - `gpt-5.6-cyber` — GPT-5.6 Cyber, 400,000 ctx / 128,000 out, $12.50 / $75 per M (cached $1.25, cache write $15.625). Part of OpenAI's Daybreak program (`daybreak-red-latest` aliases to it); all four figures and the 400K context match developers.openai.com exactly. No long-context tier, which is why its context differs from the rest of the 5.6 family.
+- **New models deliberately excluded (4)** — scope decisions, not data problems; each is present and correctly priced upstream:
+  - `gpt-transcribe`, `gpt-live-transcribe` — full-fat OpenAI ASR. OpenAI dropped the `4o` infix in this generation, so these arrive as bare keys no existing pattern catches. Excluded for the same **narrow product scope** reason already documented for `gpt-4o-transcribe` / `gpt-4o-transcribe-diarize`; `gpt-4o-mini-transcribe` remains the sanctioned ASR SKU.
+  - `gemini/gemini-3.1-flash-tts-preview`, `gemini/gemini-3.5-live-translate-preview` — non-conversational Gemini modalities. The Google scope is Gemini 2.5+ chat, Gemini Embedding, and `gemini-*-image*`; audio is not in it. These reach the filter only because the `^gemini/gemini-[3-9].*-preview$` include pattern (written to admit 3.x *chat* previews) is broader than its intent. Joins the existing `gemini/gemini-3.1-flash-live-preview` special-purpose exclusion.
+- No entries removed. `stats.passed == len(filter_all_models) == 142` holds; DeepSeek peak pricing and the 8 BytePlus SKUs are unaffected.
 
 ### v1.16.14 (2026-08-21)
 - Add **BytePlus (ByteDance Ark overseas)** as a provider with the **Dreamina Seedance** video family — 8 SKUs, the overseas counterpart to the domestic `volcengine/doubao-seedance-*` set. Source: [docs.byteplus.com/en/docs/ModelArk/1544106](https://docs.byteplus.com/en/docs/ModelArk/1544106) (same doc ID as the domestic page, different tariff).
