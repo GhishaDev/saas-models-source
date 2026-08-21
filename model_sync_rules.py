@@ -754,6 +754,20 @@ class ModelSyncRules:
             "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(6.40),
             "output_cost_per_token_1080p": _usd_per_m_to_usd_per_token(11.70),
             "output_cost_per_token_1080p_with_input_video": _usd_per_m_to_usd_per_token(7.00),
+            # 4K: ESTIMATED — the official BytePlus 2.5 table has no 4K row
+            # (neither does the domestic one). Same derivation as the domestic
+            # estimate in VOLCENGINE_SYNTH_DATA: scale 2.5's 1080P by the 2.0
+            # 4K:1080P ratio, computed entirely inside the overseas USD price
+            # set so no FX or cross-catalogue mixing enters.
+            #   no video:   11.70 x (4.00 / 7.70) = 6.078 -> 6.08
+            #   with video:  7.00 x (2.40 / 4.70) = 3.574 -> 3.57
+            # Sanity check: the overseas/domestic premium on every officially
+            # priced 2.5 tier sits in 1.064-1.070; these estimates imply 1.091
+            # and 1.041, the spread coming from the domestic 4K estimate being
+            # rounded to whole CNY (39 / 24). Replace with the official rate
+            # once BytePlus publishes a 2.5 4K tier.
+            "output_cost_per_token_4k": _usd_per_m_to_usd_per_token(6.08),
+            "output_cost_per_token_4k_with_input_video": _usd_per_m_to_usd_per_token(3.57),
         },
         "byteplus/dreamina-seedance-2-5": {
             "litellm_provider": "byteplus",
@@ -765,6 +779,20 @@ class ModelSyncRules:
             "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(6.40),
             "output_cost_per_token_1080p": _usd_per_m_to_usd_per_token(11.70),
             "output_cost_per_token_1080p_with_input_video": _usd_per_m_to_usd_per_token(7.00),
+            # 4K: ESTIMATED — the official BytePlus 2.5 table has no 4K row
+            # (neither does the domestic one). Same derivation as the domestic
+            # estimate in VOLCENGINE_SYNTH_DATA: scale 2.5's 1080P by the 2.0
+            # 4K:1080P ratio, computed entirely inside the overseas USD price
+            # set so no FX or cross-catalogue mixing enters.
+            #   no video:   11.70 x (4.00 / 7.70) = 6.078 -> 6.08
+            #   with video:  7.00 x (2.40 / 4.70) = 3.574 -> 3.57
+            # Sanity check: the overseas/domestic premium on every officially
+            # priced 2.5 tier sits in 1.064-1.070; these estimates imply 1.091
+            # and 1.041, the spread coming from the domestic 4K estimate being
+            # rounded to whole CNY (39 / 24). Replace with the official rate
+            # once BytePlus publishes a 2.5 4K tier.
+            "output_cost_per_token_4k": _usd_per_m_to_usd_per_token(6.08),
+            "output_cost_per_token_4k_with_input_video": _usd_per_m_to_usd_per_token(3.57),
         },
         # Dreamina Seedance 2.0 (standard) — all three resolution tiers,
         # 4K officially priced (unlike 2.5).
