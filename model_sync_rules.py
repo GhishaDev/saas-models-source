@@ -1198,24 +1198,40 @@ class ModelSyncRules:
             "supports_service_tier": True,
         },
         "gpt-5.6": {
+            # max_input_tokens: upstream regressed to 922000 (2026-08);
+            # developers.openai.com/api/docs/models/gpt-5.6-sol states
+            # 1,050,000. Verified 2026-08-21 on all four family pages.
+            "max_input_tokens": 1050000,
             "cache_creation_input_token_cost_above_272k_tokens_flex": 6.25e-06,
             "cache_read_input_token_cost_above_272k_tokens_flex": 5e-07,
             "input_cost_per_token_above_272k_tokens_flex": 5e-06,
             "output_cost_per_token_above_272k_tokens_flex": 2.25e-05,
         },
         "gpt-5.6-sol": {
+            # max_input_tokens: upstream regressed to 922000 (2026-08);
+            # developers.openai.com/api/docs/models/gpt-5.6-sol states
+            # 1,050,000. Verified 2026-08-21 on all four family pages.
+            "max_input_tokens": 1050000,
             "cache_creation_input_token_cost_above_272k_tokens_flex": 6.25e-06,
             "cache_read_input_token_cost_above_272k_tokens_flex": 5e-07,
             "input_cost_per_token_above_272k_tokens_flex": 5e-06,
             "output_cost_per_token_above_272k_tokens_flex": 2.25e-05,
         },
         "gpt-5.6-terra": {
+            # max_input_tokens: upstream regressed to 922000 (2026-08);
+            # developers.openai.com/api/docs/models/gpt-5.6-terra states
+            # 1,050,000. Verified 2026-08-21 on all four family pages.
+            "max_input_tokens": 1050000,
             "cache_creation_input_token_cost_above_272k_tokens_flex": 2.5e-06,
             "cache_read_input_token_cost_above_272k_tokens_flex": 2e-07,
             "input_cost_per_token_above_272k_tokens_flex": 2e-06,
             "output_cost_per_token_above_272k_tokens_flex": 9e-06,
         },
         "gpt-5.6-luna": {
+            # max_input_tokens: upstream regressed to 922000 (2026-08);
+            # developers.openai.com/api/docs/models/gpt-5.6-luna states
+            # 1,050,000. Verified 2026-08-21 on all four family pages.
+            "max_input_tokens": 1050000,
             "cache_creation_input_token_cost_above_272k_tokens_flex": 2.5e-07,
             "cache_read_input_token_cost_above_272k_tokens_flex": 2e-08,
             "input_cost_per_token_above_272k_tokens_flex": 2e-07,
@@ -1256,6 +1272,12 @@ class ModelSyncRules:
         "audio_speech",
         "audio_transcription",
         "responses",
+        # LiteLLM re-classified the /v1/realtime SKUs from mode "chat" to a
+        # dedicated "realtime" mode (observed 2026-08-21). Without this entry
+        # the curated realtime allow-list (gpt-realtime,
+        # gpt-4o-realtime-preview-2024-12-17 — see INCLUDE_PATTERNS) silently
+        # drops out of the export as unsupported_mode.
+        "realtime",
     ]
 
     # Mode to model type mapping
@@ -1270,6 +1292,11 @@ class ModelSyncRules:
         # OpenAI's /v1/responses endpoint (codex family, gpt-*-pro, deep-research)
         # is still an LLM interaction. Downstream schema treats it as language.
         "responses": "language",
+        # /v1/realtime is a bidirectional speech+text session — an LLM
+        # interaction, same reasoning as "responses" above. Mapping to
+        # "language" also preserves the downstream contract: these SKUs
+        # exported as type "language" while upstream still called them "chat".
+        "realtime": "language",
     }
 
     # Provider-specific exclusion rules
@@ -1426,6 +1453,14 @@ class ModelSyncRules:
         # not a bug.)
         "gpt-4o-transcribe",
         "gpt-4o-transcribe-diarize",
+        # Same policy, applied to the 2026-08 rename generation: OpenAI
+        # dropped the "4o" infix, so these arrive as bare keys that no
+        # existing pattern catches. Full-fat ASR — excluded for the same
+        # narrow-scope reason as gpt-4o-transcribe, not because upstream
+        # data is wrong. Promote to the whitelist if the product scope
+        # widens to full-fat transcription.
+        "gpt-transcribe",
+        "gpt-live-transcribe",
         # OpenAI responses-mode variants outside the approved whitelist.
         # (gpt-5.3-codex is the sanctioned responses SKU; the wider codex /
         # pro / deep-research families are intentionally kept out — same
@@ -1451,6 +1486,17 @@ class ModelSyncRules:
         # Gemini special-purpose models
         "gemini/gemini-3.1-pro-preview-customtools",
         "gemini/gemini-3.1-flash-live-preview",
+        # Same policy, 2026-08 arrivals: non-conversational Gemini modalities.
+        # The Google scope is Gemini 2.5+ chat (Flash / Flash-Lite / Pro),
+        # Gemini Embedding, and the gemini-*-image* series — audio is not in
+        # it. These two reach the filter only because the
+        # ^gemini/gemini-[3-9].*-preview$ INCLUDE_PATTERN (written to admit
+        # 3.x *chat* previews) is broader than its intent, so excluding them
+        # is a scope decision, not a data problem. Mirrors the narrow-scope
+        # policy applied to OpenAI audio above. Remove an entry here if the
+        # product scope widens to Gemini speech.
+        "gemini/gemini-3.1-flash-tts-preview",
+        "gemini/gemini-3.5-live-translate-preview",
     ]
 
     # Date patterns for validation
@@ -1678,6 +1724,17 @@ class ModelSyncRules:
             "input_cost_per_audio_token",
             "input_cost_per_token",
         ),
+        # Realtime (/v1/realtime): a bidirectional session billed on four
+        # axes — text in/out plus audio in/out — and some SKUs add
+        # input_cost_per_image for vision turns. Any one non-zero field
+        # means priced, same tolerance as the audio modes.
+        "realtime": (
+            "input_cost_per_token",
+            "output_cost_per_token",
+            "input_cost_per_audio_token",
+            "output_cost_per_audio_token",
+            "input_cost_per_image",
+        ),
     }
 
     @classmethod
@@ -1704,9 +1761,10 @@ class ModelSyncRules:
                     return False
             return True
 
-        # Audio speech / transcription: schema-heterogeneous (per-second vs
-        # per-token vs per-audio-token). Any one non-zero field is enough.
-        if mode in ("audio_speech", "audio_transcription"):
+        # Audio speech / transcription / realtime: schema-heterogeneous
+        # (per-second vs per-token vs per-audio-token). Any one non-zero
+        # field is enough.
+        if mode in ("audio_speech", "audio_transcription", "realtime"):
             for field in cls.PRICE_FIELDS_BY_MODE.get(mode, ()):
                 value = model_data.get(field)
                 if value is not None and value > 0:
