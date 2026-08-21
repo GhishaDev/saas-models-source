@@ -6,7 +6,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Features
 
-- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, Moonshot (Kimi), Volcengine (ByteDance Ark — Doubao Seedance video), and two aggregator mirrors: new-api and ecloud_aicc
+- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, Moonshot (Kimi), Volcengine (ByteDance Ark domestic — Doubao Seedance video), BytePlus (ByteDance Ark overseas — Dreamina Seedance video), and two aggregator mirrors: new-api and ecloud_aicc
 - **Multi-Modal Support**: Chat (language), embedding, image generation, video generation, and audio (speech / transcription) models
 - **Smart Filtering Rules**: Comprehensive exclusion rules for deprecated, preview, and versioned models
 - **Mode-Aware Price Validation**: Validates pricing using mode-specific fields (per-token, per-image-token, per-image)
@@ -23,8 +23,9 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output). The official tariff is quoted in CNY/M and split into peak / off-peak windows; we carry the **peak** rate converted to USD/token at the policy FX rate (`1 USD = 7.0 CNY`)
 - **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` (3 SKUs: Kimi K3 — $3 / $15 per M, cache-hit $0.30, 1M context; Kimi K2.7 Code — $0.95 / $4.00, cache-hit $0.19, 256K; Kimi K2.7 Code HighSpeed — $1.90 / $8.00, cache-hit $0.38, 256K). Pre-staged via `MOONSHOT_SYNTH_DATA` (injected — not yet on LiteLLM upstream)
 - **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 + 2.5 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (8 entries: 2.0 standard / Fast / Mini × {dated + alias}, plus Seedance 2.5 {dated `-260628` + alias} — 480P/720P 70 / 42 CNY/M no-video / with-video, 1080P 77 / 46 CNY/M, 4K 39 / 24 CNY/M *estimated*). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
+- **BytePlus (ByteDance Ark overseas, Dreamina Seedance video)**: Whitelist-curated Dreamina Seedance 2.0 + 2.5 video SKUs from [docs.byteplus.com/en/docs/ModelArk/1544106](https://docs.byteplus.com/en/docs/ModelArk/1544106) (8 entries: 2.0 standard / Fast / Mini + 2.5, each × {dated + alias}). BytePlus is the overseas sibling of Volcengine — same Ark platform, same YYMMDD version stamps — but a different brand and a **USD-native tariff**, so these are independent SKUs, *not* mirrors of `volcengine/*`. List prices in USD/M tokens (no-video / with-video): 2.5 — 480P/720P **10.70 / 6.40**, 1080P **11.70 / 7.00**; 2.0 — 480P/720P **7.00 / 4.30**, 1080P **7.70 / 4.70**, 4K **4.00 / 2.40**; 2.0 Fast — **5.60 / 3.30**; 2.0 Mini — **3.50 / 2.10**. Same `output_cost_per_token[_<res>][_with_input_video]` field family as Volcengine, but **no FX conversion is applied**
 - **new-api (aggregator gateway)**: Reverse-whitelist mirror provider. Every `new-api/<sku>` is a full copy of an already-populated `<vendor>/<sku>` record with only `litellm_provider` re-labelled. Seedance is the first family mirrored (8 SKUs from `volcengine/doubao-seedance-*`); extending to more vendors is a two-line change (whitelist entry + `NEWAPI_MIRROR_SOURCES` mapping)
-- **ecloud_aicc (aggregator gateway)**: Second mirror provider — same mechanic as new-api, distinct namespace so deployments routing through the ecloud_aicc gateway can address SKUs by their aggregator-side name. Currently mirrors the same 7 Seedance SKUs from `volcengine/doubao-seedance-*`
+- **ecloud_aicc (aggregator gateway)**: Second mirror provider — same mechanic as new-api, distinct namespace so deployments routing through the ecloud_aicc gateway can address SKUs by their aggregator-side name. Currently mirrors the same 8 Seedance SKUs from `volcengine/doubao-seedance-*`
 
 ## Supported Model Types
 
@@ -33,7 +34,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 | `language` | `chat` | `claude-opus-4-7`, `gpt-5.5`, `gemini/gemini-3-pro-preview`, `zai/glm-5`, `bigmodel/glm-5`, `deepseek/deepseek-v4-flash` |
 | `embedding` | `embedding` | `text-embedding-3-large`, `gemini/gemini-embedding-2` |
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
-| `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `new-api/doubao-seedance-2-0-fast`, `ecloud_aicc/doubao-seedance-2-0-mini` |
+| `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `byteplus/dreamina-seedance-2-5`, `new-api/doubao-seedance-2-0-fast`, `ecloud_aicc/doubao-seedance-2-0-mini` |
 | `audio` | `audio_speech`, `audio_transcription` | `gpt-4o-mini-tts` / `tts-1` / `tts-1-hd` (TTS), `gpt-4o-mini-transcribe` / `whisper-1` (ASR) |
 
 ## Installation
@@ -148,6 +149,18 @@ python filter_models.py --url https://custom-source.com/models.json
 > **`supports_vision` semantics for video SKUs.** All Seedance entries report `supports_vision: false`. The field means **"can analyze image content to answer questions"** (a chat-vision capability), not "accepts an image as a generation reference". Image-to-video is supported (and priced via the separate `output_cost_per_token_with_input_video` tier in `raw_data`) — UIs that gate the "upload reference image" affordance on `supports_vision` will under-expose Seedance and should branch on `type == "video"` instead.
 
 > **`volcengine_new_api` vs the `new-api/` mirror provider.** These are two distinct concepts. `volcengine_new_api` is a LiteLLM **routing-layer** label used inside a deployment's config to indicate "this Volcengine deployment sits behind a new-api relay" — it does not appear in the catalogue. Separately, the `new-api/*` prefix in this catalogue is a **catalogue-layer mirror provider**: a copy of vendor SKUs re-namespaced onto a `new-api/` prefix so consumers routing through new-api can address them by their aggregator-side names. See the `#### new-api` section for the mirror mechanic.
+
+#### BytePlus (ByteDance Ark overseas — Dreamina Seedance video)
+- ✅ Include: only keys listed in `ModelSyncRules.BYTEPLUS_ALLOWED_KEYS` (reverse whitelist, 8 SKUs: Dreamina Seedance 2.5 / 2.0 / 2.0 Fast / 2.0 Mini × {dated official ID, date-less alias})
+- ✅ **Currency: USD/token, native.** BytePlus publishes USD per million tokens directly, so `_usd_per_m_to_usd_per_token()` is a plain `/1e6` with the same 4-significant-digit rounding. **Do not route these through `_cny_per_m_to_usd_per_token()`** — there is no FX step, and the overseas list prices are ~6–8% above the CNY-derived domestic equivalents (2.0 480P/720P: $7.00 overseas vs 46 CNY → $6.571 domestic), so the two tariffs are genuinely different numbers rather than one converted into the other.
+- ✅ **Independent SKUs, not mirrors.** Unlike `new-api/*` and `ecloud_aicc/*`, `byteplus/*` entries carry their own tariff and have no `*_MIRROR_SOURCES` mapping. Same `output_cost_per_token[_<res>][_with_input_video]` field family as Volcengine.
+- ✅ **List price, not the promotional price.** BytePlus runs limited-time campaigns ([docs.byteplus.com/en/docs/ModelArk/2630943](https://docs.byteplus.com/en/docs/ModelArk/2630943)) where *"N% of the list price"* means **pay N%**: Seedance 2.5 1080P at 72% until 2026-09-17, 2.0 Fast at 75% and 2.0 Mini at 40% until 2026-09-07. These discounts are **conditional** — pay-as-you-go only, prepaid resource packs excluded, and they require an account balance or AI Savings Plan at the USD 30 tier — so they are not a universal price. Storing list never under-bills and needs no revert when a campaign lapses. (Contrast `ANTHROPIC_SYNTH_DATA`, which *does* carry effective introductory prices — that discount is unconditional.)
+- ✅ Pre-staged via `BYTEPLUS_SYNTH_DATA` + `apply_byteplus_synth` (injected wholesale — LiteLLM upstream carries **no** Seedance keys at all, domestic or overseas)
+- ✅ 4K is officially priced for Seedance **2.0** ($4.00 / $2.40) but **absent for 2.5** — same shape as the domestic table, which is why the domestic 2.5 4K tier stays marked *estimated* (see v1.16.12)
+- ✅ `input_cost_per_token` is `null` and `is_default_available = false`, same as every video SKU
+- ❌ Exclude: any other `byteplus/*` SKU upstream may add (the page also lists `seedance-1-5-pro-251215`, `seedance-1-0-pro-250528`, `seedance-1-0-pro-fast-251015`, and non-Seedance families); whitelist is exhaustive
+
+> **The date-less aliases are a project convention here, not vendor-registered IDs.** Verified 2026-08-21: neither the BytePlus Model list ([1330310](https://docs.byteplus.com/en/docs/ModelArk/1330310)) nor its domestic Volcengine counterpart publishes non-dated Seedance IDs — both list only the YYMMDD-stamped forms. The alias entries exist so `byteplus/*` matches the shape downstream consumers already use for `volcengine/*`, and they carry **identical pricing** to their dated twin. The "pick one form per environment" warning in the Volcengine section applies here too.
 
 #### new-api (aggregator mirror provider)
 - ✅ Include: only keys listed in `ModelSyncRules.NEWAPI_ALLOWED_KEYS` (reverse whitelist, 8 SKUs today — all Seedance)
@@ -417,6 +430,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.14 (2026-08-21)
+- Add **BytePlus (ByteDance Ark overseas)** as a provider with the **Dreamina Seedance** video family — 8 SKUs, the overseas counterpart to the domestic `volcengine/doubao-seedance-*` set. Source: [docs.byteplus.com/en/docs/ModelArk/1544106](https://docs.byteplus.com/en/docs/ModelArk/1544106) (same doc ID as the domestic page, different tariff).
+  - `PROVIDERS` + `PROVIDER_MAPPING` gain `byteplus`; `BYTEPLUS_ALLOWED_KEYS` reverse-whitelists 4 dated IDs (`dreamina-seedance-2-5-260628`, `-2-0-260128`, `-2-0-fast-260128`, `-2-0-mini-260615`) plus their 4 date-less aliases
+  - `BYTEPLUS_SYNTH_DATA` + `apply_byteplus_synth` inject all 8 wholesale — LiteLLM upstream carries **no** Seedance keys at all (verified 2026-08-21: zero `/seedance/i` matches), domestic or overseas
+  - **USD-native pricing.** New `_usd_per_m_to_usd_per_token()` helper (plain `/1e6`, same 4-sig-fig rounding) keeps the vendor's own USD/M figures readable in the tariff table. These are **not** the domestic CNY prices run through the FX rate — overseas list prices sit ~6–8% higher (2.0 480P/720P: $7.00 vs domestic 46 CNY → $6.571), so they are independent SKUs with no mirror mapping. List prices, USD/M, no-video / with-video: 2.5 — 480P/720P **10.70 / 6.40**, 1080P **11.70 / 7.00**; 2.0 — 480P/720P **7.00 / 4.30**, 1080P **7.70 / 4.70**, 4K **4.00 / 2.40**; 2.0 Fast — **5.60 / 3.30**; 2.0 Mini — **3.50 / 2.10**
+  - **List price, not the promo price.** BytePlus limited-time campaigns ([2630943](https://docs.byteplus.com/en/docs/ModelArk/2630943)) discount 2.5 1080P to 72% (until 2026-09-17), 2.0 Fast to 75% and 2.0 Mini to 40% (until 2026-09-07), where *"N% of list"* means pay N%. Those discounts are conditional (pay-as-you-go only, resource packs excluded, needs balance or AI Savings Plan ≥ USD 30), so list is the canonical value — it never under-bills and needs no revert on expiry
+  - `format_model_name` emits **`Dreamina Seedance 2.5`** / `Dreamina Seedance 2.0 Fast` — brand with a **space**, matching docs.byteplus.com, deliberately unlike Volcengine's hyphenated `Doubao-Seedance` (per-vendor official naming, v1.16.2)
+  - Confirms the v1.16.12 call that the domestic Seedance **2.5 4K** tier is an estimate: the overseas table prices 4K for 2.0 but has no 4K row for 2.5 either
+  - Note: the date-less aliases are a **catalogue convention of this project**, not vendor-registered IDs — verified 2026-08-21 that neither BytePlus's Model list ([1330310](https://docs.byteplus.com/en/docs/ModelArk/1330310)) nor Volcengine's domestic equivalent publishes non-dated Seedance IDs. Alias and dated twin carry identical pricing
+  - Exported total **132 → 140** (+8); no existing entries changed. Also corrected the ecloud_aicc mirror count in the provider list (7 → 8)
 
 ### v1.16.13 (2026-08-20)
 - **DeepSeek V4 price update** (api-docs.deepseek.com/quick_start/pricing). The official table now quotes CNY/M split into peak / off-peak windows (off-peak = exactly half of peak; peak is Beijing-time 09:00–12:00 and 14:00–18:00). LiteLLM has no time-of-day price axis, so `DEEPSEEK_SYNTH_DATA` carries the **peak** rate — the ceiling, so we never under-bill:

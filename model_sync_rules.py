@@ -38,6 +38,22 @@ def _cny_per_m_to_usd_per_token(cny_per_m: float, sig: int = 4) -> float:
     return round(raw, digits)
 
 
+def _usd_per_m_to_usd_per_token(usd_per_m: float, sig: int = 4) -> float:
+    """Convert USD per million tokens → USD per token, rounded to ``sig`` sig figs.
+
+    For vendors that publish USD natively (BytePlus ModelArk) — no FX step, so
+    this is a pure /1e6. Kept as a helper anyway so the tariff tables below can
+    carry the vendor's own USD/M figure verbatim (10.70, 4.30) instead of
+    hand-converted exponents, which are easy to typo and hard to diff against
+    the pricing page. Rounding matches _cny_per_m_to_usd_per_token.
+    """
+    raw = usd_per_m / 1_000_000
+    if raw == 0:
+        return 0.0
+    digits = sig - int(math.floor(math.log10(abs(raw)))) - 1
+    return round(raw, digits)
+
+
 class ModelSyncRules:
     """Model sync rules configuration and utilities."""
 
@@ -51,6 +67,7 @@ class ModelSyncRules:
         "deepseek",
         "moonshot",
         "volcengine",
+        "byteplus",
         "new-api",
         "ecloud_aicc",
     ]
@@ -65,6 +82,7 @@ class ModelSyncRules:
         "deepseek": "deepseek",
         "moonshot": "moonshot",
         "volcengine": "volcengine",
+        "byteplus": "byteplus",
         "new-api": "new-api",
         "ecloud_aicc": "ecloud_aicc",
     }
@@ -664,6 +682,158 @@ class ModelSyncRules:
         },
     }
 
+    # ── BytePlus ModelArk (ByteDance Ark overseas — Dreamina Seedance) ────
+    # Reverse-whitelist for byteplus/* video SKUs. BytePlus is the overseas
+    # sibling of Volcengine: same underlying Ark platform, same model
+    # generations, same YYMMDD version stamps — but a different brand
+    # (Dreamina, not Doubao) and, crucially, a different tariff quoted in
+    # USD natively. These are NOT the domestic volcengine/* prices run
+    # through an FX rate; BytePlus list prices sit ~6-8% above the
+    # CNY-derived domestic equivalents. Independent SKUs, no mirroring.
+    #
+    # Both the dated official ID and the date-less alias are whitelisted,
+    # matching the VOLCENGINE_ALLOWED_KEYS convention so deployments can
+    # address either form. Caveat: neither BytePlus's Model list
+    # (docs.byteplus.com/en/docs/ModelArk/1330310) nor Volcengine's
+    # domestic equivalent publishes the date-less aliases — they are a
+    # catalogue convention of this project, not vendor-registered IDs.
+    BYTEPLUS_ALLOWED_KEYS = frozenset({
+        # Dated official IDs
+        "byteplus/dreamina-seedance-2-5-260628",
+        "byteplus/dreamina-seedance-2-0-260128",
+        "byteplus/dreamina-seedance-2-0-fast-260128",
+        "byteplus/dreamina-seedance-2-0-mini-260615",
+        # Date-less aliases
+        "byteplus/dreamina-seedance-2-5",
+        "byteplus/dreamina-seedance-2-0",
+        "byteplus/dreamina-seedance-2-0-fast",
+        "byteplus/dreamina-seedance-2-0-mini",
+    })
+
+    # BytePlus Dreamina Seedance pre-stage. Upstream BerriAI/litellm/main
+    # carries no Seedance entries at all (verified 2026-08-21: zero keys
+    # matching /seedance/i), so these 8 SKUs are injected wholesale — same
+    # mechanic as VOLCENGINE_SYNTH_DATA. When upstream eventually publishes
+    # them the overlay merges on top with no shape change.
+    #
+    # Currency: USD/token, converted from the vendor's own USD/M figures by
+    # _usd_per_m_to_usd_per_token. No FX step — do NOT route these through
+    # _cny_per_m_to_usd_per_token.
+    #
+    # Source: docs.byteplus.com/en/docs/ModelArk/1544106 (online inference;
+    # offline/flex inference is "Not supported yet" for the whole family).
+    # Snapshot 2026-08-21. LIST prices, USD/M tokens:
+    #
+    #   SKU                   480p/720p      1080p         4K
+    #   2.5                   10.70 / 6.40   11.70 / 7.00  -
+    #   2.0                    7.00 / 4.30    7.70 / 4.70  4.00 / 2.40
+    #   2.0 fast               5.60 / 3.30    -            -
+    #   2.0 mini               3.50 / 2.10    -            -
+    #   (left = without video input, right = with video input)
+    #
+    # Deliberately LIST price, not the currently-discounted price. BytePlus
+    # runs limited-time campaigns (docs.byteplus.com/en/docs/ModelArk/2630943)
+    # where "N% of the list price" means pay N%: 2.5 1080p at 72% until
+    # 2026-09-17, 2.0 fast at 75% and 2.0 mini at 40% until 2026-09-07. Those
+    # discounts are conditional — pay-as-you-go only, prepaid resource packs
+    # excluded, and they require an account balance or AI Savings Plan at the
+    # USD 30 tier — so they are not a universal price. Storing list never
+    # under-bills and needs no revert when a campaign lapses. (Contrast
+    # ANTHROPIC_SYNTH_DATA, which does carry effective introductory prices —
+    # that discount is unconditional and applies to every customer.)
+    BYTEPLUS_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        # Dreamina Seedance 2.5 — 480p/720p + 1080p (no 4K tier officially
+        # priced, consistent with the domestic 2.5 table).
+        "byteplus/dreamina-seedance-2-5-260628": {
+            "litellm_provider": "byteplus",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://docs.byteplus.com/en/docs/ModelArk/1544106",
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(10.70),
+            "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(6.40),
+            "output_cost_per_token_1080p": _usd_per_m_to_usd_per_token(11.70),
+            "output_cost_per_token_1080p_with_input_video": _usd_per_m_to_usd_per_token(7.00),
+        },
+        "byteplus/dreamina-seedance-2-5": {
+            "litellm_provider": "byteplus",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://docs.byteplus.com/en/docs/ModelArk/1544106",
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(10.70),
+            "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(6.40),
+            "output_cost_per_token_1080p": _usd_per_m_to_usd_per_token(11.70),
+            "output_cost_per_token_1080p_with_input_video": _usd_per_m_to_usd_per_token(7.00),
+        },
+        # Dreamina Seedance 2.0 (standard) — all three resolution tiers,
+        # 4K officially priced (unlike 2.5).
+        "byteplus/dreamina-seedance-2-0-260128": {
+            "litellm_provider": "byteplus",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://docs.byteplus.com/en/docs/ModelArk/1544106",
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(7.00),
+            "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(4.30),
+            "output_cost_per_token_1080p": _usd_per_m_to_usd_per_token(7.70),
+            "output_cost_per_token_1080p_with_input_video": _usd_per_m_to_usd_per_token(4.70),
+            "output_cost_per_token_4k": _usd_per_m_to_usd_per_token(4.00),
+            "output_cost_per_token_4k_with_input_video": _usd_per_m_to_usd_per_token(2.40),
+        },
+        "byteplus/dreamina-seedance-2-0": {
+            "litellm_provider": "byteplus",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://docs.byteplus.com/en/docs/ModelArk/1544106",
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(7.00),
+            "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(4.30),
+            "output_cost_per_token_1080p": _usd_per_m_to_usd_per_token(7.70),
+            "output_cost_per_token_1080p_with_input_video": _usd_per_m_to_usd_per_token(4.70),
+            "output_cost_per_token_4k": _usd_per_m_to_usd_per_token(4.00),
+            "output_cost_per_token_4k_with_input_video": _usd_per_m_to_usd_per_token(2.40),
+        },
+        # Dreamina Seedance 2.0 Fast — 480p/720p only.
+        "byteplus/dreamina-seedance-2-0-fast-260128": {
+            "litellm_provider": "byteplus",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://docs.byteplus.com/en/docs/ModelArk/1544106",
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(5.60),
+            "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(3.30),
+        },
+        "byteplus/dreamina-seedance-2-0-fast": {
+            "litellm_provider": "byteplus",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://docs.byteplus.com/en/docs/ModelArk/1544106",
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(5.60),
+            "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(3.30),
+        },
+        # Dreamina Seedance 2.0 Mini — 480p/720p only.
+        "byteplus/dreamina-seedance-2-0-mini-260615": {
+            "litellm_provider": "byteplus",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://docs.byteplus.com/en/docs/ModelArk/1544106",
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(3.50),
+            "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(2.10),
+        },
+        "byteplus/dreamina-seedance-2-0-mini": {
+            "litellm_provider": "byteplus",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://docs.byteplus.com/en/docs/ModelArk/1544106",
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(3.50),
+            "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(2.10),
+        },
+    }
+
     # ── new-api (aggregator gateway) ──────────────────────────────────────
     # new-api is a routing-layer aggregator: it exposes third-party models
     # under a unified surface. As a *provider* here it acts as a mirror
@@ -1191,6 +1361,14 @@ class ModelSyncRules:
             "patterns": [],
             "custom_check": lambda key: key.lower() not in ModelSyncRules.VOLCENGINE_ALLOWED_KEYS,
             "description": "Allow only whitelisted volcengine/doubao-seedance-* keys (see VOLCENGINE_ALLOWED_KEYS)",
+        },
+        "byteplus": {
+            # Reverse-whitelist: only BYTEPLUS_ALLOWED_KEYS pass through.
+            # Overseas (BytePlus ModelArk) Dreamina Seedance video SKUs;
+            # any other byteplus/* key upstream may carry stays filtered out.
+            "patterns": [],
+            "custom_check": lambda key: key.lower() not in ModelSyncRules.BYTEPLUS_ALLOWED_KEYS,
+            "description": "Allow only whitelisted byteplus/dreamina-seedance-* keys (see BYTEPLUS_ALLOWED_KEYS)",
         },
         "new-api": {
             # Reverse-whitelist: only NEWAPI_ALLOWED_KEYS pass through.
@@ -1726,6 +1904,29 @@ class ModelSyncRules:
             )
             return f"Doubao-Seedance {version} {variant}".rstrip()
 
+        # BytePlus (overseas Ark) Dreamina Seedance video:
+        #   byteplus/dreamina-seedance-2-5-260628       → Dreamina Seedance 2.5
+        #   byteplus/dreamina-seedance-2-0-fast-260128  → Dreamina Seedance 2.0 Fast
+        #   byteplus/dreamina-seedance-2-0-mini         → Dreamina Seedance 2.0 Mini
+        # Same YYMMDD-stripping shape as the Volcengine branch above, but the
+        # brand renders as "Dreamina Seedance" with a SPACE — that is how
+        # docs.byteplus.com writes it, whereas Volcengine writes the
+        # hyphenated "Doubao-Seedance". Per-vendor official naming, as of
+        # v1.16.2; do not "normalise" the two to match each other.
+        if provider == "byteplus" or key.startswith("byteplus/"):
+            suffix = re.sub(
+                r"^byteplus/dreamina-seedance-", "", key, flags=re.IGNORECASE
+            )
+            suffix = re.sub(r"-\d{6}$", "", suffix)  # drop -YYMMDD
+            parts = suffix.split("-")
+            version = f"{parts[0]}.{parts[1]}" if len(parts) >= 2 else suffix
+            variant = (
+                " ".join(p.capitalize() for p in parts[2:])
+                if len(parts) > 2
+                else ""
+            )
+            return f"Dreamina Seedance {version} {variant}".rstrip()
+
         # DeepSeek:
         #   deepseek/deepseek-v4-flash → DeepSeek-V4-Flash
         #   deepseek/deepseek-v4-pro   → DeepSeek-V4-Pro
@@ -2071,6 +2272,30 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_byteplus_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Inject BytePlus (overseas) Dreamina Seedance video SKUs.
+
+        Upstream BerriAI/litellm/main carries no Seedance keys at all, so all
+        eight entries in ``BYTEPLUS_SYNTH_DATA`` are pre-staged from the
+        official BytePlus ModelArk pricing page
+        (https://docs.byteplus.com/en/docs/ModelArk/1544106). Injected
+        wholesale when absent, overlaid when present — BytePlus stays the
+        source of truth for the overseas tariff.
+
+        These are independent SKUs, NOT mirrors of ``volcengine/*``: BytePlus
+        publishes USD natively at list prices ~6-8% above the CNY-derived
+        domestic ones, so no FX conversion and no mirror mapping applies.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, synth in cls.BYTEPLUS_SYNTH_DATA.items():
+            existing = merged.get(key)
+            merged[key] = dict(synth) if existing is None else {**existing, **synth}
+        return merged
+
+    @classmethod
     def apply_newapi_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
         """
         Mirror authoritative <vendor>/<sku> entries onto new-api/<sku>.
@@ -2143,12 +2368,14 @@ class ModelSyncRules:
         enriched = cls.apply_ecloud_aicc_synth(
             cls.apply_newapi_synth(
                 cls.apply_anthropic_synth(
-                    cls.apply_volcengine_synth(
-                        cls.apply_deepseek_synth(
-                            cls.apply_bigmodel_synth(
-                                cls.apply_zai_synth(
-                                    cls.apply_google_synth(
-                                        cls.apply_moonshot_synth(cls.apply_openai_synth(models))
+                    cls.apply_byteplus_synth(
+                        cls.apply_volcengine_synth(
+                            cls.apply_deepseek_synth(
+                                cls.apply_bigmodel_synth(
+                                    cls.apply_zai_synth(
+                                        cls.apply_google_synth(
+                                            cls.apply_moonshot_synth(cls.apply_openai_synth(models))
+                                        )
                                     )
                                 )
                             )
@@ -2176,12 +2403,14 @@ class ModelSyncRules:
         enriched = cls.apply_ecloud_aicc_synth(
             cls.apply_newapi_synth(
                 cls.apply_anthropic_synth(
-                    cls.apply_volcengine_synth(
-                        cls.apply_deepseek_synth(
-                            cls.apply_bigmodel_synth(
-                                cls.apply_zai_synth(
-                                    cls.apply_google_synth(
-                                        cls.apply_moonshot_synth(cls.apply_openai_synth(models))
+                    cls.apply_byteplus_synth(
+                        cls.apply_volcengine_synth(
+                            cls.apply_deepseek_synth(
+                                cls.apply_bigmodel_synth(
+                                    cls.apply_zai_synth(
+                                        cls.apply_google_synth(
+                                            cls.apply_moonshot_synth(cls.apply_openai_synth(models))
+                                        )
                                     )
                                 )
                             )
