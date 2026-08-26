@@ -331,6 +331,7 @@ class ModelSyncRules:
     BIGMODEL_ALLOWED_KEYS = frozenset({
         "bigmodel/glm-5.2",
         "bigmodel/glm-5.3",
+        "bigmodel/glm-5.3-flash",
         "bigmodel/glm-5",
         "bigmodel/glm-4.7",
         "bigmodel/glm-4.5v",
@@ -371,6 +372,21 @@ class ModelSyncRules:
             "max_output_tokens": 128000,
             "supports_function_calling": True,
             "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        # Domestic mirror of zai/glm-5.3-flash. Prices are NOT written here —
+        # apply_bigmodel_synth copies them from the zai sibling, so the 50%
+        # promotional rate (and its 2026-09-10 revert) is maintained in one
+        # place. supports_vision must still be stated: it is metadata, not a
+        # mirrored price field, and glm-5.3-flash is natively multimodal
+        # despite having no "v" infix in the key.
+        "bigmodel/glm-5.3-flash": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "supports_function_calling": True,
+            "supports_vision": True,
             "supports_json_mode": False,
         },
         "bigmodel/glm-5": {
