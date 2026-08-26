@@ -1279,44 +1279,49 @@ class ModelSyncRules:
             "supports_service_tier": True,
         },
         "gpt-5.6": {
-            # max_input_tokens: upstream regressed to 922000 (2026-08);
-            # developers.openai.com/api/docs/models/gpt-5.6-sol states
-            # 1,050,000. Verified 2026-08-21 on all four family pages.
+            # max_input_tokens: upstream still reports 922000 (that is
+            # GPT-5.5's figure); developers.openai.com states 1,050,000.
+            # Verified 2026-08-21 and re-checked 2026-08-26.
+            #
+            # The four *_above_272k_tokens_flex overlays that used to live
+            # here were REMOVED on 2026-08-26: upstream now carries those
+            # fields itself, and OpenAI cut the 5.6 Sol tariff. Keeping our
+            # (pre-cut) values would have pinned flex long-context output at
+            # $22.50/M against the real $15/M. Do not re-add them without
+            # re-checking whether upstream still supplies them.
             "max_input_tokens": 1050000,
-            "cache_creation_input_token_cost_above_272k_tokens_flex": 6.25e-06,
-            "cache_read_input_token_cost_above_272k_tokens_flex": 5e-07,
-            "input_cost_per_token_above_272k_tokens_flex": 5e-06,
-            "output_cost_per_token_above_272k_tokens_flex": 2.25e-05,
         },
         "gpt-5.6-sol": {
             # max_input_tokens: upstream regressed to 922000 (2026-08);
             # developers.openai.com/api/docs/models/gpt-5.6-sol states
             # 1,050,000. Verified 2026-08-21 on all four family pages.
             "max_input_tokens": 1050000,
-            "cache_creation_input_token_cost_above_272k_tokens_flex": 6.25e-06,
-            "cache_read_input_token_cost_above_272k_tokens_flex": 5e-07,
-            "input_cost_per_token_above_272k_tokens_flex": 5e-06,
-            "output_cost_per_token_above_272k_tokens_flex": 2.25e-05,
         },
         "gpt-5.6-terra": {
-            # max_input_tokens: upstream regressed to 922000 (2026-08);
-            # developers.openai.com/api/docs/models/gpt-5.6-terra states
-            # 1,050,000. Verified 2026-08-21 on all four family pages.
+            # max_input_tokens: upstream still reports 922000 (that is
+            # GPT-5.5's figure); developers.openai.com states 1,050,000.
+            # Verified 2026-08-21 and re-checked 2026-08-26.
+            #
+            # The four *_above_272k_tokens_flex overlays that used to live
+            # here were REMOVED on 2026-08-26: upstream now carries those
+            # fields itself, and OpenAI cut the 5.6 Sol tariff. Keeping our
+            # (pre-cut) values would have pinned flex long-context output at
+            # $22.50/M against the real $15/M. Do not re-add them without
+            # re-checking whether upstream still supplies them.
             "max_input_tokens": 1050000,
-            "cache_creation_input_token_cost_above_272k_tokens_flex": 2.5e-06,
-            "cache_read_input_token_cost_above_272k_tokens_flex": 2e-07,
-            "input_cost_per_token_above_272k_tokens_flex": 2e-06,
-            "output_cost_per_token_above_272k_tokens_flex": 9e-06,
         },
         "gpt-5.6-luna": {
-            # max_input_tokens: upstream regressed to 922000 (2026-08);
-            # developers.openai.com/api/docs/models/gpt-5.6-luna states
-            # 1,050,000. Verified 2026-08-21 on all four family pages.
+            # max_input_tokens: upstream still reports 922000 (that is
+            # GPT-5.5's figure); developers.openai.com states 1,050,000.
+            # Verified 2026-08-21 and re-checked 2026-08-26.
+            #
+            # The four *_above_272k_tokens_flex overlays that used to live
+            # here were REMOVED on 2026-08-26: upstream now carries those
+            # fields itself, and OpenAI cut the 5.6 Sol tariff. Keeping our
+            # (pre-cut) values would have pinned flex long-context output at
+            # $22.50/M against the real $15/M. Do not re-add them without
+            # re-checking whether upstream still supplies them.
             "max_input_tokens": 1050000,
-            "cache_creation_input_token_cost_above_272k_tokens_flex": 2.5e-07,
-            "cache_read_input_token_cost_above_272k_tokens_flex": 2e-08,
-            "input_cost_per_token_above_272k_tokens_flex": 2e-07,
-            "output_cost_per_token_above_272k_tokens_flex": 9e-07,
         },
         # gpt-4o-mini-tts text input — OpenAI official is $0.60 / 1M tokens
         # (developers.openai.com); upstream carried the Azure/aggregator

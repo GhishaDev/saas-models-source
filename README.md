@@ -434,6 +434,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Changelog
 
+### v1.16.18 (2026-08-26)
+- **LiteLLM upstream sync.** No models added or removed (total stays **144**); the substance is a GPT-5.6 price cut and the removal of an overlay that would have blocked it.
+- **`gpt-5.6` / `gpt-5.6-sol` price cut, verified at source.** developers.openai.com now lists **GPT-5.6 Sol at `$4 • $20`** (input • output), down from the `$5 • $30` read off the same page on 2026-08-21; `gpt-5.6` is the alias that routes to Sol, so it moves with it. Every derived tier moved proportionally: cached read `$0.50 → $0.40`, cache write `$6.25 → $5`, and all batch / flex / priority / above-272K variants. `gpt-5.6-terra` (`$2 • $12`) and `gpt-5.6-luna` (`$0.20 • $1.20`) are **unchanged** — re-checked terra's model page directly.
+- 🔴 **Removed the four `*_above_272k_tokens_flex` overlays from all four `gpt-5.6` entries in `OPENAI_SYNTH_DATA`.** These were added in v1.16.1 because upstream lacked the fields. Upstream now supplies them — and for `terra` / `luna` its values match ours **exactly**, which is what makes trusting it for `sol` justified. Had the overlay stayed, it would have pinned the **pre-cut** numbers on top of the corrected upstream data and billed flex long-context output at **$22.50/M against a real $15/M**. The `max_input_tokens: 1050000` overlay stays (upstream still reports GPT-5.5's `922000`), and its comment now records why the flex fields left, so nobody re-adds them blindly.
+- Minor upstream metadata, accepted as-is: `supports_legacy_thinking: true` on `claude-sonnet-4-6` / `claude-opus-4-6` / `claude-opus-4-6-20260205`; `thinking_always_on: true` on `claude-fable-5` / `claude-mythos-5`; `gemini/gemini-3.1-flash-lite-image` `supports_reasoning` **true → false** (upstream churn — it was set true in the 2026-08-21 sync; not a billing field).
+- `stats.passed == len(filter_all_models) == 144` holds; GLM-5.3-Flash, BytePlus, DeepSeek and the realtime allow-list are unaffected.
+
 ### v1.16.17 (2026-08-26)
 - Add **GLM-5.3-Flash** (`zai/glm-5.3-flash`) — the first **natively multimodal** model in the GLM-5 series (320B total / 18B activated). Sources: [docs.z.ai/guides/vlm/glm-5.3-flash](https://docs.z.ai/guides/vlm/glm-5.3-flash) + [pricing](https://docs.z.ai/guides/overview/pricing), snapshot 2026-08-26.
   - **1M context / 128K max output** — z.ai states its text parameters are "consistent with GLM-5.3, with support for a 1M-token context window"
