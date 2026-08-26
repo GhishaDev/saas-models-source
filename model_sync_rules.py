@@ -106,6 +106,7 @@ class ModelSyncRules:
         # Pre-staged: announced on docs.z.ai but missing from LiteLLM source
         "zai/glm-5.2",
         "zai/glm-5.3",
+        "zai/glm-5.3-flash",
         "zai/glm-5.1",
         "zai/glm-5-turbo",
         "zai/glm-4.7-flashx",
@@ -153,10 +154,12 @@ class ModelSyncRules:
             "supports_json_mode": False,
         },
         "zai/glm-5.3": {
-            # Pre-staged: GLM-5.3 not yet officially released. Config + price
-            # deliberately mirror GLM-5.2 (input $1.4 / output $4.4 / cached
-            # $0.26 per M, 1M ctx) per request; update once z.ai publishes
-            # official GLM-5.3 pricing.
+            # Prices CONFIRMED against docs.z.ai/guides/overview/pricing
+            # (2026-08-26): input $1.4 / cached $0.26 / output $4.4 per M,
+            # 1M ctx. These were pre-staged in v1.16.10 by mirroring GLM-5.2
+            # before z.ai published GLM-5.3 rates; the published rates turned
+            # out identical, so the numbers are unchanged — only their status
+            # (guess -> verified) is.
             "litellm_provider": "zai",
             "mode": "chat",
             "max_input_tokens": 1000000,
@@ -166,6 +169,40 @@ class ModelSyncRules:
             "cache_read_input_token_cost": 0.26e-06,
             "supports_function_calling": True,
             "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        "zai/glm-5.3-flash": {
+            # GLM-5.3-Flash — the first NATIVE MULTIMODAL model in the GLM-5
+            # series (320B total / 18B active), so supports_vision is True
+            # even though the key has no "v" infix and therefore does not
+            # match _GLM_VISION_KEY. Text parameters are "consistent with
+            # GLM-5.3, with support for a 1M-token context window" per
+            # docs.z.ai/guides/vlm/glm-5.3-flash (2026-08-26).
+            #
+            # PROMOTIONAL PRICE, not list. docs.z.ai/guides/overview/pricing
+            # states: "GLM-5.3-Flash is available at a 50% discount
+            # (strikethrough prices are list prices). The promotion ends at
+            # 24:00 on September 9, 2026 (UTC+8, Singapore time)."
+            #   list:      input $0.15 / cached $0.03 / output $0.50 per M
+            #   effective: input $0.075 / cached $0.015 / output $0.25 per M
+            # The discount is UNCONDITIONAL — every caller gets it — so the
+            # effective rate is what customers are actually billed today.
+            # Same treatment as ANTHROPIC_SYNTH_DATA's introductory overlays,
+            # and deliberately unlike BYTEPLUS_SYNTH_DATA, which stores list
+            # because those campaigns are gated on account balance / savings
+            # plan and so are not universal.
+            #
+            # >>> REVERT TO LIST PRICE ON 2026-09-10 <<<
+            # input 1.5e-07, cache_read 3e-08, output 5e-07.
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "input_cost_per_token": 0.075e-06,
+            "output_cost_per_token": 0.25e-06,
+            "cache_read_input_token_cost": 0.015e-06,
+            "supports_function_calling": True,
+            "supports_vision": True,
             "supports_json_mode": False,
         },
         "zai/glm-5.1": {
@@ -294,6 +331,7 @@ class ModelSyncRules:
     BIGMODEL_ALLOWED_KEYS = frozenset({
         "bigmodel/glm-5.2",
         "bigmodel/glm-5.3",
+        "bigmodel/glm-5.3-flash",
         "bigmodel/glm-5",
         "bigmodel/glm-4.7",
         "bigmodel/glm-4.5v",
@@ -334,6 +372,21 @@ class ModelSyncRules:
             "max_output_tokens": 128000,
             "supports_function_calling": True,
             "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        # Domestic mirror of zai/glm-5.3-flash. Prices are NOT written here —
+        # apply_bigmodel_synth copies them from the zai sibling, so the 50%
+        # promotional rate (and its 2026-09-10 revert) is maintained in one
+        # place. supports_vision must still be stated: it is metadata, not a
+        # mirrored price field, and glm-5.3-flash is natively multimodal
+        # despite having no "v" infix in the key.
+        "bigmodel/glm-5.3-flash": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "supports_function_calling": True,
+            "supports_vision": True,
             "supports_json_mode": False,
         },
         "bigmodel/glm-5": {
