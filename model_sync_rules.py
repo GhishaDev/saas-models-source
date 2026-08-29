@@ -66,6 +66,7 @@ class ModelSyncRules:
         "bigmodel",
         "deepseek",
         "moonshot",
+        "dashscope",
         "volcengine",
         "byteplus",
         "new-api",
@@ -81,6 +82,7 @@ class ModelSyncRules:
         "bigmodel": "bigmodel",
         "deepseek": "deepseek",
         "moonshot": "moonshot",
+        "dashscope": "dashscope",
         "volcengine": "volcengine",
         "byteplus": "byteplus",
         "new-api": "new-api",
@@ -587,6 +589,77 @@ class ModelSyncRules:
             "supports_system_messages": True,
             "supports_native_streaming": True,
             "supports_parallel_function_calling": True,
+        },
+    }
+
+    # ── DashScope (Alibaba Cloud Model Studio / 阿里云百炼) ───────────────
+    # "DashScope" is the API/SDK name (dashscope.aliyuncs.com,
+    # DASHSCOPE_API_KEY); "Model Studio" / 百炼 is the product brand for the
+    # same service. LiteLLM upstream names the provider after the technical
+    # identifier — verified 2026-08-29: 45 upstream keys carry
+    # litellm_provider "dashscope" and the "dashscope/" prefix, and there is
+    # no competing bailian / alibaba / aliyun / modelscope label. Using the
+    # same namespace means an upstream key of the same name merges cleanly
+    # instead of colliding with an invented one.
+    #
+    # NOT related to ModelScope (魔搭): that is Alibaba's open-weights
+    # community hub, a different product with no upstream provider label.
+    DASHSCOPE_ALLOWED_KEYS = frozenset({
+        "dashscope/qwen3.8-flash",
+    })
+
+    # DashScope pre-stage. Upstream carries 45 dashscope/* keys but NOT
+    # qwen3.8-flash (verified 2026-08-29), and every upstream flash-tier
+    # sibling (qwen-flash, qwen3-coder-flash) ships with no price at all, so
+    # this entry is injected wholesale rather than overlaid.
+    #
+    # Currency: USD-native. Alibaba publishes two separate tariffs — the
+    # domestic 百炼 one in CNY (qwen3.8-flash at 0.8 / 2.7 CNY per M) and the
+    # International one in USD. Upstream's dashscope prices are the
+    # International USD figures (e.g. dashscope/qwen3.8-max is $2/$6 upstream
+    # while 百炼 lists 12/36 CNY, which is NOT 12/7), so we match that
+    # convention and store USD directly. Do NOT route these through
+    # _cny_per_m_to_usd_per_token.
+    #
+    # Source: alibabacloud.com/help/en/model-studio/model-pricing
+    # (snapshot 2026-08-29), row "qwen3.8-flash | context caching discount |
+    # International | 0<Token≤1M | $0.15 | $0.47". Single tier — unlike
+    # qwen3.7-flash and older, which are tiered by request input size.
+    DASHSCOPE_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        "dashscope/qwen3.8-flash": {
+            "litellm_provider": "dashscope",
+            "mode": "chat",
+            # 1M: the official tariff caps the single pricing tier at
+            # "0<Token≤1M" and the model guide calls it a 1M-token context
+            # window. max_output_tokens is INFERRED from the upstream
+            # flash-tier sibling dashscope/qwen-flash (32768) — Alibaba's
+            # per-model spec page is behind a console SPA we cannot read.
+            # Correct it if the published figure differs.
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 32768,
+            "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+            "input_cost_per_token": _usd_per_m_to_usd_per_token(0.15),
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(0.47),
+            # Cache-hit input. Model Studio runs TWO cache modes at different
+            # rates (Context Cache doc): explicit cache hits bill at ~10% of
+            # standard input, implicit at ~20%. Implicit is automatic and
+            # "cannot be disabled", so 20% is what an unconfigured caller
+            # actually pays — and it is the higher of the two, so storing it
+            # never under-bills. 0.15 x 20% = $0.03/M. Deployments that opt
+            # into explicit caching get $0.015/M.
+            "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.03),
+            "supports_function_calling": True,
+            # Multimodal. Confirmed on the official vision docs
+            # (help.aliyun.com/zh/model-studio/vision and its EN twin), which
+            # name it in the TOP image-input tier: "Qwen3.8-Max,
+            # Qwen3.8-Flash, Qwen3.7-Plus series: Up to 2,048 images" —
+            # against 256 for Qwen3.7-Flash and older.
+            #
+            # Do NOT infer this from the "选择模型 / Recommended models" page:
+            # each category there is a curated shortlist ending in 查看更多 /
+            # More, so absence from it says nothing about capability.
+            "supports_vision": True,
+            "supports_json_mode": False,
         },
     }
 
@@ -1467,6 +1540,15 @@ class ModelSyncRules:
             "custom_check": lambda key: key.lower() not in ModelSyncRules.MOONSHOT_ALLOWED_KEYS,
             "description": "Allow only whitelisted moonshot/* keys (see MOONSHOT_ALLOWED_KEYS)",
         },
+        "dashscope": {
+            # Reverse-whitelist: only DASHSCOPE_ALLOWED_KEYS pass through.
+            # Upstream carries 45 dashscope/* keys (qwen, plus third-party
+            # models resold through Model Studio); everything outside the
+            # whitelist stays filtered out.
+            "patterns": [],
+            "custom_check": lambda key: key.lower() not in ModelSyncRules.DASHSCOPE_ALLOWED_KEYS,
+            "description": "Allow only whitelisted dashscope/* keys (see DASHSCOPE_ALLOWED_KEYS)",
+        },
         "volcengine": {
             # Reverse-whitelist: only VOLCENGINE_ALLOWED_KEYS pass through.
             # Today this is Seedance 2.0 video models; chat/embedding SKUs
@@ -2071,6 +2153,16 @@ class ModelSyncRules:
             )
             return f"Dreamina Seedance {version} {variant}".rstrip()
 
+        # DashScope (Alibaba Model Studio):
+        #   dashscope/qwen3.8-flash → Qwen3.8-Flash
+        # Alibaba writes model IDs lowercase in the API but renders the brand
+        # as "Qwen3.8-Flash" in prose and in the vision docs' capability
+        # tables; hyphenated title-case matches how this catalogue already
+        # renders GLM-5.3-Flash and DeepSeek-V4-Flash.
+        if provider == "dashscope" or key.startswith("dashscope/"):
+            suffix = re.sub(r"^dashscope/", "", key, flags=re.IGNORECASE)
+            return "-".join(p.capitalize() for p in suffix.split("-"))
+
         # DeepSeek:
         #   deepseek/deepseek-v4-flash → DeepSeek-V4-Flash
         #   deepseek/deepseek-v4-pro   → DeepSeek-V4-Pro
@@ -2392,6 +2484,30 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_dashscope_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Inject Alibaba Cloud Model Studio (DashScope / 百炼) SKUs.
+
+        Upstream carries 45 ``dashscope/*`` keys but not ``qwen3.8-flash``,
+        and its flash-tier siblings (``qwen-flash``, ``qwen3-coder-flash``)
+        ship with no price at all — they would fail the zero-price filter.
+        Entries here are therefore injected wholesale when absent and
+        overlaid when present, with the official Model Studio pricing page
+        as the source of truth.
+
+        Prices are the **International USD** tariff, matching the convention
+        upstream already uses for ``dashscope/*``; the domestic 百炼 CNY
+        tariff is a separate book and is deliberately not mixed in.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, synth in cls.DASHSCOPE_SYNTH_DATA.items():
+            existing = merged.get(key)
+            merged[key] = dict(synth) if existing is None else {**existing, **synth}
+        return merged
+
+    @classmethod
     def apply_volcengine_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
         """
         Inject Volcengine Seedance video SKUs not yet on LiteLLM upstream.
@@ -2513,6 +2629,7 @@ class ModelSyncRules:
             cls.apply_newapi_synth(
                 cls.apply_anthropic_synth(
                     cls.apply_byteplus_synth(
+                        cls.apply_dashscope_synth(
                         cls.apply_volcengine_synth(
                             cls.apply_deepseek_synth(
                                 cls.apply_bigmodel_synth(
@@ -2523,6 +2640,7 @@ class ModelSyncRules:
                                     )
                                 )
                             )
+                        )
                         )
                     )
                 )
@@ -2548,6 +2666,7 @@ class ModelSyncRules:
             cls.apply_newapi_synth(
                 cls.apply_anthropic_synth(
                     cls.apply_byteplus_synth(
+                        cls.apply_dashscope_synth(
                         cls.apply_volcengine_synth(
                             cls.apply_deepseek_synth(
                                 cls.apply_bigmodel_synth(
@@ -2558,6 +2677,7 @@ class ModelSyncRules:
                                     )
                                 )
                             )
+                        )
                         )
                     )
                 )
