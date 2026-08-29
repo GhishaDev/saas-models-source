@@ -6,7 +6,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Features
 
-- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, Moonshot (Kimi), Volcengine (ByteDance Ark domestic — Doubao Seedance video), BytePlus (ByteDance Ark overseas — Dreamina Seedance video), and two aggregator mirrors: new-api and ecloud_aicc
+- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, Moonshot (Kimi), DashScope (阿里云百炼 / Alibaba Cloud Model Studio — Qwen), Volcengine (ByteDance Ark domestic — Doubao Seedance video), BytePlus (ByteDance Ark overseas — Dreamina Seedance video), and two aggregator mirrors: new-api and ecloud_aicc
 - **Multi-Modal Support**: Chat (language), embedding, image generation, video generation, and audio (speech / transcription) models
 - **Smart Filtering Rules**: Comprehensive exclusion rules for deprecated, preview, and versioned models
 - **Mode-Aware Price Validation**: Validates pricing using mode-specific fields (per-token, per-image-token, per-image)
@@ -22,6 +22,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (13 SKUs: GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output). The official tariff is quoted in CNY/M and split into peak / off-peak windows; we carry the **peak** rate converted to USD/token at the policy FX rate (`1 USD = 7.0 CNY`)
 - **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` (3 SKUs: Kimi K3 — $3 / $15 per M, cache-hit $0.30, 1M context; Kimi K2.7 Code — $0.95 / $4.00, cache-hit $0.19, 256K; Kimi K2.7 Code HighSpeed — $1.90 / $8.00, cache-hit $0.38, 256K). Pre-staged via `MOONSHOT_SYNTH_DATA` (injected — not yet on LiteLLM upstream)
+- **DashScope (阿里云百炼 / Alibaba Cloud Model Studio, Qwen)**: Whitelist-curated `dashscope/*` SKUs (6 SKUs — the Qwen **3.8** and **3.7** generations, all ~1M context). Prices are the **effective (post-discount)** ones from [qwencloud.com/pricing/api](https://www.qwencloud.com/pricing/api); `qwen3.7-plus` / `qwen3.7-flash` are **tiered by request input size**. *DashScope* is the API/SDK identifier (`dashscope.aliyuncs.com`, `DASHSCOPE_API_KEY`) for the service branded 百炼 / Model Studio — LiteLLM names the provider after the technical id, and using the same namespace means an upstream key of the same name merges instead of colliding. **Unrelated to ModelScope (魔搭)**, which is Alibaba's open-weights community hub. Prices are the **International USD** tariff (the domestic 百炼 CNY book is separate and deliberately not mixed in)
 - **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 + 2.5 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (8 entries: 2.0 standard / Fast / Mini × {dated + alias}, plus Seedance 2.5 {dated `-260628` + alias} — 480P/720P 70 / 42 CNY/M no-video / with-video, 1080P 77 / 46 CNY/M, 4K 39 / 24 CNY/M *estimated*). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
 - **BytePlus (ByteDance Ark overseas, Dreamina Seedance video)**: Whitelist-curated Dreamina Seedance 2.0 + 2.5 video SKUs from [docs.byteplus.com/en/docs/ModelArk/1544106](https://docs.byteplus.com/en/docs/ModelArk/1544106) (8 entries: 2.0 standard / Fast / Mini + 2.5, each × {dated + alias}). BytePlus is the overseas sibling of Volcengine — same Ark platform, same YYMMDD version stamps — but a different brand and a **USD-native tariff**, so these are independent SKUs, *not* mirrors of `volcengine/*`. List prices in USD/M tokens (no-video / with-video): 2.5 — 480P/720P **10.70 / 6.40**, 1080P **11.70 / 7.00**, 4K **6.08 / 3.57** *estimated*; 2.0 — 480P/720P **7.00 / 4.30**, 1080P **7.70 / 4.70**, 4K **4.00 / 2.40**; 2.0 Fast — **5.60 / 3.30**; 2.0 Mini — **3.50 / 2.10**. Same `output_cost_per_token[_<res>][_with_input_video]` field family as Volcengine, but **no FX conversion is applied**
 - **new-api (aggregator gateway)**: Reverse-whitelist mirror provider. Every `new-api/<sku>` is a full copy of an already-populated `<vendor>/<sku>` record with only `litellm_provider` re-labelled. Seedance is the first family mirrored (8 SKUs from `volcengine/doubao-seedance-*`); extending to more vendors is a two-line change (whitelist entry + `NEWAPI_MIRROR_SOURCES` mapping)
@@ -31,7 +32,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 | Type | Mode | Examples |
 |------|------|----------|
-| `language` | `chat` | `claude-opus-4-7`, `gpt-5.5`, `gemini/gemini-3-pro-preview`, `zai/glm-5`, `bigmodel/glm-5`, `deepseek/deepseek-v4-flash` |
+| `language` | `chat` | `claude-opus-4-7`, `gpt-5.5`, `gemini/gemini-3-pro-preview`, `zai/glm-5`, `bigmodel/glm-5`, `deepseek/deepseek-v4-flash`, `dashscope/qwen3.8-flash` |
 | `embedding` | `embedding` | `text-embedding-3-large`, `gemini/gemini-embedding-2` |
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
 | `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `byteplus/dreamina-seedance-2-5`, `new-api/doubao-seedance-2-0-fast`, `ecloud_aicc/doubao-seedance-2-0-mini` |
@@ -136,6 +137,37 @@ python filter_models.py --url https://custom-source.com/models.json
 - ❌ Exclude: Free-tier SKUs (`bigmodel/glm-4.5-flash`, `bigmodel/glm-4.7-flash`, `bigmodel/glm-4.6v-flash`) via Zero Price rule
 
 > **Why two GLM providers?** `zai/` and `bigmodel/` describe the **same models served by two gateways** — z.ai (international) and bigmodel.cn (中国版). Pricing is currently unified to z.ai's USD tariff on both sides; the two namespaces remain distinct so downstream consumers can pick the gateway they actually call without rewriting the model key.
+
+#### DashScope (阿里云百炼 / Alibaba Cloud Model Studio — Qwen)
+- ✅ Include: only keys listed in `ModelSyncRules.DASHSCOPE_ALLOWED_KEYS` (reverse whitelist, 1 SKU today). Upstream carries 45 `dashscope/*` keys — Qwen plus third-party models resold through Model Studio — so the whitelist is what keeps the catalogue narrow
+- ✅ **Namespace rationale.** *DashScope* is the API/SDK identifier (`dashscope.aliyuncs.com`, the `dashscope` SDK, `DASHSCOPE_API_KEY`); *百炼 / Model Studio* is the product brand for the same service. Verified 2026-08-29: all 45 upstream keys use `litellm_provider: "dashscope"` **and** the `dashscope/` prefix, with no competing `bailian` / `alibaba` / `aliyun` label. Matching it means an upstream key of the same name merges cleanly rather than colliding with an invented namespace. **Not** ModelScope (魔搭), which is Alibaba's open-weights hub and has no upstream provider label at all
+- ✅ **Currency: International USD, native**, sourced from [qwencloud.com/pricing/api](https://www.qwencloud.com/pricing/api). Alibaba publishes two separate books — domestic 百炼 in CNY and International in USD — and upstream's `dashscope/*` prices are the USD ones (`dashscope/qwen3.8-max` is `$2 / $6` upstream while 百炼 lists `12 / 36` CNY, which is *not* 12÷7). We match that convention. **Do not** route these through `_cny_per_m_to_usd_per_token`
+- ✅ Scope is the Qwen **3.8** and **3.7** generations. All prices are the **effective (post-discount)** ones — what a caller is billed today:
+
+  | Key | Input tier | Input | Output | Implicit cache | Ctx / out | Vision |
+  |---|---|---|---|---|---|---|
+  | `qwen3.8-flash` | — | $0.15 | $0.47 | $0.016 | 991,808 / 131,072 | ✅ |
+  | `qwen3.8-max` | — | $2 | $6 | $0.25 | 991,808 / 131,072 | ✅ |
+  | `qwen3.8-2.4t-a95b` | — | $2 | $6 | $0.25 | 991,808 / 131,072 | ✅ |
+  | `qwen3.7-max` | — | $1.25 *(50% off $2.5)* | $3.75 *($7.5)* | $0.25 *($0.5)* | 991,808 / 65,536 | ❌ |
+  | `qwen3.7-plus` | ≤256K | $0.32 *(20% off $0.4)* | $1.28 *($1.6)* | $0.064 *($0.08)* | 991,808 / 65,536 | ✅ |
+  | | 256K–1M | $0.96 *($1.2)* | $3.84 *($4.8)* | $0.192 *($0.24)* | | |
+  | `qwen3.7-flash` | ≤32K | $0.03 | $0.13 | $0.006 | 991,808 / 65,536 | ✅ |
+  | | 32K–256K | $0.1 | $0.4 | $0.02 | | |
+  | | 256K–1M | $0.2 | $0.8 | $0.04 | | |
+
+- ✅ **Tiered pricing (阶梯计价).** `qwen3.7-plus` and `qwen3.7-flash` bill at a unit price set by the request's total input size. Both representations are written: `tiered_pricing` carries the whole ladder (upstream's `range` + per-tier costs, extended with a per-tier `cache_read_input_token_cost` because qwencloud publishes one), and the flat `input_cost_per_token` family is set to the **highest tier**. A consumer that ignores the ladder then over-bills — visible, and the customer complains — rather than under-billing silently. Same never-under-bill rule as the DeepSeek peak tariff and the BytePlus list price
+- ✅ `should_exclude_due_to_price` now recognises `tiered_pricing` via `_has_tiered_price()`, so an upstream-only tiered entry is no longer dropped as "zero price" — that bug is why upstream's own `dashscope/qwen-flash` never reached the export despite being priced
+- ⚠️ **Discounts have no published end date.** Unlike the GLM-5.3-Flash overlay (which carries a 2026-09-09 deadline), qwencloud shows only strikethrough-list + live-price with no expiry, so there is no date to schedule a revert against. Each affected entry records its list price inline, making the restore a copy-paste when the promotion lapses
+
+- ✅ `dashscope/qwen3.8-max` is **whitelisted only, with no synth entry** — upstream already carries it and its prices were checked field by field against qwencloud on 2026-08-29 (`$2 / $6 / $0.25`, exact match). Adding a synth entry would only create a second place to keep in sync
+- ⚠️ **Cache prices are read from the published table, never derived.** The implicit-cache ratio varies per model *and* per currency: `qwen3.8-flash` is $0.016 against $0.15 (10.7%) while `qwen3.8-max` is $0.25 against $2 (12.5%), and the CNY book differs again (`qwen3.8-flash` ¥0.1 against ¥0.8 = 12.5%). The Context Cache doc's *"typically 10% explicit / 20% implicit"* is a rule of thumb, not a tariff — do not compute cache prices from it
+- ❌ Exclude **3.6 and older**: `qwen3.6-max-preview` and earlier remain out of scope. `qwen3.8-flash-next` is also excluded — it is an open-weights release on ModelScope / HuggingFace, absent from every Model Studio pricing table, so not a billable SKU
+- ✅ **Cache-hit rate is the implicit-cache one.** Model Studio runs two cache modes at different rates: explicit hits bill at ~10% of standard input, implicit at ~20%. Implicit is automatic and *cannot be disabled*, so 20% (**$0.03/M**) is what an unconfigured caller actually pays — and being the higher of the two it never under-bills. Deployments that opt into explicit caching get $0.015/M
+- ✅ `supports_vision: true` — confirmed on the official vision docs, which put it in the **top** image-input tier: *"Qwen3.8-Max, Qwen3.8-Flash, Qwen3.7-Plus series: Up to 2,048 images"* (vs 256 for Qwen3.7-Flash and older). ⚠️ Do **not** infer capabilities from the "选择模型 / Recommended models" page — each category there is a curated shortlist ending in 查看更多 / More, so absence from it proves nothing
+- ⚠️ `max_output_tokens` (32,768) is **inferred** from the upstream flash-tier sibling `dashscope/qwen-flash`; Alibaba's per-model spec page sits behind a console SPA that could not be read. Correct it if the published figure differs
+- ❌ Exclude: `qwen3.8-flash-next` and other open-weights releases — those live on ModelScope / HuggingFace and are not billable Model Studio SKUs (they carry no price and would fail the Zero Price rule anyway)
+- ❌ Exclude: every other `dashscope/*` key upstream carries; whitelist is exhaustive
 
 #### Volcengine (ByteDance Ark — Doubao Seedance video)
 - ✅ Include: only keys listed in `ModelSyncRules.VOLCENGINE_ALLOWED_KEYS` (reverse whitelist, 8 SKUs: Seedance 2.0 / Fast / Mini × {dated official ID, date-less alias}, plus Seedance 2.5 {dated + alias})
@@ -433,6 +465,33 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.19 (2026-08-29)
+- Add **DashScope (阿里云百炼 / Alibaba Cloud Model Studio)** as a provider with the **Qwen 3.8 generation** (3 SKUs). Source: [qwencloud.com/pricing/api](https://www.qwencloud.com/pricing/api), snapshot 2026-08-29.
+
+  | Key | Friendly name | Input | Output | Implicit cache | Context / out |
+  |---|---|---|---|---|---|
+  | `dashscope/qwen3.8-flash` | Qwen3.8-Flash | $0.15 | $0.47 | $0.016 | 991,808 / 131,072 |
+  | `dashscope/qwen3.8-max` | Qwen3.8-Max | $2 | $6 | $0.25 | 991,808 / 131,072 |
+  | `dashscope/qwen3.8-2.4t-a95b` | Qwen3.8-2.4T-A95B | $2 | $6 | $0.25 | 991,808 / 131,072 |
+
+  All three are single-tier on the official tariff, multimodal, and carry `supports_reasoning` / `supports_tool_choice` / `supports_prompt_caching` to match the upstream `dashscope/*` entry shape.
+  - `PROVIDERS` + `PROVIDER_MAPPING` gain `dashscope`; `DASHSCOPE_ALLOWED_KEYS` + `DASHSCOPE_SYNTH_DATA` + `apply_dashscope_synth` follow the established injector shape; `format_model_name` emits `Qwen3.8-Flash`
+  - **Namespace:** *DashScope* is the API/SDK identifier (`dashscope.aliyuncs.com`, `DASHSCOPE_API_KEY`) for the service branded 百炼 / Model Studio. Verified all 45 upstream keys use `litellm_provider: "dashscope"` and the `dashscope/` prefix, with no competing `bailian` / `alibaba` / `aliyun` label — so matching it lets a future upstream key merge instead of collide. **Unrelated to ModelScope (魔搭)**, Alibaba's open-weights hub, which has no upstream provider label
+  - **Currency:** International **USD**, native. Alibaba keeps two books — domestic 百炼 in CNY (`qwen3.8-flash` at 0.8 / 2.7 CNY) and International in USD — and upstream's `dashscope/*` prices are the USD ones (`dashscope/qwen3.8-max` is `$2 / $6` upstream vs `12 / 36` CNY on 百炼, which is *not* 12÷7). Injected wholesale: upstream has no `qwen3.8-flash` key, and its flash-tier siblings carry no price at all
+  - **Cache prices are read from the published table, never derived.** The implicit-cache ratio varies per model *and* per currency — `qwen3.8-flash` is $0.016 against $0.15 (10.7%) while `qwen3.8-max` is $0.25 against $2 (12.5%), and the CNY book differs again (`qwen3.8-flash` ¥0.1 against ¥0.8 = 12.5%). The Context Cache doc's *"typically 10% explicit / 20% implicit"* is a rule of thumb, not a tariff
+  - `dashscope/qwen3.8-max` is **whitelisted with no synth entry** — upstream already carries it and its prices match qwencloud field for field ($2 / $6 / $0.25), so a synth entry would only add a second place to keep in sync
+  - **Context and max output come from the published spec chips**, not inference: every [qwencloud.com/models](https://www.qwencloud.com/models) card in the 3.8 family shows *"1 M Context"* and *"131.1 K Max Out"*, so all three carry 991,808 / 131,072 (`max_input_tokens` uses the concrete 991,808 that upstream already carries for `qwen3.8-max` — Alibaba publishes 最大输入 as the 1,000,000 window minus an 8,192 reserve)
+  - **`supports_vision: true` on all three.** `qwen3.8-flash` and `qwen3.8-max` are tagged *"Text & Code | Image | Video"* on their model cards, and the official vision docs put flash in the top image-input tier (*"up to 2,048 images"*). `qwen3.8-2.4t-a95b` has no explicit modality tag row — it is the open-source build of the same 2.4T flagship as `qwen3.8-max`, and its own card lists multimodal benchmarks (BabyVision 82.0, OSWorld 86.1); this is weaker evidence than the other two and is flagged as such in code
+  - **3.7 and older are deliberately out of scope for now.** `qwen3.7-plus`, `qwen3.7-flash` and `qwen3.6-max-preview` are tiered by request input size (阶梯计价), which the flat `input_cost_per_token` schema cannot express — LiteLLM models this with a `tiered_pricing` array that `should_exclude_due_to_price` does not read, which is also why upstream's own `dashscope/qwen-flash` never reaches the export despite being priced. `qwen3.7-max` is single-tier but runs a 50%-off promotion with no published end date, so it needs the list-vs-effective call made first
+  - `supports_vision: true`, per the official vision docs' top image-input tier: *"Qwen3.8-Max, Qwen3.8-Flash, Qwen3.7-Plus series: Up to 2,048 images"*. An earlier read of the "选择模型 / Recommended models" page suggested text-only; that page is a curated shortlist ending in 查看更多, so absence from it proves nothing — the rules section now warns against that inference
+  - `qwen3.8-flash-next` was **not** added: it is an open-weights release (Qwen4-architecture preview) hosted on ModelScope / HuggingFace, absent from both the CN and International Model Studio pricing tables, and therefore not a billable SKU
+- Also adds the Qwen **3.7** generation (`qwen3.7-max`, `qwen3.7-plus`, `qwen3.7-flash`) and, with it, **tiered-pricing support**:
+  - `should_exclude_due_to_price` gains `_has_tiered_price()`, so a SKU priced only via `tiered_pricing` is no longer dropped as "zero price". That bug is why upstream's own `dashscope/qwen-flash` never reached the export despite being priced — its prices live in a `tiered_pricing` array the validator did not read
+  - `qwen3.7-plus` (2 tiers) and `qwen3.7-flash` (3 tiers) carry the full ladder in `tiered_pricing`, plus flat fields set to the **highest tier** so a tier-unaware consumer over-bills rather than under-bills
+  - **Effective (post-discount) prices**, per request: `qwen3.7-max` $1.25 / $3.75 / $0.25 (50% off $2.5 / $7.5 / $0.5); `qwen3.7-plus` 20% off in both tiers. ⚠️ No published end date, so unlike the GLM-5.3-Flash overlay there is no revert to schedule — list prices are recorded inline in the code for an easy restore
+  - `qwen3.7-max` is **text-only**: it appears in neither image-count tier of the official vision docs, and upstream leaves `supports_vision` unset. `qwen3.7-plus` (2,048 images) and `qwen3.7-flash` (256 images) are multimodal
+- Exported total **144 → 150** (+6); no existing entries changed.
 
 ### v1.16.18 (2026-08-26)
 - **LiteLLM upstream sync.** No models added or removed (total stays **144**); the substance is a GPT-5.6 price cut and the removal of an overlay that would have blocked it.

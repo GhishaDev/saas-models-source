@@ -66,6 +66,7 @@ class ModelSyncRules:
         "bigmodel",
         "deepseek",
         "moonshot",
+        "dashscope",
         "volcengine",
         "byteplus",
         "new-api",
@@ -81,6 +82,7 @@ class ModelSyncRules:
         "bigmodel": "bigmodel",
         "deepseek": "deepseek",
         "moonshot": "moonshot",
+        "dashscope": "dashscope",
         "volcengine": "volcengine",
         "byteplus": "byteplus",
         "new-api": "new-api",
@@ -588,6 +590,279 @@ class ModelSyncRules:
             "supports_native_streaming": True,
             "supports_parallel_function_calling": True,
         },
+    }
+
+    # ── DashScope (Alibaba Cloud Model Studio / 阿里云百炼) ───────────────
+    # "DashScope" is the API/SDK name (dashscope.aliyuncs.com,
+    # DASHSCOPE_API_KEY); "Model Studio" / 百炼 is the product brand for the
+    # same service. LiteLLM upstream names the provider after the technical
+    # identifier — verified 2026-08-29: 45 upstream keys carry
+    # litellm_provider "dashscope" and the "dashscope/" prefix, and there is
+    # no competing bailian / alibaba / aliyun / modelscope label. Using the
+    # same namespace means an upstream key of the same name merges cleanly
+    # instead of colliding with an invented one.
+    #
+    # NOT related to ModelScope (魔搭): that is Alibaba's open-weights
+    # community hub, a different product with no upstream provider label.
+    DASHSCOPE_ALLOWED_KEYS = frozenset({
+        # Qwen 3.8 generation. All three are single-tier on the official
+        # tariff (no 阶梯计价 / input-size bands), which is what lets them fit
+        # the flat input/output/cache_read schema this catalogue uses. The
+        # 3.7 and older generations are mostly tiered and stay out until
+        # tiered pricing is modelled — see the README for the gap.
+        "dashscope/qwen3.8-flash",
+        "dashscope/qwen3.8-max",
+        "dashscope/qwen3.8-2.4t-a95b",
+        # Qwen 3.7 generation. qwen3.7-plus and qwen3.7-flash are TIERED by
+        # request input size; see the tiered_pricing note in
+        # DASHSCOPE_SYNTH_DATA for how that is represented.
+        "dashscope/qwen3.7-max",
+        "dashscope/qwen3.7-plus",
+        "dashscope/qwen3.7-flash",
+    })
+
+    # DashScope pre-stage. Upstream carries 45 dashscope/* keys but NOT
+    # qwen3.8-flash (verified 2026-08-29), so this entry is injected
+    # wholesale rather than overlaid.
+    #
+    # Note on upstream shape: the tiered flash SKUs (qwen-flash,
+    # qwen3-coder-flash) DO carry prices, but in a `tiered_pricing` array
+    # rather than flat input_cost_per_token fields — which is why they read
+    # as unpriced to should_exclude_due_to_price and never reach our export.
+    # qwen3.8-flash is single-tier (0<Token<=1M) on the official tariff, so
+    # flat fields are the correct shape here, matching how upstream models
+    # single-tier SKUs such as dashscope/qwen3.8-max.
+    #
+    # Currency: USD-native. Alibaba publishes two separate tariffs — the
+    # domestic 百炼 one in CNY (qwen3.8-flash at 0.8 / 2.7 CNY per M) and the
+    # International one in USD. Upstream's dashscope prices are the
+    # International USD figures (e.g. dashscope/qwen3.8-max is $2/$6 upstream
+    # while 百炼 lists 12/36 CNY, which is NOT 12/7), so we match that
+    # convention and store USD directly. Do NOT route these through
+    # _cny_per_m_to_usd_per_token.
+    #
+    # Source: alibabacloud.com/help/en/model-studio/model-pricing
+    # (snapshot 2026-08-29), row "qwen3.8-flash | context caching discount |
+    # International | 0<Token≤1M | $0.15 | $0.47". Single tier — unlike
+    # qwen3.7-flash and older, which are tiered by request input size.
+    DASHSCOPE_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        "dashscope/qwen3.8-flash": {
+            "litellm_provider": "dashscope",
+            "mode": "chat",
+            # Published on the qwencloud.com/models card: "1 M Context",
+            # "131.1 K Max Out" — identical chips to qwen3.8-max and
+            # qwen3.8-2.4t-a95b. 131.1K is 131,072.
+            #
+            # max_input_tokens uses 991,808, the concrete figure upstream
+            # carries for qwen3.8-max, which shows the same "1 M Context"
+            # chip: Alibaba publishes 最大输入 as the 1,000,000 window minus
+            # an 8,192 reserve, so the whole 3.8 family lands on the same
+            # number. Keeping all three identical avoids inventing a
+            # different reserve for the two SKUs upstream does not carry.
+            "max_input_tokens": 991808,
+            "max_output_tokens": 131072,
+            # Upstream mirrors max_output_tokens into max_tokens on every
+            # dashscope entry; match that shape.
+            "max_tokens": 131072,
+            "source": "https://www.qwencloud.com/pricing/api",
+            "input_cost_per_token": _usd_per_m_to_usd_per_token(0.15),
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(0.47),
+            # Cache-hit input: $0.016/M, READ FROM THE PUBLISHED TABLE.
+            #
+            # Do NOT derive this from a percentage. The ratio is per-model
+            # AND per-currency: qwencloud lists qwen3.8-flash implicit cache
+            # at $0.016 against $0.15 input (10.7%), while qwen3.8-max is
+            # $0.25 against $2 (12.5%); the CNY book differs again
+            # (qwen3.8-flash ¥0.1 against ¥0.8 = 12.5%). The Context Cache
+            # doc's "typically 10% explicit / 20% implicit" is a rule of
+            # thumb, not a tariff. The published column is labelled
+            # "Input(Implicit Cache)" — the automatic, always-on path, which
+            # is the right one to map onto cache_read_input_token_cost.
+            "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.016),
+            "supports_function_calling": True,
+            # Flags upstream sets on every dashscope entry; qwen3.8-flash
+            # qualifies for each: tool_choice is universal across the 45
+            # upstream keys, reasoning follows from the tariff row's
+            # "Non-Thinking and Thinking modes", and prompt_caching from the
+            # same row's "context caching discount" marker.
+            "supports_tool_choice": True,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
+            # Multimodal. Two independent confirmations: the
+            # qwencloud.com/models card tags it "Text & Code | Image |
+            # Video", and the official vision docs
+            # (help.aliyun.com/zh/model-studio/vision and its EN twin) name
+            # it in the TOP image-input tier — "Qwen3.8-Max, Qwen3.8-Flash,
+            # Qwen3.7-Plus series: Up to 2,048 images", against 256 for
+            # Qwen3.7-Flash and older.
+            #
+            # Do NOT infer this from the "选择模型 / Recommended models" page:
+            # each category there is a curated shortlist ending in 查看更多 /
+            # More, so absence from it says nothing about capability.
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+        # Qwen3.8-2.4T-A95B — per its qwencloud.com/models card, "the
+        # open-source release of Qwen's latest flagship", 2.4T total
+        # parameters with ~95B activated. Same tariff as qwen3.8-max
+        # ($2 / $6 / $0.25 per M) and the same published spec chips
+        # ("1 M Context", "131.1 K Max Out"). Not on LiteLLM upstream, so
+        # injected.
+        #
+        # supports_vision: the card does not carry an explicit modality tag
+        # row, but it is the open-source build of the same flagship as
+        # qwen3.8-max (tagged "Text & Code | Image | Video") and its own
+        # benchmark list is multimodal — BabyVision 82.0, OSWorld 86.1.
+        # Weaker evidence than flash/max; revisit if Alibaba publishes a
+        # modality table for it.
+        "dashscope/qwen3.8-2.4t-a95b": {
+            "litellm_provider": "dashscope",
+            "mode": "chat",
+            "max_input_tokens": 991808,
+            "max_output_tokens": 131072,
+            "max_tokens": 131072,
+            "source": "https://www.qwencloud.com/pricing/api",
+            "input_cost_per_token": _usd_per_m_to_usd_per_token(2.0),
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(6.0),
+            "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.25),
+            "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+        # ── Qwen 3.7 ─────────────────────────────────────────────────────
+        # PRICES ARE THE EFFECTIVE (DISCOUNTED) ONES, per request: store what
+        # callers are actually billed today. qwencloud shows the promotions
+        # as strikethrough list + live price, with no published end date —
+        # so unlike the GLM-5.3-Flash overlay (which carries a 2026-09-09
+        # deadline) there is no date to schedule a revert against. Each entry
+        # therefore records its list price inline so restoring it is a
+        # copy-paste once the promotion lapses.
+        #
+        # TIERED PRICING. qwen3.7-plus and qwen3.7-flash bill at a unit price
+        # that depends on the request's total input size (阶梯计价). Both the
+        # full ladder and flat fields are written:
+        #   * tiered_pricing — the whole ladder, matching the upstream shape
+        #     (range + per-tier costs), extended with a per-tier
+        #     cache_read_input_token_cost since qwencloud publishes one.
+        #     Tier-aware consumers should read this.
+        #   * input/output/cache_read_cost — set to the HIGHEST tier. A
+        #     consumer that ignores the ladder then over-bills (visible, and
+        #     the customer complains) instead of under-billing (silent
+        #     revenue loss). Same never-under-bill rule used for the DeepSeek
+        #     peak tariff and the BytePlus list price.
+        "dashscope/qwen3.7-max": {
+            # Single tier. List $2.5 / $7.5 / $0.5 — currently 50% off.
+            # Upstream carries the LIST price, so this entry exists purely to
+            # overlay the effective one.
+            "litellm_provider": "dashscope",
+            "mode": "chat",
+            "max_input_tokens": 991808,
+            "max_output_tokens": 65536,
+            "max_tokens": 65536,
+            "source": "https://www.qwencloud.com/pricing/api",
+            "input_cost_per_token": _usd_per_m_to_usd_per_token(1.25),
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(3.75),
+            "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.25),
+            "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
+            # Text-only: qwen3.7-max appears in NEITHER image-count tier of
+            # help.aliyun.com/zh/model-studio/vision (which lists 3.8-Max /
+            # 3.8-Flash / 3.7-Plus at 2,048 images and 3.7-Flash and older at
+            # 256), and upstream leaves supports_vision unset.
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        "dashscope/qwen3.7-plus": {
+            # Two tiers, currently 20% off. List: <=256K $0.4 / $1.6 / $0.08;
+            # 256K-1M $1.2 / $4.8 / $0.24.
+            "litellm_provider": "dashscope",
+            "mode": "chat",
+            "max_input_tokens": 991808,
+            "max_output_tokens": 65536,
+            "max_tokens": 65536,
+            "source": "https://www.qwencloud.com/pricing/api",
+            "tiered_pricing": [
+                {
+                    "range": [0, 256000.0],
+                    "input_cost_per_token": _usd_per_m_to_usd_per_token(0.32),
+                    "output_cost_per_token": _usd_per_m_to_usd_per_token(1.28),
+                    "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.064),
+                },
+                {
+                    "range": [256000.0, 1000000.0],
+                    "input_cost_per_token": _usd_per_m_to_usd_per_token(0.96),
+                    "output_cost_per_token": _usd_per_m_to_usd_per_token(3.84),
+                    "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.192),
+                },
+            ],
+            # Flat fields = highest tier (256K-1M).
+            "input_cost_per_token": _usd_per_m_to_usd_per_token(0.96),
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(3.84),
+            "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.192),
+            "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
+            # Top image-input tier (2,048 images) per the vision docs;
+            # upstream also sets supports_vision on this SKU.
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+        "dashscope/qwen3.7-flash": {
+            # Three tiers, no promotion — these are list prices.
+            # Not on LiteLLM upstream at all.
+            "litellm_provider": "dashscope",
+            "mode": "chat",
+            "max_input_tokens": 991808,
+            # max_output_tokens INFERRED from the 3.7 siblings upstream
+            # (qwen3.7-max / qwen3.7-plus both 65,536); qwencloud publishes
+            # spec chips only for the 3.8 cards. Correct if Alibaba states
+            # a different figure.
+            "max_output_tokens": 65536,
+            "max_tokens": 65536,
+            "source": "https://www.qwencloud.com/pricing/api",
+            "tiered_pricing": [
+                {
+                    "range": [0, 32000.0],
+                    "input_cost_per_token": _usd_per_m_to_usd_per_token(0.03),
+                    "output_cost_per_token": _usd_per_m_to_usd_per_token(0.13),
+                    "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.006),
+                },
+                {
+                    "range": [32000.0, 256000.0],
+                    "input_cost_per_token": _usd_per_m_to_usd_per_token(0.1),
+                    "output_cost_per_token": _usd_per_m_to_usd_per_token(0.4),
+                    "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.02),
+                },
+                {
+                    "range": [256000.0, 1000000.0],
+                    "input_cost_per_token": _usd_per_m_to_usd_per_token(0.2),
+                    "output_cost_per_token": _usd_per_m_to_usd_per_token(0.8),
+                    "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.04),
+                },
+            ],
+            # Flat fields = highest tier (256K-1M).
+            "input_cost_per_token": _usd_per_m_to_usd_per_token(0.2),
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(0.8),
+            "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.04),
+            "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
+            # 256-image tier per the vision docs.
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+        # NOTE: dashscope/qwen3.8-max is deliberately absent from this dict.
+        # Upstream already carries it, and its prices were checked field by
+        # field against qwencloud.com/pricing/api on 2026-08-29 ($2 / $6 /
+        # $0.25) — they match exactly, so whitelisting alone is enough and a
+        # synth entry would only create a second place to keep in sync.
     }
 
     # ── Volcengine (ByteDance Ark — Doubao Seedance video) ────────────────
@@ -1467,6 +1742,15 @@ class ModelSyncRules:
             "custom_check": lambda key: key.lower() not in ModelSyncRules.MOONSHOT_ALLOWED_KEYS,
             "description": "Allow only whitelisted moonshot/* keys (see MOONSHOT_ALLOWED_KEYS)",
         },
+        "dashscope": {
+            # Reverse-whitelist: only DASHSCOPE_ALLOWED_KEYS pass through.
+            # Upstream carries 45 dashscope/* keys (qwen, plus third-party
+            # models resold through Model Studio); everything outside the
+            # whitelist stays filtered out.
+            "patterns": [],
+            "custom_check": lambda key: key.lower() not in ModelSyncRules.DASHSCOPE_ALLOWED_KEYS,
+            "description": "Allow only whitelisted dashscope/* keys (see DASHSCOPE_ALLOWED_KEYS)",
+        },
         "volcengine": {
             # Reverse-whitelist: only VOLCENGINE_ALLOWED_KEYS pass through.
             # Today this is Seedance 2.0 video models; chat/embedding SKUs
@@ -1823,6 +2107,28 @@ class ModelSyncRules:
         ),
     }
 
+    @staticmethod
+    def _has_tiered_price(model_data: dict[str, Any]) -> bool:
+        """True if ``tiered_pricing`` carries at least one non-zero input price.
+
+        Shape (LiteLLM upstream):
+            "tiered_pricing": [
+                {"range": [0, 256000], "input_cost_per_token": 4e-07,
+                 "output_cost_per_token": 1.6e-06},
+                ...
+            ]
+        """
+        tiers = model_data.get("tiered_pricing")
+        if not isinstance(tiers, list):
+            return False
+        for tier in tiers:
+            if not isinstance(tier, dict):
+                continue
+            value = tier.get("input_cost_per_token")
+            if value is not None and value > 0:
+                return True
+        return False
+
     @classmethod
     def should_exclude_due_to_price(cls, model_data: dict[str, Any]) -> bool:
         """Check if a model should be excluded due to zero/missing price."""
@@ -1859,6 +2165,20 @@ class ModelSyncRules:
 
         input_cost = model_data.get("input_cost_per_token")
         output_cost = model_data.get("output_cost_per_token")
+
+        # Tiered pricing (阶梯计价): some vendors — Alibaba's Qwen family in
+        # particular — bill at a unit price that depends on the total input
+        # size of the request, and LiteLLM upstream expresses that as a
+        # `tiered_pricing` array INSTEAD of the flat cost fields. Such a SKU
+        # is priced even though input_cost_per_token is absent, so treat a
+        # tier array carrying any non-zero input price as priced.
+        #
+        # This repo still populates the flat fields for the SKUs it curates
+        # (see the note in DASHSCOPE_SYNTH_DATA on which tier is used and
+        # why); the branch exists so an upstream-only tiered entry is not
+        # silently dropped as "zero price" the way dashscope/qwen-flash was.
+        if cls._has_tiered_price(model_data):
+            return False
 
         if input_cost is None or input_cost == 0:
             return True
@@ -2070,6 +2390,25 @@ class ModelSyncRules:
                 else ""
             )
             return f"Dreamina Seedance {version} {variant}".rstrip()
+
+        # DashScope (Alibaba Model Studio):
+        #   dashscope/qwen3.8-flash → Qwen3.8-Flash
+        # Alibaba writes model IDs lowercase in the API but renders the brand
+        # as "Qwen3.8-Flash" in prose and in the vision docs' capability
+        # tables; hyphenated title-case matches how this catalogue already
+        # renders GLM-5.3-Flash and DeepSeek-V4-Flash.
+        if provider == "dashscope" or key.startswith("dashscope/"):
+            suffix = re.sub(r"^dashscope/", "", key, flags=re.IGNORECASE)
+            # Parameter-count segments are upper-cased the way Alibaba writes
+            # them: qwen3.8-2.4t-a95b → Qwen3.8-2.4T-A95B, not "2.4t-A95b".
+            # Matches a size token — optional letter, digits/dot, unit letter
+            # (2.4t, a95b, 30b) — and leaves ordinary words to capitalize().
+            def _seg(part: str) -> str:
+                if re.fullmatch(r"[a-z]?[\d.]+[a-z]", part, flags=re.IGNORECASE):
+                    return part.upper()
+                return part.capitalize()
+
+            return "-".join(_seg(p) for p in suffix.split("-"))
 
         # DeepSeek:
         #   deepseek/deepseek-v4-flash → DeepSeek-V4-Flash
@@ -2392,6 +2731,30 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_dashscope_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Inject Alibaba Cloud Model Studio (DashScope / 百炼) SKUs.
+
+        Upstream carries 45 ``dashscope/*`` keys but not ``qwen3.8-flash``,
+        and its flash-tier siblings (``qwen-flash``, ``qwen3-coder-flash``)
+        ship with no price at all — they would fail the zero-price filter.
+        Entries here are therefore injected wholesale when absent and
+        overlaid when present, with the official Model Studio pricing page
+        as the source of truth.
+
+        Prices are the **International USD** tariff, matching the convention
+        upstream already uses for ``dashscope/*``; the domestic 百炼 CNY
+        tariff is a separate book and is deliberately not mixed in.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, synth in cls.DASHSCOPE_SYNTH_DATA.items():
+            existing = merged.get(key)
+            merged[key] = dict(synth) if existing is None else {**existing, **synth}
+        return merged
+
+    @classmethod
     def apply_volcengine_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
         """
         Inject Volcengine Seedance video SKUs not yet on LiteLLM upstream.
@@ -2513,6 +2876,7 @@ class ModelSyncRules:
             cls.apply_newapi_synth(
                 cls.apply_anthropic_synth(
                     cls.apply_byteplus_synth(
+                        cls.apply_dashscope_synth(
                         cls.apply_volcengine_synth(
                             cls.apply_deepseek_synth(
                                 cls.apply_bigmodel_synth(
@@ -2523,6 +2887,7 @@ class ModelSyncRules:
                                     )
                                 )
                             )
+                        )
                         )
                     )
                 )
@@ -2548,6 +2913,7 @@ class ModelSyncRules:
             cls.apply_newapi_synth(
                 cls.apply_anthropic_synth(
                     cls.apply_byteplus_synth(
+                        cls.apply_dashscope_synth(
                         cls.apply_volcengine_synth(
                             cls.apply_deepseek_synth(
                                 cls.apply_bigmodel_synth(
@@ -2558,6 +2924,7 @@ class ModelSyncRules:
                                     )
                                 )
                             )
+                        )
                         )
                     )
                 )
