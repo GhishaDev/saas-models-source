@@ -613,6 +613,12 @@ class ModelSyncRules:
         "dashscope/qwen3.8-flash",
         "dashscope/qwen3.8-max",
         "dashscope/qwen3.8-2.4t-a95b",
+        # Qwen 3.7 generation. qwen3.7-plus and qwen3.7-flash are TIERED by
+        # request input size; see the tiered_pricing note in
+        # DASHSCOPE_SYNTH_DATA for how that is represented.
+        "dashscope/qwen3.7-max",
+        "dashscope/qwen3.7-plus",
+        "dashscope/qwen3.7-flash",
     })
 
     # DashScope pre-stage. Upstream carries 45 dashscope/* keys but NOT
@@ -723,6 +729,132 @@ class ModelSyncRules:
             "supports_tool_choice": True,
             "supports_reasoning": True,
             "supports_prompt_caching": True,
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+        # ── Qwen 3.7 ─────────────────────────────────────────────────────
+        # PRICES ARE THE EFFECTIVE (DISCOUNTED) ONES, per request: store what
+        # callers are actually billed today. qwencloud shows the promotions
+        # as strikethrough list + live price, with no published end date —
+        # so unlike the GLM-5.3-Flash overlay (which carries a 2026-09-09
+        # deadline) there is no date to schedule a revert against. Each entry
+        # therefore records its list price inline so restoring it is a
+        # copy-paste once the promotion lapses.
+        #
+        # TIERED PRICING. qwen3.7-plus and qwen3.7-flash bill at a unit price
+        # that depends on the request's total input size (阶梯计价). Both the
+        # full ladder and flat fields are written:
+        #   * tiered_pricing — the whole ladder, matching the upstream shape
+        #     (range + per-tier costs), extended with a per-tier
+        #     cache_read_input_token_cost since qwencloud publishes one.
+        #     Tier-aware consumers should read this.
+        #   * input/output/cache_read_cost — set to the HIGHEST tier. A
+        #     consumer that ignores the ladder then over-bills (visible, and
+        #     the customer complains) instead of under-billing (silent
+        #     revenue loss). Same never-under-bill rule used for the DeepSeek
+        #     peak tariff and the BytePlus list price.
+        "dashscope/qwen3.7-max": {
+            # Single tier. List $2.5 / $7.5 / $0.5 — currently 50% off.
+            # Upstream carries the LIST price, so this entry exists purely to
+            # overlay the effective one.
+            "litellm_provider": "dashscope",
+            "mode": "chat",
+            "max_input_tokens": 991808,
+            "max_output_tokens": 65536,
+            "max_tokens": 65536,
+            "source": "https://www.qwencloud.com/pricing/api",
+            "input_cost_per_token": _usd_per_m_to_usd_per_token(1.25),
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(3.75),
+            "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.25),
+            "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
+            # Text-only: qwen3.7-max appears in NEITHER image-count tier of
+            # help.aliyun.com/zh/model-studio/vision (which lists 3.8-Max /
+            # 3.8-Flash / 3.7-Plus at 2,048 images and 3.7-Flash and older at
+            # 256), and upstream leaves supports_vision unset.
+            "supports_vision": False,
+            "supports_json_mode": False,
+        },
+        "dashscope/qwen3.7-plus": {
+            # Two tiers, currently 20% off. List: <=256K $0.4 / $1.6 / $0.08;
+            # 256K-1M $1.2 / $4.8 / $0.24.
+            "litellm_provider": "dashscope",
+            "mode": "chat",
+            "max_input_tokens": 991808,
+            "max_output_tokens": 65536,
+            "max_tokens": 65536,
+            "source": "https://www.qwencloud.com/pricing/api",
+            "tiered_pricing": [
+                {
+                    "range": [0, 256000.0],
+                    "input_cost_per_token": _usd_per_m_to_usd_per_token(0.32),
+                    "output_cost_per_token": _usd_per_m_to_usd_per_token(1.28),
+                    "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.064),
+                },
+                {
+                    "range": [256000.0, 1000000.0],
+                    "input_cost_per_token": _usd_per_m_to_usd_per_token(0.96),
+                    "output_cost_per_token": _usd_per_m_to_usd_per_token(3.84),
+                    "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.192),
+                },
+            ],
+            # Flat fields = highest tier (256K-1M).
+            "input_cost_per_token": _usd_per_m_to_usd_per_token(0.96),
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(3.84),
+            "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.192),
+            "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
+            # Top image-input tier (2,048 images) per the vision docs;
+            # upstream also sets supports_vision on this SKU.
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
+        "dashscope/qwen3.7-flash": {
+            # Three tiers, no promotion — these are list prices.
+            # Not on LiteLLM upstream at all.
+            "litellm_provider": "dashscope",
+            "mode": "chat",
+            "max_input_tokens": 991808,
+            # max_output_tokens INFERRED from the 3.7 siblings upstream
+            # (qwen3.7-max / qwen3.7-plus both 65,536); qwencloud publishes
+            # spec chips only for the 3.8 cards. Correct if Alibaba states
+            # a different figure.
+            "max_output_tokens": 65536,
+            "max_tokens": 65536,
+            "source": "https://www.qwencloud.com/pricing/api",
+            "tiered_pricing": [
+                {
+                    "range": [0, 32000.0],
+                    "input_cost_per_token": _usd_per_m_to_usd_per_token(0.03),
+                    "output_cost_per_token": _usd_per_m_to_usd_per_token(0.13),
+                    "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.006),
+                },
+                {
+                    "range": [32000.0, 256000.0],
+                    "input_cost_per_token": _usd_per_m_to_usd_per_token(0.1),
+                    "output_cost_per_token": _usd_per_m_to_usd_per_token(0.4),
+                    "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.02),
+                },
+                {
+                    "range": [256000.0, 1000000.0],
+                    "input_cost_per_token": _usd_per_m_to_usd_per_token(0.2),
+                    "output_cost_per_token": _usd_per_m_to_usd_per_token(0.8),
+                    "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.04),
+                },
+            ],
+            # Flat fields = highest tier (256K-1M).
+            "input_cost_per_token": _usd_per_m_to_usd_per_token(0.2),
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(0.8),
+            "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.04),
+            "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
+            # 256-image tier per the vision docs.
             "supports_vision": True,
             "supports_json_mode": False,
         },
@@ -1975,6 +2107,28 @@ class ModelSyncRules:
         ),
     }
 
+    @staticmethod
+    def _has_tiered_price(model_data: dict[str, Any]) -> bool:
+        """True if ``tiered_pricing`` carries at least one non-zero input price.
+
+        Shape (LiteLLM upstream):
+            "tiered_pricing": [
+                {"range": [0, 256000], "input_cost_per_token": 4e-07,
+                 "output_cost_per_token": 1.6e-06},
+                ...
+            ]
+        """
+        tiers = model_data.get("tiered_pricing")
+        if not isinstance(tiers, list):
+            return False
+        for tier in tiers:
+            if not isinstance(tier, dict):
+                continue
+            value = tier.get("input_cost_per_token")
+            if value is not None and value > 0:
+                return True
+        return False
+
     @classmethod
     def should_exclude_due_to_price(cls, model_data: dict[str, Any]) -> bool:
         """Check if a model should be excluded due to zero/missing price."""
@@ -2011,6 +2165,20 @@ class ModelSyncRules:
 
         input_cost = model_data.get("input_cost_per_token")
         output_cost = model_data.get("output_cost_per_token")
+
+        # Tiered pricing (阶梯计价): some vendors — Alibaba's Qwen family in
+        # particular — bill at a unit price that depends on the total input
+        # size of the request, and LiteLLM upstream expresses that as a
+        # `tiered_pricing` array INSTEAD of the flat cost fields. Such a SKU
+        # is priced even though input_cost_per_token is absent, so treat a
+        # tier array carrying any non-zero input price as priced.
+        #
+        # This repo still populates the flat fields for the SKUs it curates
+        # (see the note in DASHSCOPE_SYNTH_DATA on which tier is used and
+        # why); the branch exists so an upstream-only tiered entry is not
+        # silently dropped as "zero price" the way dashscope/qwen-flash was.
+        if cls._has_tiered_price(model_data):
+            return False
 
         if input_cost is None or input_cost == 0:
             return True
