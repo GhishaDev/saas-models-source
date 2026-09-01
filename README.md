@@ -101,7 +101,9 @@ python filter_models.py --url https://custom-source.com/models.json
 - ✅ Include: Claude 4.5+ variants (Haiku, Sonnet, Opus), plus Claude 5 (Sonnet, Opus), plus special-name flagships (`claude-fable-5`, `claude-mythos-5`, etc.)
 - ✅ Include: Dated snapshots ≥ 4.5 (e.g. `claude-sonnet-4-5-20250929`)
 - ✅ **Introductory-price overlay** via `ANTHROPIC_SYNTH_DATA` / `apply_anthropic_synth`: when Anthropic runs a time-boxed intro price, LiteLLM upstream tracks the post-window standard tariff — we overlay the currently-effective numbers so the catalogue matches what customers actually get billed today
-  - Active window: **`claude-sonnet-5` through 2026-08-31** ($2 / $10 / $0.20 / $2.50 per M input / output / cache-read / cache-write-5m). Standard tariff ($3 / $15 / $0.30 / $3.75) resumes 2026-09-01 — remove the `ANTHROPIC_SYNTH_DATA["claude-sonnet-5"]` entry that day so upstream flows through unchanged
+  - **No price overlay is active.** `ANTHROPIC_SYNTH_DATA` currently holds only pre-staged *entries* (`claude-opus-5`, `claude-mythos-5`), not price corrections
+  - The `claude-sonnet-5` introductory overlay was **retired on 2026-09-01** — and not because the window closed. Anthropic cancelled the increase: *"The $2/$10 per million input/output token pricing for Claude Sonnet 5, announced at launch as introductory pricing through August 31, 2026, is now the standard price. The previously scheduled increase to $3/$15 per million input/output tokens on September 1, 2026 will not occur."* Upstream carries the permanent rate verbatim, so the overlay had become a no-op and was deleted
+  - ⚠️ **Delete an overlay once upstream catches up.** A redundant overlay is not harmless — it silently pins values the moment the vendor moves next. That is exactly how the `gpt-5.6` `*_above_272k_flex` overlays came to bill flex long-context output at $22.50/M against a real $15/M (see v1.16.18)
 - ✅ Friendly name follows Anthropic's official variant-first order: `Claude {Variant} {ver}` for the standard Opus/Sonnet/Haiku family (e.g. `Claude Sonnet 5`, `Claude Sonnet 4.5`, `Claude Opus 4.7`); special-name flagships keep a capitalized fallback (`Claude Fable 5`). Dated snapshots carry **no** date suffix — they share the base model's display name (e.g. `claude-sonnet-4-5-20250929` → `Claude Sonnet 4.5`), matching platform.claude.com
 - ❌ Exclude: Claude 4.1 and below versions
 - ❌ Exclude: Non-claude prefixed models
@@ -465,6 +467,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.20 (2026-09-01)
+- **Retire the `claude-sonnet-5` introductory-price overlay** — and *not* because the window expired. The v1.15.x note said to restore $3 / $15 today; that would have been wrong. [platform.claude.com pricing](https://platform.claude.com/docs/en/about-claude/pricing) now states: *"The $2/$10 per million input/output token pricing for Claude Sonnet 5, announced at launch as introductory pricing through August 31, 2026, **is now the standard price**. The previously scheduled increase to $3/$15 per million input/output tokens on September 1, 2026 **will not occur**."*
+  - The $2 / $10 / $0.20 / $2.50 rate is permanent, and LiteLLM upstream carries it verbatim — verified field by field on 2026-09-01, all four identical to the overlay
+  - So the overlay was deleted as a **no-op**, not swapped for different numbers. Proven by running the filter over one upstream snapshot with and without the overlay: **zero entries differ**, and `filtered_models.json` is unchanged (exported total stays **150**)
+  - ⚠️ Lesson recorded in code and in the Anthropic rules section: **delete an overlay once upstream catches up.** A redundant overlay silently pins values the moment the vendor moves next — exactly how the `gpt-5.6` `*_above_272k_flex` overlays came to bill flex long-context output at $22.50/M against a real $15/M (v1.16.18)
 
 ### v1.16.19 (2026-08-29)
 - Add **DashScope (阿里云百炼 / Alibaba Cloud Model Studio)** as a provider with the **Qwen 3.8 generation** (3 SKUs). Source: [qwencloud.com/pricing/api](https://www.qwencloud.com/pricing/api), snapshot 2026-08-29.
