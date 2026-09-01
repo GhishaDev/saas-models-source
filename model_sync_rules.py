@@ -1323,12 +1323,22 @@ class ModelSyncRules:
     #     yet on BerriAI upstream (e.g. claude-opus-5, current flagship per
     #     platform.claude.com). Injected wholesale when absent upstream.
     ANTHROPIC_SYNTH_DATA: dict[str, dict[str, Any]] = {
-        "claude-sonnet-5": {
-            "input_cost_per_token": 2e-06,
-            "output_cost_per_token": 1e-05,
-            "cache_read_input_token_cost": 2e-07,
-            "cache_creation_input_token_cost": 2.5e-06,
-        },
+        # RETIRED 2026-09-01: the claude-sonnet-5 introductory overlay
+        # ($2 / $10 / $0.20 / $2.50 per M) is gone, and NOT because the
+        # window closed. platform.claude.com/docs/en/about-claude/pricing
+        # now states: "The $2/$10 per million input/output token pricing for
+        # Claude Sonnet 5, announced at launch as introductory pricing
+        # through August 31, 2026, is now the standard price. The previously
+        # scheduled increase to $3/$15 per million input/output tokens on
+        # September 1, 2026 will not occur."
+        #
+        # So the rate is permanent, upstream carries it verbatim (verified
+        # field by field on 2026-09-01: $2 / $10 / $0.20 / $2.50 — identical),
+        # and the overlay had become a no-op. Keeping a redundant overlay is
+        # not harmless: it silently pins values the moment the vendor moves,
+        # which is exactly how the gpt-5.6 *_above_272k_flex overlays came to
+        # bill flex long-context output at $22.50/M against a real $15/M.
+        # Delete overlays once upstream catches up.
         # Claude Opus 5 — current flagship ($5/$25 per M, 1M ctx, 128K out),
         # GA 2026-06-09; source platform.claude.com/docs models overview +
         # pricing. Same request surface / capabilities as Opus 4.8.
