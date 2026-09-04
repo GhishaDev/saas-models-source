@@ -20,7 +20,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro), Gemini Embedding 2, `gemini-*-image*` series
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash, + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (13 SKUs: GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
-- **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (2 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Pro — 1M context, 384K max output). The official tariff is quoted in CNY/M and split into peak / off-peak windows; we carry the **peak** rate converted to USD/token at the policy FX rate (`1 USD = 7.0 CNY`)
+- **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (3 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Flash-Vision-Exp, DeepSeek-V4-Pro — 1M context, 393,216 max output). The official tariff is **USD-native** and split into peak / off-peak windows; we carry the **peak** rate, straight from upstream with no overlay
 - **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` (3 SKUs: Kimi K3 — $3 / $15 per M, cache-hit $0.30, 1M context; Kimi K2.7 Code — $0.95 / $4.00, cache-hit $0.19, 256K; Kimi K2.7 Code HighSpeed — $1.90 / $8.00, cache-hit $0.38, 256K). Pre-staged via `MOONSHOT_SYNTH_DATA` (injected — not yet on LiteLLM upstream)
 - **DashScope (阿里云百炼 / Alibaba Cloud Model Studio, Qwen)**: Whitelist-curated `dashscope/*` SKUs (6 SKUs — the Qwen **3.8** and **3.7** generations, all ~1M context). Prices are the **effective (post-discount)** ones from [qwencloud.com/pricing/api](https://www.qwencloud.com/pricing/api); `qwen3.7-plus` / `qwen3.7-flash` are **tiered by request input size**. *DashScope* is the API/SDK identifier (`dashscope.aliyuncs.com`, `DASHSCOPE_API_KEY`) for the service branded 百炼 / Model Studio — LiteLLM names the provider after the technical id, and using the same namespace means an upstream key of the same name merges instead of colliding. **Unrelated to ModelScope (魔搭)**, which is Alibaba's open-weights community hub. Prices are the **International USD** tariff (the domestic 百炼 CNY book is separate and deliberately not mixed in)
 - **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 + 2.5 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (8 entries: 2.0 standard / Fast / Mini × {dated + alias}, plus Seedance 2.5 {dated `-260628` + alias} — 480P/720P 70 / 42 CNY/M no-video / with-video, 1080P 77 / 46 CNY/M, 4K 39 / 24 CNY/M *estimated*). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
@@ -221,12 +221,12 @@ python filter_models.py --url https://custom-source.com/models.json
 - ❌ Exclude: `ecloud_aicc/<sku>` whose source key isn't present in the merged catalogue after all other synths run
 
 #### DeepSeek
-- ✅ Include: only keys listed in `ModelSyncRules.DEEPSEEK_ALLOWED_KEYS` (reverse whitelist, 2 SKUs)
-- ✅ **Official DeepSeek pricing page as source of truth** ([api-docs.deepseek.com/quick_start/pricing](https://api-docs.deepseek.com/quick_start/pricing/), snapshot 2026-08-20):
-  - LiteLLM upstream carries correct context (1M input) and capabilities, but trails on `max_output_tokens` (upstream `8192`, official `384000`) and on the 2026-08 tariff
-  - `DEEPSEEK_SYNTH_DATA` overlays both via `apply_deepseek_synth`
-  - **Peak-hour tariff is what we carry.** DeepSeek halves every rate outside Beijing-time 09:00–12:00 / 14:00–18:00; LiteLLM has no time-of-day price axis, so the peak (ceiling) rate is stored and off-peak is exactly `0.5x` of it. Peak CNY/M — DeepSeek-V4-Flash `3.0` in (cache-miss) / `0.10` in (cache-hit) / `9.0` out; DeepSeek-V4-Pro `9.0` / `0.30` / `27.0`. Cache writes are free
-  - Prices stored as **USD/token**, converted from the official CNY tariff at the shared policy FX rate (`1 USD = 7.0 CNY`, same as Seedance) so the billing manager needs no runtime FX lookup
+- ✅ Include: only keys listed in `ModelSyncRules.DEEPSEEK_ALLOWED_KEYS` (reverse whitelist, 3 SKUs — the whole V4 series)
+- ✅ **Official DeepSeek pricing page as source of truth** ([api-docs.deepseek.com/quick_start/pricing](https://api-docs.deepseek.com/quick_start/pricing/), verified live 2026-09-04):
+  - **No overlay.** LiteLLM upstream now carries every field of the official table verbatim — prices, `max_input_tokens` `1000000`, `max_output_tokens` `393216`, `supports_vision`. `DEEPSEEK_SYNTH_DATA` / `apply_deepseek_synth` were retired in v1.16.23; see the changelog for why keeping them was actively mis-billing
+  - ✅ **Currency: USD, native.** The official page is denominated in USD, so nothing goes through `_cny_per_m_to_usd_per_token`. DeepSeek's own implied FX (6.818) is *not* our `7.0` policy rate — deriving USD from the CNY book under-bills by ~2.7%
+  - **Peak-hour tariff is what we carry.** DeepSeek halves every rate outside `01:00–04:00` / `06:00–10:00` UTC, Mon–Fri; LiteLLM has no time-of-day price axis, so the peak (ceiling) rate is stored and off-peak is exactly `0.5x` of it. Peak USD/M — V4-Flash and V4-Flash-Vision-Exp `$0.44` in (cache-miss) / `$0.014` in (cache-hit) / `$1.32` out; V4-Pro `$1.32` / `$0.044` / `$3.96`. Cache writes are free
+  - `deepseek-v4-flash-vision-exp` shares V4-Flash's tariff and limits exactly; it adds image input (billed as input tokens by image dimension) and drops FIM Completion
 - ❌ Exclude `deepseek-chat` / `deepseek-reasoner`: scheduled for deprecation on 2026-07-24 (currently aliases of `deepseek-v4-flash` thinking/non-thinking modes)
 - ❌ Exclude `deepseek-v3` / `deepseek-v3.2` / `deepseek-r1` / `deepseek-coder`: superseded by V4, no longer listed on the official pricing page
 - ❌ Exclude all bare-key forms (`deepseek-chat`, `deepseek-v4-flash`, etc.): the `deepseek/` namespace is canonical
@@ -470,6 +470,22 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.23 (2026-09-04)
+- Add **`deepseek/deepseek-v4-flash-vision-exp`** — the vision-capable sibling of V4-Flash, listed on the official [Model Details](https://api-docs.deepseek.com/quick_start/pricing/) table alongside V4-Flash and V4-Pro. Identical tariff and limits to V4-Flash (**$0.44 / $1.32** per M, cache-hit **$0.014**, 1M context / 393,216 max output); adds image input (converted to input tokens by image dimension) and drops FIM Completion. Upstream carries it complete, including `supports_vision: true`, so the whitelist entry was the only code needed. Exported total **154 → 155**.
+- 🔴 **Retire `DEEPSEEK_SYNTH_DATA` / `apply_deepseek_synth` — the overlay had gone from redundant to wrong in two directions.** It was written when upstream trailed the 2026-08 tariff and pinned `max_output_tokens` at `8192`. Upstream has since caught up on both, and re-reading the official page live today showed the overlay was mis-stating every V4 SKU:
+
+  | | Overlay (before) | Official / upstream (after) | Effect |
+  |---|---|---|---|
+  | V4-Flash input | $0.4286 /M | **$0.44** /M | under-billed 2.7% |
+  | V4-Flash output | $1.286 /M | **$1.32** /M | under-billed 2.7% |
+  | V4-Pro input / output | $1.286 / $3.857 | **$1.32 / $3.96** | under-billed 2.7% |
+  | `max_output_tokens` | `384000` | **`393216`** | wrong by 9,216 tokens |
+
+- 💱 **Root cause of the price gap: the official page is denominated in USD, and we were deriving USD from the CNY book at our own policy rate.** DeepSeek's implied FX is **6.818**, not our `7.0`. This is the same failure as the Qwen cache-price episode — *read the vendor's published value; do not derive it from a ratio or a rate we chose.* `_cny_per_m_to_usd_per_token` is now documented as applying only to vendors that publish CNY **and no USD book** (Volcengine Seedance is the last one).
+- 📏 Root cause of the context gap: `384000` was a decimal reading of the page's "MAXIMUM: 384K". The API takes **384 × 1024 = 393,216**, which upstream had right all along.
+- ♻️ Third overlay to rot this way, after the `gpt-5.6` flex entries (v1.16.18) and the `claude-sonnet-5` introductory entry (v1.16.20). The rule stands: **delete an overlay once upstream catches up.** DeepSeek now flows through untouched.
+- ✅ Peak-vs-off-peak policy is unchanged and still needs no overlay: upstream carries the **peak** rate (the ceiling, so we never under-bill), and off-peak is exactly `0.5x`. Corrected the documented window to the official `01:00–04:00` / `06:00–10:00` **UTC**, Mon–Fri.
 
 ### v1.16.22 (2026-09-04)
 - Add **`gemini/gemini-3.8-flash`** — Gemini 3.8 Flash, Google's most capable Flash model: **$0.75 / $3.75** per M, cache **$0.075**, 1,048,576 context / 65,536 output, vision. Upstream data matches [ai.google.dev pricing](https://ai.google.dev/gemini-api/docs/pricing) exactly, so **no synth entry was needed** — only a regeneration. Exported total **153 → 154**.
