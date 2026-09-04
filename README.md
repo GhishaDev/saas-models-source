@@ -15,8 +15,8 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Supported Providers
 
-- **OpenAI**: GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series, plus a curated audio / realtime allow-list (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
-- **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), including dated snapshots
+- **OpenAI**: GPT-6 Astra, GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series, plus a curated audio / realtime allow-list (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
+- **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5, Sonnet 5) and the Fable / Mythos 5.1 pair, including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro), Gemini Embedding 2, `gemini-*-image*` series
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash, + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (13 SKUs: GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
@@ -98,7 +98,9 @@ python filter_models.py --url https://custom-source.com/models.json
 - ✅ Friendly name follows OpenAI's own house style: size suffixes `mini` / `nano` stay **lowercase** (`GPT-5 mini`, `GPT-5.4 nano`, `GPT-4o mini`); `GPT-4o` keeps the lowercase branded `o`; the o-series is shown as its lowercase id (`o3`, `o3-mini`, `o4-mini`); `text-embedding-3-*` is shown as the lowercase id; `gpt-5.3-codex` → `GPT-5.3-Codex` (hyphenated); dated realtime preview drops the snapshot (`gpt-4o-realtime-preview-2024-12-17` → `GPT-4o Realtime`); `GPT Realtime` uses a spaced form; segment overrides upcase `TTS` / `ASR`
 
 #### Anthropic
-- ✅ Include: Claude 4.5+ variants (Haiku, Sonnet, Opus), plus Claude 5 (Sonnet, Opus), plus special-name flagships (`claude-fable-5`, `claude-mythos-5`, etc.)
+- ✅ Include: Claude 4.5+ variants (Haiku, Sonnet, Opus), plus Claude 5 (Sonnet, Opus), plus special-name flagships (`claude-fable-5`, `claude-fable-5-1`, `claude-mythos-5`, `claude-mythos-5-1`)
+- ⚠️ **The 5.1 pair has a different cache ratio.** `claude-fable-5-1` / `claude-mythos-5-1` bill cache reads at **0.025x** base input ($0.25 against $10), not the usual 0.1x that `claude-fable-5` / `claude-mythos-5` pay ($1). The pricing-page footnote states it explicitly: *"0.1x base input price (0.025x on Claude Fable 5.1 and Claude Mythos 5.1)"*. Do not assume one ratio across the family
+- ✅ Mythos SKUs are **pre-staged** via `ANTHROPIC_SYNTH_DATA` — Project Glasswing is limited-availability and BerriAI upstream does not carry `claude-mythos-5` or `claude-mythos-5-1`. Their Fable twins do come from upstream
 - ✅ Include: Dated snapshots ≥ 4.5 (e.g. `claude-sonnet-4-5-20250929`)
 - ✅ **Introductory-price overlay** via `ANTHROPIC_SYNTH_DATA` / `apply_anthropic_synth`: when Anthropic runs a time-boxed intro price, LiteLLM upstream tracks the post-window standard tariff — we overlay the currently-effective numbers so the catalogue matches what customers actually get billed today
   - **No price overlay is active.** `ANTHROPIC_SYNTH_DATA` currently holds only pre-staged *entries* (`claude-opus-5`, `claude-mythos-5`), not price corrections
@@ -467,6 +469,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.21 (2026-09-04)
+- Add three new flagship SKUs. Exported total **150 → 153**; no existing entries changed.
+
+  | Key | Friendly name | Input / Output | Cache read | Ctx / max out | How |
+  |---|---|---|---|---|---|
+  | `claude-fable-5-1` | Claude Fable 5.1 | $10 / $50 | **$0.25** | 1M / 128K | upstream, no code change |
+  | `claude-mythos-5-1` | Claude Mythos 5.1 | $10 / $50 | **$0.25** | 1M / 128K | pre-staged (not upstream) |
+  | `gpt-6-astra` | GPT-6 Astra | $10 / $50 | $1 | **1.05M** / 128K | upstream + context overlay |
+
+- ⚠️ **The Claude 5.1 pair uses a 0.025x cache ratio**, not the 0.1x the rest of the family pays — $0.25 against $10 input, where `claude-fable-5` / `claude-mythos-5` pay $1. Stated in the pricing-page footnote: *"0.1x base input price (0.025x on Claude Fable 5.1 and Claude Mythos 5.1)"*. Upstream independently carries the $0.25 for `claude-fable-5-1`, corroborating it.
+- `claude-mythos-5-1` is injected via `ANTHROPIC_SYNTH_DATA`, same as `claude-mythos-5`: Project Glasswing is limited-availability and BerriAI upstream carries neither Mythos SKU.
+- 🔴 **`gpt-6-astra` hit the same upstream context defect as the gpt-5.6 family** — `max_input_tokens` reported as `922000` (GPT-5.5's figure) against the official **1,050,000** on [developers.openai.com](https://developers.openai.com/api/docs/models/gpt-6-astra) (verified on both the model page and the models index). `OPENAI_SYNTH_DATA` overlays **only** that field: all 27 of upstream's price fields were checked against the official pricing table and match exactly — short context $10 / $1 cached / $12.50 write / $50 out, long context (>272K) $20 / $2 / $25 / $75, plus the flex / priority / batch variants — so none of them are overlaid, per the v1.16.18 lesson about stale price overlays.
+- No new naming rules were needed: the existing formatters already render `Claude Fable 5.1`, `Claude Mythos 5.1` and `GPT-6 Astra` correctly.
 
 ### v1.16.20 (2026-09-01)
 - **Retire the `claude-sonnet-5` introductory-price overlay** — and *not* because the window expired. The v1.15.x note said to restore $3 / $15 today; that would have been wrong. [platform.claude.com pricing](https://platform.claude.com/docs/en/about-claude/pricing) now states: *"The $2/$10 per million input/output token pricing for Claude Sonnet 5, announced at launch as introductory pricing through August 31, 2026, **is now the standard price**. The previously scheduled increase to $3/$15 per million input/output tokens on September 1, 2026 **will not occur**."*

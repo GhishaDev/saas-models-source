@@ -1410,6 +1410,49 @@ class ModelSyncRules:
             "provider_specific_entry": {"us": 1.1},
             "supports_output_config": True,
         },
+        # Claude Mythos 5.1 — Project Glasswing limited-availability sibling
+        # of Fable 5.1, same relationship Mythos 5 has to Fable 5. Identical
+        # specs and pricing per platform.claude.com pricing (2026-09-04):
+        # $10 / $50 per M, 5m write $12.50, 1h write $20, 1M ctx, 128K out.
+        #
+        # NOTE the cache-read rate: $0.25, NOT the $1 that Fable 5 / Mythos 5
+        # charge. The pricing page's cache footnote reads "0.1x base input
+        # price (0.025x on Claude Fable 5.1 and Claude Mythos 5.1)" — the 5.1
+        # pair is the exception, at a quarter of the usual ratio. Upstream
+        # already carries that $0.25 for claude-fable-5-1, which corroborates
+        # it. Not on BerriAI upstream — injected wholesale, like Mythos 5.
+        "claude-mythos-5-1": {
+            "litellm_provider": "anthropic",
+            "mode": "chat",
+            "input_cost_per_token": 1e-05,
+            "output_cost_per_token": 5e-05,
+            "cache_read_input_token_cost": 2.5e-07,
+            "cache_creation_input_token_cost": 1.25e-05,
+            "cache_creation_input_token_cost_above_1hr": 2e-05,
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "max_tokens": 128000,
+            "search_context_cost_per_query": {
+                "search_context_size_high": 0.01,
+                "search_context_size_low": 0.01,
+                "search_context_size_medium": 0.01,
+            },
+            "supports_adaptive_thinking": True,
+            "supports_assistant_prefill": False,
+            "supports_computer_use": True,
+            "supports_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_sampling_params": False,
+            "supports_tool_choice": True,
+            "supports_vision": True,
+            "supports_xhigh_reasoning_effort": True,
+            "supports_max_reasoning_effort": True,
+            "provider_specific_entry": {"us": 1.1},
+            "supports_output_config": True,
+        },
     }
 
     # Google / Gemini pre-staged entries — models newly published on
@@ -1562,6 +1605,22 @@ class ModelSyncRules:
             "input_cost_per_token_priority": 1.25e-05,
             "output_cost_per_token_priority": 7.5e-05,
             "supports_service_tier": True,
+        },
+        "gpt-6-astra": {
+            # Same upstream defect as the gpt-5.6 family: max_input_tokens is
+            # reported as 922000 (GPT-5.5's figure) while
+            # developers.openai.com/api/docs/models/gpt-6-astra states
+            # "1,050,000 context window / 128,000 max output tokens".
+            # Verified 2026-09-04 on both the model page and the models index.
+            #
+            # ONLY this field is overlaid. Every price field upstream carries
+            # was checked against the official pricing table and matches
+            # exactly — short context $10 / $1 cached / $12.50 write / $50
+            # out, long context (>272K) $20 / $2 / $25 / $75 — including the
+            # flex, priority and batch variants. Do not overlay those; see
+            # the v1.16.18 note on how stale price overlays start over-billing
+            # the moment the vendor moves.
+            "max_input_tokens": 1050000,
         },
         "gpt-5.6": {
             # max_input_tokens: upstream still reports 922000 (that is
