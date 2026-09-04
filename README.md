@@ -117,7 +117,8 @@ python filter_models.py --url https://custom-source.com/models.json
 - ❌ Exclude: Gemini 1.x and 2.0–2.4 series
 - ❌ Exclude: Gemma models, deprecated versions
 - ❌ Exclude: `imagen-*`, `flash-exp-image` (legacy/experimental image models)
-- ❌ Exclude (special-purpose / non-conversational, via `EXCLUDE_MODEL_KEYS`): `gemini/gemini-3.1-pro-preview-customtools`, `gemini/gemini-3.1-flash-live-preview`, `gemini/gemini-3.1-flash-tts-preview`, `gemini/gemini-3.5-live-translate-preview`. The Google scope is Gemini 2.5+ **chat**, Gemini Embedding, and `gemini-*-image*` — audio is not in it. These keys only reach the filter because the `^gemini/gemini-[3-9].*-preview$` include pattern (written to admit 3.x *chat* previews) is broader than its intent, so keeping them out is a scope decision rather than a data problem. Remove an entry here if the product scope widens to Gemini speech.
+- ❌ Exclude (special-purpose / non-conversational, via `EXCLUDE_MODEL_KEYS`): `gemini/gemini-3.1-pro-preview-customtools`, `gemini/gemini-3.1-flash-live-preview`, `gemini/gemini-3.1-flash-tts-preview`, `gemini/gemini-3.5-live-translate-preview`, `gemini/gemini-3.5-transcribe`, `gemini/gemini-3.5-transcribe-live`. The Google scope is Gemini 2.5+ **chat**, Gemini Embedding, and `gemini-*-image*` — audio is not in it. These keys only reach the filter because the `^gemini/gemini-[3-9].*-preview$` include pattern (written to admit 3.x *chat* previews) is broader than its intent, so keeping them out is a scope decision rather than a data problem. Remove an entry here if the product scope widens to Gemini speech. The 2026-09 transcribe pair carries **no** `-preview` suffix, so nothing else keeps it out — without an explicit entry it enters the export on the next regeneration.
+- ⏸️ **Deferred, not rejected:** `gemini/gemini-omni-1.1-flash`. ai.google.dev calls it *"our next-generation video generation and editing model"*, but upstream classifies it as `mode: chat` carrying only the $1.50 in / $9.00 out **text** rates. The published tariff has a second output tier — **$17.50 per M for video output** (5,792 tokens per second of 720p, ~$0.10/s) — which that shape cannot express, so importing it as chat would under-bill video output by roughly half. Admit it once the mode and the video output tier are modelled
 
 #### Z.AI
 - ✅ Include: only keys listed in `ModelSyncRules.ZAI_ALLOWED_KEYS` (reverse whitelist)
@@ -469,6 +470,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.22 (2026-09-04)
+- Add **`gemini/gemini-3.8-flash`** — Gemini 3.8 Flash, Google's most capable Flash model: **$0.75 / $3.75** per M, cache **$0.075**, 1,048,576 context / 65,536 output, vision. Upstream data matches [ai.google.dev pricing](https://ai.google.dev/gemini-api/docs/pricing) exactly, so **no synth entry was needed** — only a regeneration. Exported total **153 → 154**.
+- ⏳ **Scheduled increase on 2027-01-01.** Google publishes the current rate as time-boxed: *"$0.75 through December 31, 2026. $1.50 starting January 1, 2027"*, with output $3.75 → $7.50 and cache $0.075 → $0.15. Upstream already carries the effective rate, so **no overlay was added** — per v1.16.20, an overlay that merely duplicates upstream becomes a liability the moment the vendor moves. Re-check upstream after the switchover instead.
+- ❌ Exclude the two new Gemini speech SKUs, `gemini/gemini-3.5-transcribe` and `gemini/gemini-3.5-transcribe-live` — same Google scope rule that already excludes the TTS and live-translate previews (chat + Embedding + `gemini-*-image*`; audio is not in it). Unlike those, these carry **no** `-preview` suffix, so nothing else was keeping them out: without explicit `EXCLUDE_MODEL_KEYS` entries they would have entered the export alongside 3.8 Flash.
+- ⏸️ **Defer `gemini/gemini-omni-1.1-flash`.** ai.google.dev calls it *"our next-generation video generation and editing model"*, yet upstream classifies it as `mode: chat` with only the $1.50 in / $9.00 out text rates. The published tariff has a second output tier — **$17.50 per M for video output** — that the chat shape cannot express, so importing it as-is would under-bill video output by roughly half. Excluded for now with a code comment saying what has to change to admit it.
 
 ### v1.16.21 (2026-09-04)
 - Add three new flagship SKUs. Exported total **150 → 153**; no existing entries changed.
