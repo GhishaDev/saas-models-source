@@ -1936,6 +1936,23 @@ class ModelSyncRules:
         # product scope widens to Gemini speech.
         "gemini/gemini-3.1-flash-tts-preview",
         "gemini/gemini-3.5-live-translate-preview",
+        # Same scope rule, 2026-09 arrivals. These carry no "-preview" suffix,
+        # so unlike the two above nothing else keeps them out — without these
+        # entries they enter the export on the next regeneration.
+        #
+        # Speech-to-text, i.e. the audio modality the Google scope excludes
+        # (Gemini 2.5+ chat + Gemini Embedding + gemini-*-image*).
+        "gemini/gemini-3.5-transcribe",
+        "gemini/gemini-3.5-transcribe-live",
+        # DEFERRED, not rejected: ai.google.dev calls gemini-omni-1.1-flash
+        # "our next-generation video generation and editing model", but
+        # upstream classifies it as mode "chat" and carries only the $1.50 in
+        # / $9.00 out text rates. The published tariff also has a SECOND
+        # output tier — $17.50 per M for video output (5,792 tokens per
+        # second of 720p, ~$0.10/s) — which that shape cannot express, so
+        # importing it as chat would under-bill video output by roughly half.
+        # Admit it once the mode and the video output tier are modelled.
+        "gemini/gemini-omni-1.1-flash",
     ]
 
     # Date patterns for validation
