@@ -1897,20 +1897,16 @@ class ModelSyncRules:
         "gpt-4",
         "gpt-4-32k",
         "gpt-4-turbo",
-        # OpenAI audio-transcription variants not in the approved whitelist.
-        # (gpt-4o-mini-transcribe is the sanctioned SKU; the full-fat and
-        # diarize variants are intentionally kept out — narrow product scope,
-        # not a bug.)
-        "gpt-4o-transcribe",
+        # OpenAI audio-transcription scope WIDENED to full-fat ASR 2026-09-04.
+        # gpt-4o-transcribe, gpt-transcribe and gpt-live-transcribe used to
+        # sit here on a "mini SKU only" product scope, with a note saying to
+        # promote them if the scope ever widened. It has — they are now in
+        # the INCLUDE_PATTERNS allow-list alongside the realtime SKUs.
+        #
+        # gpt-4o-transcribe-diarize stays out: unlike the other three it is
+        # absent from the pricing page's Transcription table, so there is no
+        # authoritative rate to carry.
         "gpt-4o-transcribe-diarize",
-        # Same policy, applied to the 2026-08 rename generation: OpenAI
-        # dropped the "4o" infix, so these arrive as bare keys that no
-        # existing pattern catches. Full-fat ASR — excluded for the same
-        # narrow-scope reason as gpt-4o-transcribe, not because upstream
-        # data is wrong. Promote to the whitelist if the product scope
-        # widens to full-fat transcription.
-        "gpt-transcribe",
-        "gpt-live-transcribe",
         # OpenAI responses-mode variants outside the approved whitelist.
         # (gpt-5.3-codex is the sanctioned responses SKU; the wider codex /
         # pro / deep-research families are intentionally kept out — same
@@ -1997,9 +1993,24 @@ class ModelSyncRules:
         re.compile(r"^gemini/gemini-[3-9].*-preview$", re.IGNORECASE),  # Allow Gemini 3.x+ preview models
         # OpenAI audio / realtime allow-list (exact match). Needed to
         # bypass -preview- / date_pattern / ^gpt-realtime global excludes
-        # on the dated realtime preview and gpt-realtime bare key.
+        # on the dated realtime preview and the gpt-realtime-* keys.
+        #
+        # Scope = the "Realtime and audio generation models" and
+        # "Transcription models" tables of developers.openai.com/api/docs/pricing
+        # (snapshot 2026-09-04), plus the older SKUs below that are no longer
+        # on the pricing page but still have live model pages.
         re.compile(r"^gpt-4o$", re.IGNORECASE),
         re.compile(r"^gpt-4o-mini$", re.IGNORECASE),
+        # Current realtime generation. gpt-realtime-2 / -1.5 / -mini are
+        # deliberately NOT here: they are superseded snapshots that the
+        # pricing page no longer lists (upstream prices gpt-realtime-2
+        # identically to 2.1, which is the tell).
+        re.compile(r"^gpt-realtime-2\.1$", re.IGNORECASE),
+        re.compile(r"^gpt-realtime-2\.1-mini$", re.IGNORECASE),
+        re.compile(r"^gpt-realtime-translate$", re.IGNORECASE),
+        re.compile(r"^gpt-realtime-whisper$", re.IGNORECASE),
+        # Previous realtime generation — off the pricing page but the model
+        # pages are still live, so they stay until OpenAI retires them.
         re.compile(r"^gpt-realtime$", re.IGNORECASE),
         re.compile(r"^gpt-4o-realtime-preview-2024-12-17$", re.IGNORECASE),
         re.compile(r"^gpt-4o-mini-transcribe$", re.IGNORECASE),
@@ -2195,12 +2206,21 @@ class ModelSyncRules:
         # axes — text in/out plus audio in/out — and some SKUs add
         # input_cost_per_image for vision turns. Any one non-zero field
         # means priced, same tolerance as the audio modes.
+        #
+        # input_cost_per_second is here because not every realtime SKU is
+        # token-billed: gpt-realtime-translate is quoted purely per minute
+        # ($0.034/min → input_cost_per_second upstream) and carries no token
+        # price at all, so without this field it reads as unpriced and gets
+        # dropped. Same class of bug as should_exclude_due_to_price not
+        # reading tiered_pricing — a priced model silently vanishing because
+        # the vendor bills it on an axis this table did not list.
         "realtime": (
             "input_cost_per_token",
             "output_cost_per_token",
             "input_cost_per_audio_token",
             "output_cost_per_audio_token",
             "input_cost_per_image",
+            "input_cost_per_second",
         ),
     }
 

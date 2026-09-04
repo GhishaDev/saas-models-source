@@ -15,7 +15,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Supported Providers
 
-- **OpenAI**: GPT-6 Astra, GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series, plus a curated audio / realtime allow-list (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
+- **OpenAI**: GPT-6 Astra, GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series, plus a curated audio / realtime allow-list covering the current generation (`gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5, Sonnet 5) and the Fable / Mythos 5.1 pair, including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro), Gemini Embedding 2, `gemini-*-image*` series
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash, + vision/OCR variants), priced in USD
@@ -83,16 +83,32 @@ python filter_models.py --url https://custom-source.com/models.json
 
 #### OpenAI
 - ✅ Include: GPT-5 series, o3/o4 series, text-embedding-3-*, `gpt-image-*` series
-- ✅ Include (audio / realtime allow-list, exact match via `INCLUDE_PATTERNS`): `gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-transcribe`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`
+- ✅ Include (audio / realtime allow-list, exact match via `INCLUDE_PATTERNS`). Scope is the **"Realtime and audio generation models"** and **"Transcription models"** tables of [developers.openai.com/api/docs/pricing](https://developers.openai.com/api/docs/pricing) (snapshot 2026-09-04), plus older SKUs that have left the pricing page but still have live model pages:
+
+  | Key | Kind | Rate | Status |
+  |---|---|---|---|
+  | `gpt-realtime-2.1` | realtime | audio $32 / $0.40 / $64 · text $4 / $0.40 / $24 · image $5 / $0.50 | current |
+  | `gpt-realtime-2.1-mini` | realtime | audio $10 / $0.30 / $20 · text $0.60 / $0.06 / $2.40 · image $0.80 / $0.08 | current |
+  | `gpt-realtime-translate` | realtime | $0.034 / minute | current |
+  | `gpt-live-transcribe` | ASR | $0.017 / minute | current |
+  | `gpt-realtime-whisper` | ASR | $0.017 / minute | current |
+  | `gpt-transcribe` | ASR | $0.0045 / minute | current |
+  | `gpt-4o-transcribe` | ASR | $2.50 / $10.00 · $0.006 / minute | current |
+  | `gpt-4o-mini-transcribe` | ASR | $1.25 / $5.00 · $0.003 / minute | current |
+  | `gpt-realtime` | realtime | — | off the pricing page, model page live |
+  | `gpt-4o-realtime-preview-2024-12-17` | realtime | — | off the pricing page, model page live |
+  | `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1` | TTS / ASR | — | off the pricing page, model pages live |
+
+  Plus `gpt-4o` and `gpt-4o-mini` themselves. ❌ **Not** included: `gpt-realtime-2`, `gpt-realtime-1.5`, `gpt-realtime-mini` — superseded snapshots the pricing page no longer lists (upstream prices `gpt-realtime-2` identically to `2.1`, which is the tell), and `gpt-4o-transcribe-diarize`, which is absent from the Transcription table so has no authoritative rate
 - ✅ Supports **audio_speech** (TTS) and **audio_transcription** (ASR) modes — `PRICE_FIELDS_BY_MODE` accepts per-token, per-second, or per-character billing (whisper-1 uses `input_cost_per_second`; gpt-4o-*-transcribe/tts use `input_cost_per_token` + `output_cost_per_audio_token`; `tts-1` / `tts-1-hd` use `output_cost_per_character`). Standalone `tts-1` / `tts-1-hd` render as their lowercase id, per OpenAI's utility-model style
 - ✅ Include GPT-4.1 lineage: `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano` (passes narrowed `^gpt-4` pattern)
 - ✅ Supports `responses` mode (OpenAI's `/v1/responses` endpoint — used by codex, gpt-*-pro, deep-research families). `MODE_MAPPING["responses"] = "language"`. Only `gpt-5.3-codex` is whitelisted; wider codex / pro / deep-research variants stay excluded (see below)
-- ✅ Supports `realtime` mode (OpenAI's `/v1/realtime` endpoint). LiteLLM re-classified these SKUs out of `chat` in 2026-08; `MODE_MAPPING["realtime"] = "language"` keeps them where downstream already had them. `PRICE_FIELDS_BY_MODE["realtime"]` accepts any of the four billing axes (text in/out, audio in/out) plus `input_cost_per_image`. Only the two allow-listed keys pass; the wider `gpt-realtime-*` family stays excluded via `EXCLUDE_PATTERNS`
+- ✅ Supports `realtime` mode (OpenAI's `/v1/realtime` endpoint). LiteLLM re-classified these SKUs out of `chat` in 2026-08; `MODE_MAPPING["realtime"] = "language"` keeps them where downstream already had them. `PRICE_FIELDS_BY_MODE["realtime"]` accepts any of the four token billing axes (text in/out, audio in/out), plus `input_cost_per_image` and **`input_cost_per_second`** — the latter because `gpt-realtime-translate` is quoted purely per minute and carries no token price at all, so without it the model reads as unpriced and is dropped. Only allow-listed keys pass; the wider `gpt-realtime-*` family stays excluded via `EXCLUDE_PATTERNS`
 - ❌ Exclude: GPT-4 legacy (`gpt-4`, `gpt-4-turbo`, `gpt-4-32k`, `gpt-4-YYYY-MM-DD`) — narrowed pattern preserves GPT-4o and 4.1 families
 - ❌ Exclude: o1 series, ada embedding models
 - ❌ Exclude: `dall-e-*`, `chatgpt-image-*` (legacy image models)
 - ❌ Exclude via `EXCLUDE_MODEL_KEYS` (outside sanctioned allow-lists):
-  - audio: `gpt-4o-transcribe`, `gpt-4o-transcribe-diarize`, `gpt-transcribe`, `gpt-live-transcribe` (the 2026-08 generation dropped the `4o` infix; same narrow-scope policy)
+  - audio: `gpt-4o-transcribe-diarize` only. The full-fat ASR SKUs (`gpt-4o-transcribe`, `gpt-transcribe`, `gpt-live-transcribe`) were promoted to the allow-list in v1.16.26 when the product scope widened; diarize stays out because it is absent from the pricing page's Transcription table
   - responses: `gpt-5-codex`, `gpt-5-pro`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.2-codex`, `gpt-5.2-pro`, `gpt-5.4-pro`, `gpt-5.5-pro`, `o3-deep-research`, `o3-pro`, `o4-mini-deep-research`
 - ❌ Exclude: Models with `openai/` prefix, search-api variants
 - ✅ Friendly name follows OpenAI's own house style: size suffixes `mini` / `nano` stay **lowercase** (`GPT-5 mini`, `GPT-5.4 nano`, `GPT-4o mini`); `GPT-4o` keeps the lowercase branded `o`; the o-series is shown as its lowercase id (`o3`, `o3-mini`, `o4-mini`); `text-embedding-3-*` is shown as the lowercase id; `gpt-5.3-codex` → `GPT-5.3-Codex` (hyphenated); dated realtime preview drops the snapshot (`gpt-4o-realtime-preview-2024-12-17` → `GPT-4o Realtime`); `GPT Realtime` uses a spaced form; segment overrides upcase `TTS` / `ASR`
@@ -486,6 +502,25 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.26 (2026-09-04)
+- Bring the **OpenAI audio / realtime allow-list up to the current generation** — it had been frozen on `gpt-realtime` + `gpt-4o-realtime-preview-2024-12-17` while OpenAI shipped two whole generations past it. Adds seven SKUs, all verified against the *"Realtime and audio generation models"* and *"Transcription models"* tables of [developers.openai.com/api/docs/pricing](https://developers.openai.com/api/docs/pricing). Exported total **156 → 163**; pure addition, no existing entry changes.
+
+  | Key | Kind | Official rate |
+  |---|---|---|
+  | `gpt-realtime-2.1` | realtime | audio **$32 / $0.40 / $64** · text $4 / $0.40 / $24 · image $5 / $0.50 |
+  | `gpt-realtime-2.1-mini` | realtime | audio **$10 / $0.30 / $20** · text $0.60 / $0.06 / $2.40 · image $0.80 / $0.08 |
+  | `gpt-realtime-translate` | realtime | **$0.034 / minute** |
+  | `gpt-realtime-whisper` | ASR | **$0.017 / minute** |
+  | `gpt-live-transcribe` | ASR | **$0.017 / minute** |
+  | `gpt-transcribe` | ASR | **$0.0045 / minute** |
+  | `gpt-4o-transcribe` | ASR | **$2.50 / $10.00** · $0.006 / minute |
+
+- 🔴 **Latent bug fixed: `PRICE_FIELDS_BY_MODE["realtime"]` did not list `input_cost_per_second`.** `gpt-realtime-translate` is quoted purely per minute and carries **no token price at all**, so it read as unpriced and would have been dropped by `should_exclude_due_to_price` even once allow-listed. Same class of defect as the `tiered_pricing` blind spot fixed in v1.16.19 — a priced model silently vanishing because the vendor bills on an axis this table did not enumerate. Anything mode-gated on a price-field list needs the vendor's *whole* billing surface, not the common case.
+- 🔓 **ASR scope widened to full-fat transcription.** `gpt-4o-transcribe`, `gpt-transcribe` and `gpt-live-transcribe` sat in `EXCLUDE_MODEL_KEYS` under a deliberate "mini SKU only" policy whose own comment said to promote them if the scope ever widened. It has. `gpt-4o-transcribe-diarize` stays excluded — unlike the other three it is **absent from the pricing page's Transcription table**, so there is no authoritative rate to carry.
+- ❌ **Not added: `gpt-realtime-2`, `gpt-realtime-1.5`, `gpt-realtime-mini`.** Superseded snapshots that the pricing page no longer lists. Upstream prices `gpt-realtime-2` *identically* to `2.1` — which is the tell that it is the same model under an older label rather than a distinct SKU.
+- ✅ Kept (not retired): `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`. None appear on the current pricing page, but all still have live model pages on developers.openai.com, so this release is purely additive. Revisit when OpenAI publishes retirement dates.
+- No formatter changes were needed — the existing rules already render `GPT Realtime 2.1`, `GPT Realtime 2.1 mini` (lowercase `mini`, matching `GPT-4o mini`), `GPT Realtime Translate`, `GPT Live Transcribe` and `GPT Transcribe` correctly.
 
 ### v1.16.25 (2026-09-04)
 - Add **`moonshot/kimi-k2.6`** — **$0.95 / $4.00** per M, cache-hit **$0.16**, 262,144 context, text + image + video input, thinking and non-thinking modes. It has been on the official [Model List](https://platform.kimi.ai/docs/models)'s "Multi-modal Model" table all along; we had simply never whitelisted it. Exported total **155 → 156**.
