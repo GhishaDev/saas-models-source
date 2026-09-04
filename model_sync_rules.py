@@ -516,11 +516,21 @@ class ModelSyncRules:
     })
 
     # Moonshot (Kimi) whitelist — reverse-whitelist for moonshot/* keys.
-    # Pre-staged: not on the LiteLLM source yet; injected via MOONSHOT_SYNTH_DATA.
+    # Scope is exactly the "Multi-modal Model" table of platform.kimi.ai's
+    # official Model List (snapshot 2026-09-04): the four SKUs below and
+    # nothing else. Upstream still carries the whole deprecated back
+    # catalogue (kimi-k2.5, the moonshot-v1 family, kimi-latest, the kimi-k2
+    # previews — all retired by 2026-08-31 and now returning 404), which is
+    # what the whitelist keeps out.
+    #
+    # kimi-k3 / kimi-k2.7-code / kimi-k2.7-code-highspeed are pre-staged and
+    # injected via MOONSHOT_SYNTH_DATA (absent upstream). kimi-k2.6 is NOT —
+    # upstream carries it complete and correct, so it is whitelisted only.
     MOONSHOT_ALLOWED_KEYS = frozenset({
         "moonshot/kimi-k3",
         "moonshot/kimi-k2.7-code",
         "moonshot/kimi-k2.7-code-highspeed",
+        "moonshot/kimi-k2.6",
     })
 
     # Moonshot / Kimi pre-staged entries — models on platform.kimi.ai not yet

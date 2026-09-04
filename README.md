@@ -21,7 +21,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash, + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (13 SKUs: GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (3 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Flash-Vision-Exp, DeepSeek-V4-Pro — 1M context, 393,216 max output). The official tariff is **USD-native** and split into peak / off-peak windows; we carry the **peak** rate, straight from upstream with no overlay
-- **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` (3 SKUs: Kimi K3 — $3 / $15 per M, cache-hit $0.30, 1M context; Kimi K2.7 Code — $0.95 / $4.00, cache-hit $0.19, 256K; Kimi K2.7 Code HighSpeed — $1.90 / $8.00, cache-hit $0.38, 256K). Pre-staged via `MOONSHOT_SYNTH_DATA` (injected — not yet on LiteLLM upstream)
+- **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` — the whole "Multi-modal Model" table (4 SKUs: Kimi K3 — $3 / $15 per M, cache-hit $0.30, 1M context; Kimi K2.7 Code — $0.95 / $4.00, cache-hit $0.19, 256K; Kimi K2.7 Code HighSpeed — $1.90 / $8.00, cache-hit $0.38, 256K; Kimi K2.6 — $0.95 / $4.00, cache-hit $0.16, 256K, text+image+video input). The first three are pre-staged via `MOONSHOT_SYNTH_DATA` (injected — not on LiteLLM upstream); K2.6 comes straight from upstream
 - **DashScope (阿里云百炼 / Alibaba Cloud Model Studio, Qwen)**: Whitelist-curated `dashscope/*` SKUs (6 SKUs — the Qwen **3.8** and **3.7** generations, all ~1M context). Prices are the **effective (post-discount)** ones from [qwencloud.com/pricing/api](https://www.qwencloud.com/pricing/api); `qwen3.7-plus` / `qwen3.7-flash` are **tiered by request input size**. *DashScope* is the API/SDK identifier (`dashscope.aliyuncs.com`, `DASHSCOPE_API_KEY`) for the service branded 百炼 / Model Studio — LiteLLM names the provider after the technical id, and using the same namespace means an upstream key of the same name merges instead of colliding. **Unrelated to ModelScope (魔搭)**, which is Alibaba's open-weights community hub. Prices are the **International USD** tariff (the domestic 百炼 CNY book is separate and deliberately not mixed in)
 - **Volcengine (ByteDance Ark, Doubao Seedance video)**: Whitelist-curated Seedance 2.0 + 2.5 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (8 entries: 2.0 standard / Fast / Mini × {dated + alias}, plus Seedance 2.5 {dated `-260628` + alias} — 480P/720P 70 / 42 CNY/M no-video / with-video, 1080P 77 / 46 CNY/M, 4K 39 / 24 CNY/M *estimated*). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
 - **BytePlus (ByteDance Ark overseas, Dreamina Seedance video)**: Whitelist-curated Dreamina Seedance 2.0 + 2.5 video SKUs from [docs.byteplus.com/en/docs/ModelArk/1544106](https://docs.byteplus.com/en/docs/ModelArk/1544106) (8 entries: 2.0 standard / Fast / Mini + 2.5, each × {dated + alias}). BytePlus is the overseas sibling of Volcengine — same Ark platform, same YYMMDD version stamps — but a different brand and a **USD-native tariff**, so these are independent SKUs, *not* mirrors of `volcengine/*`. List prices in USD/M tokens (no-video / with-video): 2.5 — 480P/720P **10.70 / 6.40**, 1080P **11.70 / 7.00**, 4K **6.08 / 3.57** *estimated*; 2.0 — 480P/720P **7.00 / 4.30**, 1080P **7.70 / 4.70**, 4K **4.00 / 2.40**; 2.0 Fast — **5.60 / 3.30**; 2.0 Mini — **3.50 / 2.10**. Same `output_cost_per_token[_<res>][_with_input_video]` field family as Volcengine, but **no FX conversion is applied**
@@ -231,6 +231,21 @@ python filter_models.py --url https://custom-source.com/models.json
 - ❌ Exclude `deepseek-chat` / `deepseek-reasoner`: scheduled for deprecation on 2026-07-24 (currently aliases of `deepseek-v4-flash` thinking/non-thinking modes)
 - ❌ Exclude `deepseek-v3` / `deepseek-v3.2` / `deepseek-r1` / `deepseek-coder`: superseded by V4, no longer listed on the official pricing page
 - ❌ Exclude all bare-key forms (`deepseek-chat`, `deepseek-v4-flash`, etc.): the `deepseek/` namespace is canonical
+
+#### Moonshot (Kimi)
+- ✅ Include: only keys listed in `ModelSyncRules.MOONSHOT_ALLOWED_KEYS` (reverse whitelist, 4 SKUs)
+- ✅ **Scope is exactly the "Multi-modal Model" table** of [platform.kimi.ai's Model List](https://platform.kimi.ai/docs/models) — those four SKUs and nothing else:
+
+  | Key | Input | Output | Cache hit | Context | Source |
+  |---|---|---|---|---|---|
+  | `moonshot/kimi-k3` | $3.00 | $15.00 | $0.30 | 1,048,576 | pre-staged |
+  | `moonshot/kimi-k2.7-code` | $0.95 | $4.00 | $0.19 | 262,144 | pre-staged |
+  | `moonshot/kimi-k2.7-code-highspeed` | $1.90 | $8.00 | $0.38 | 262,144 | pre-staged |
+  | `moonshot/kimi-k2.6` | $0.95 | $4.00 | $0.16 | 262,144 | **upstream** |
+
+- ✅ **`kimi-k2.6` is whitelisted only, with no synth entry** — upstream carries it complete and matching (including `supports_vision` and `supports_video_input`), so adding one would only create a second place to keep in sync. The other three remain pre-staged in `MOONSHOT_SYNTH_DATA` because upstream does not carry them
+- ❌ Exclude the deprecated back catalogue that upstream still carries: `kimi-k2.5`, the `moonshot-v1-*` family (including the `-vision-preview` variants), `kimi-latest*`, `kimi-thinking-preview` and the `kimi-k2-*` previews. Moonshot retired `kimi-k2.5` and `moonshot-v1` on **2026-08-31** and the `kimi-k2` series on **2026-05-25**; calls now return 404. The whitelist is the only thing keeping them out
+- ❌ Exclude bare-key forms (`moonshot.kimi-k2-thinking`) and every third-party rehost of a Kimi model (`azure_ai/`, `bedrock/`, `fireworks_ai/`, `together_ai/`, `novita/`, `deepinfra/`, …): the `moonshot/` namespace is canonical
 
 ### Global Exclusion Rules
 
@@ -471,6 +486,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.25 (2026-09-04)
+- Add **`moonshot/kimi-k2.6`** — **$0.95 / $4.00** per M, cache-hit **$0.16**, 262,144 context, text + image + video input, thinking and non-thinking modes. It has been on the official [Model List](https://platform.kimi.ai/docs/models)'s "Multi-modal Model" table all along; we had simply never whitelisted it. Exported total **155 → 156**.
+- ✅ **Whitelisted only, no synth entry.** Upstream carries K2.6 complete and matching the official [pricing page](https://platform.kimi.ai/docs/pricing/chat-k26) field for field, including `supports_vision` and `supports_video_input`. Adding a `MOONSHOT_SYNTH_DATA` entry would only create a second place to keep in sync — the same reasoning that retired four overlays in v1.16.18/20/23/24. K3 and the two K2.7 Code SKUs stay pre-staged because upstream still does not carry them.
+- 📄 **New `#### Moonshot (Kimi)` section in Provider-Specific Rules.** The provider had no rules block, which is part of why the K2.6 gap went unnoticed. It now states the scope rule explicitly — *exactly the "Multi-modal Model" table, nothing else* — and names what the whitelist is holding back: `kimi-k2.5` and the `moonshot-v1-*` family (retired **2026-08-31**), the `kimi-k2-*` previews (retired **2026-05-25**), `kimi-latest*` and `kimi-thinking-preview`, all of which upstream still carries and all of which now return 404.
+- Re-verified the three existing SKUs against platform.kimi.ai on 2026-09-04: prices, cache-hit rates and context windows unchanged.
 
 ### v1.16.24 (2026-09-04)
 - 🔴 **`dashscope/qwen3.7-max` was under-billing by 50%.** Its 50%-off promotion has ended; we were still storing the discounted price. Corrected **$1.25 / $3.75 / $0.25** → **$2.5 / $7.5 / $0.5** per M. No other SKU is affected — `qwen3.7-plus` is still 20% off in both tiers, and `qwen3.7-flash` was never discounted. Exported total stays **155**.

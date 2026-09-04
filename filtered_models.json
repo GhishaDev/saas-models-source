@@ -4823,6 +4823,38 @@
         "supports_parallel_function_calling": true
       }
     },
+    "moonshot/kimi-k2.6": {
+      "model_key": "moonshot/kimi-k2.6",
+      "provider": "moonshot",
+      "type": "language",
+      "friendly_name": "Kimi K2.6",
+      "is_default_available": true,
+      "input_cost_per_token": 9.5e-07,
+      "output_cost_per_token": 4e-06,
+      "cache_read_input_token_cost": 1.6e-07,
+      "max_input_tokens": 262144,
+      "max_output_tokens": 262144,
+      "supports_vision": true,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "cache_read_input_token_cost": 1.6e-07,
+        "input_cost_per_token": 9.5e-07,
+        "litellm_provider": "moonshot",
+        "max_input_tokens": 262144,
+        "max_output_tokens": 262144,
+        "max_tokens": 262144,
+        "mode": "chat",
+        "output_cost_per_token": 4e-06,
+        "source": "https://platform.kimi.ai/docs/pricing/chat-k26",
+        "supports_function_calling": true,
+        "supports_reasoning": true,
+        "supports_response_schema": true,
+        "supports_tool_choice": true,
+        "supports_video_input": true,
+        "supports_vision": true
+      }
+    },
     "zai/glm-5.2": {
       "model_key": "zai/glm-5.2",
       "provider": "zai",
