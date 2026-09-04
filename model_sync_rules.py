@@ -751,6 +751,14 @@ class ModelSyncRules:
         # therefore records its list price inline so restoring it is a
         # copy-paste once the promotion lapses.
         #
+        # HOW TO TELL A PROMOTION HAS LAPSED. qwencloud's price cells are
+        # machine-readable: a discounted cell renders three spans —
+        # `originalPrice`, `discountedPrice`, `discountTag` ("20% off") —
+        # while an undiscounted cell is a bare price string. Check the cell
+        # markup, not the rendered number; a promotion ending looks exactly
+        # like a price rise if you only read the text. qwen3.7-max lapsed
+        # this way on 2026-09-04 (see the retirement note below).
+        #
         # TIERED PRICING. qwen3.7-plus and qwen3.7-flash bill at a unit price
         # that depends on the request's total input size (阶梯计价). Both the
         # full ladder and flat fields are written:
@@ -763,30 +771,26 @@ class ModelSyncRules:
         #     the customer complains) instead of under-billing (silent
         #     revenue loss). Same never-under-bill rule used for the DeepSeek
         #     peak tariff and the BytePlus list price.
-        "dashscope/qwen3.7-max": {
-            # Single tier. List $2.5 / $7.5 / $0.5 — currently 50% off.
-            # Upstream carries the LIST price, so this entry exists purely to
-            # overlay the effective one.
-            "litellm_provider": "dashscope",
-            "mode": "chat",
-            "max_input_tokens": 991808,
-            "max_output_tokens": 65536,
-            "max_tokens": 65536,
-            "source": "https://www.qwencloud.com/pricing/api",
-            "input_cost_per_token": _usd_per_m_to_usd_per_token(1.25),
-            "output_cost_per_token": _usd_per_m_to_usd_per_token(3.75),
-            "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.25),
-            "supports_function_calling": True,
-            "supports_tool_choice": True,
-            "supports_reasoning": True,
-            "supports_prompt_caching": True,
-            # Text-only: qwen3.7-max appears in NEITHER image-count tier of
-            # help.aliyun.com/zh/model-studio/vision (which lists 3.8-Max /
-            # 3.8-Flash / 3.7-Plus at 2,048 images and 3.7-Flash and older at
-            # 256), and upstream leaves supports_vision unset.
-            "supports_vision": False,
-            "supports_json_mode": False,
-        },
+        # dashscope/qwen3.7-max ENTRY RETIRED 2026-09-04.
+        #
+        # It existed for one reason: to overlay the 50%-off effective price
+        # ($1.25 / $3.75 / $0.25) onto upstream, which carried the list price.
+        # The promotion has ended — verified in the DOM, not by eyeballing the
+        # number: the qwen3.7-max row is now three bare price cells with no
+        # `discountTag`, while qwen3.7-plus in the same table still renders the
+        # full originalPrice/discountedPrice/discountTag triple. Effective now
+        # equals list ($2.5 / $7.5 / $0.5), which is exactly what upstream has,
+        # so keeping the entry would under-bill by 50% on every token.
+        #
+        # Nothing else in the entry was load-bearing: upstream already carries
+        # max_input_tokens 991808, max_output_tokens 65536, function_calling,
+        # tool_choice, reasoning and prompt_caching identically. The two
+        # negative flags were no-ops — upstream leaves supports_vision unset,
+        # and supports_json_output reads supports_json_mode with a False
+        # default. qwen3.7-max is still text-only: it appears in NEITHER
+        # image-count tier of help.aliyun.com/zh/model-studio/vision (which
+        # lists 3.8-Max / 3.8-Flash / 3.7-Plus at 2,048 images, and 3.7-Flash
+        # and older at 256).
         "dashscope/qwen3.7-plus": {
             # Two tiers, currently 20% off. List: <=256K $0.4 / $1.6 / $0.08;
             # 256K-1M $1.2 / $4.8 / $0.24.
