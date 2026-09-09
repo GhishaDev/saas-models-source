@@ -1721,22 +1721,69 @@ class ModelSyncRules:
         #   image input $8    /M   cached $2    /M   output $30 /M
         # Text output is not billed — these models emit images, not text.
         #
-        # ⚠️ The $2/M cached-IMAGE-token rate is not representable. LiteLLM has
-        # exactly one cache field (cache_read_input_token_cost) and no
-        # cache_read_input_image_token_cost counterpart, so we store the $1.25
-        # TEXT cache rate — which is precisely what upstream stores for
-        # gpt-image-2, whose tariff is the same. Deliberately NOT storing $2
-        # here: it would over-bill cached text by 60% and, worse, leave two
-        # entries with an identical published tariff carrying different
-        # numbers. The gap is a schema limitation affecting the whole
-        # gpt-image family, not something introduced by 2.5; fixing it means
-        # adding a field upstream, not inventing a value locally.
+        # The $2/M cached-IMAGE rate has its own field as of v1.16.28 —
+        # cache_read_input_token_cost still holds the $1.25 TEXT rate (what
+        # upstream stores), and cache_read_input_image_token_cost holds $2.
+        # See the block below for why that is a new key rather than a value
+        # stuffed into the existing one.
+        # ── gpt-image cached-image-token rates ───────────────────────────
+        # cache_read_input_image_token_cost is a PROJECT-INVENTED field: no
+        # such key exists upstream (LiteLLM's only image cost fields are
+        # input_cost_per_image[_token], output_cost_per_image[_token] and
+        # input_cost_per_image_above_128k_tokens — none of them cached).
+        #
+        # It exists because every OpenAI image SKU publishes TWO cache rates
+        # and LiteLLM's single cache_read_input_token_cost can only hold one.
+        # We hold the TEXT rate there, matching upstream, so without this
+        # field the cached-image rate is silently billed at the text rate —
+        # 20-50% light on every SKU in the family:
+        #
+        #   model                text cache   image cache   shortfall
+        #   gpt-image-1            $1.25         $2.50        -50%
+        #   gpt-image-1-mini       $0.20         $0.25        -20%
+        #   gpt-image-1.5          $1.25         $2.00        -37.5%
+        #   gpt-image-2            $1.25         $2.00        -37.5%
+        #   gpt-image-2.5-*        $1.25         $2.00        -37.5%
+        #
+        # Why a NEW field rather than putting $2 into the existing one (the
+        # call deferred in v1.16.27): reusing cache_read_input_token_cost
+        # would corrupt its meaning and over-bill cached TEXT by 60%. A
+        # correctly-named new key has neither problem — existing consumers
+        # ignore it (non-breaking), and upstream never overwrites it because
+        # upstream has no such key.
+        #
+        # ⚠️ Recording the rate is not yet billing it. The internal LiteLLM
+        # fork's billing manager must learn to read this field before the
+        # shortfall actually closes; until then this is documentation with a
+        # machine-readable shape.
+        #
+        # Rates read from each model's own page on developers.openai.com
+        # (2026-09-09), "Image tokens → Cached input" row.
+        "gpt-image-1": {
+            "cache_read_input_image_token_cost": 2.5e-06,
+        },
+        "gpt-image-1-mini": {
+            "cache_read_input_image_token_cost": 2.5e-07,
+        },
+        "gpt-image-1.5": {
+            "cache_read_input_image_token_cost": 2e-06,
+        },
+        "gpt-image-2": {
+            # ⚠️ INFERRED, not quoted. gpt-image-2's model page carries no
+            # pricing tables at all (checked twice on 2026-09-09). Basis: the
+            # gpt-image-2.5-sunburst and -flare pages both state "Token rates
+            # match GPT Image 2", and both publish $2 image cached input.
+            # Every other gpt-image-2 field we hold is likewise identical to
+            # 2.5's. Replace with a quote if OpenAI publishes one.
+            "cache_read_input_image_token_cost": 2e-06,
+        },
         "gpt-image-2.5-sunburst": {
             "litellm_provider": "openai",
             "mode": "image_generation",
             "input_cost_per_token": 5e-06,
             "cache_read_input_token_cost": 1.25e-06,
             "input_cost_per_image_token": 8e-06,
+            "cache_read_input_image_token_cost": 2e-06,
             "output_cost_per_image_token": 3e-05,
             "supported_endpoints": ["/v1/images/generations", "/v1/images/edits"],
             "supported_modalities": ["text", "image"],
@@ -1749,6 +1796,7 @@ class ModelSyncRules:
             "input_cost_per_token": 5e-06,
             "cache_read_input_token_cost": 1.25e-06,
             "input_cost_per_image_token": 8e-06,
+            "cache_read_input_image_token_cost": 2e-06,
             "output_cost_per_image_token": 3e-05,
             "supported_endpoints": ["/v1/images/generations", "/v1/images/edits"],
             "supported_modalities": ["text", "image"],
