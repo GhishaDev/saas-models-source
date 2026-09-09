@@ -1702,6 +1702,59 @@ class ModelSyncRules:
             "supported_modalities": ["text"],
             "supported_output_modalities": ["audio"],
         },
+        # ── GPT Image 2.5 ────────────────────────────────────────────────
+        # Pre-staged: BerriAI upstream carries no gpt-image-2.5* key at all
+        # (verified 2026-09-09), so these are injected wholesale.
+        #
+        # There is NO bare `gpt-image-2.5`. OpenAI ships the generation as two
+        # named variants and the model index lists only those:
+        #   sunburst — "our most capable model for image generation and
+        #              editing", for workflows where editing precision matters
+        #   flare    — "our fastest model for high-quality, everyday image
+        #              generation"
+        # Their dated default snapshots (-2026-09-08) are excluded by the
+        # standard date_pattern rule, same as every other family here.
+        #
+        # Both carry an IDENTICAL tariff, and developers.openai.com states it
+        # outright: "Token rates match GPT Image 2."
+        #   text  input $5    /M   cached $1.25 /M
+        #   image input $8    /M   cached $2    /M   output $30 /M
+        # Text output is not billed — these models emit images, not text.
+        #
+        # ⚠️ The $2/M cached-IMAGE-token rate is not representable. LiteLLM has
+        # exactly one cache field (cache_read_input_token_cost) and no
+        # cache_read_input_image_token_cost counterpart, so we store the $1.25
+        # TEXT cache rate — which is precisely what upstream stores for
+        # gpt-image-2, whose tariff is the same. Deliberately NOT storing $2
+        # here: it would over-bill cached text by 60% and, worse, leave two
+        # entries with an identical published tariff carrying different
+        # numbers. The gap is a schema limitation affecting the whole
+        # gpt-image family, not something introduced by 2.5; fixing it means
+        # adding a field upstream, not inventing a value locally.
+        "gpt-image-2.5-sunburst": {
+            "litellm_provider": "openai",
+            "mode": "image_generation",
+            "input_cost_per_token": 5e-06,
+            "cache_read_input_token_cost": 1.25e-06,
+            "input_cost_per_image_token": 8e-06,
+            "output_cost_per_image_token": 3e-05,
+            "supported_endpoints": ["/v1/images/generations", "/v1/images/edits"],
+            "supported_modalities": ["text", "image"],
+            "supported_output_modalities": ["image"],
+            "supports_vision": True,
+        },
+        "gpt-image-2.5-flare": {
+            "litellm_provider": "openai",
+            "mode": "image_generation",
+            "input_cost_per_token": 5e-06,
+            "cache_read_input_token_cost": 1.25e-06,
+            "input_cost_per_image_token": 8e-06,
+            "output_cost_per_image_token": 3e-05,
+            "supported_endpoints": ["/v1/images/generations", "/v1/images/edits"],
+            "supported_modalities": ["text", "image"],
+            "supported_output_modalities": ["image"],
+            "supports_vision": True,
+        },
     }
 
     # Supported model modes
@@ -2809,8 +2862,15 @@ class ModelSyncRules:
         any overlapping key, but keys the project already carries and synth does
         not touch (e.g. supported_endpoints, extra supports_* flags) survive.
 
-        SKUs absent from upstream stay absent; OPENAI_SYNTH_DATA only patches
-        keys already present, never injects wholesale models.
+        Two behaviours, keyed on whether upstream already carries the SKU —
+        same contract as apply_anthropic_synth:
+          • Present upstream → overlay (``{**existing, **synth}``). Used for
+            partial corrections such as the gpt-6-astra context fix.
+          • Absent upstream → inject the synth entry wholesale. Used for
+            complete pre-staged models (``tts-1`` / ``tts-1-hd``, the
+            ``gpt-image-2.5-*`` pair). A partial overlay whose SKU is missing
+            upstream would inject a broken record, so only pre-stage entries
+            that are complete (carry ``litellm_provider``).
 
         Does not mutate the input.
         """

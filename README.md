@@ -15,7 +15,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Supported Providers
 
-- **OpenAI**: GPT-6 Astra, GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series, plus a curated audio / realtime allow-list covering the current generation (`gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
+- **OpenAI**: GPT-6 Astra, GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5, Sonnet 5) and the Fable / Mythos 5.1 pair, including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro), Gemini Embedding 2, `gemini-*-image*` series
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash, + vision/OCR variants), priced in USD
@@ -82,7 +82,7 @@ python filter_models.py --url https://custom-source.com/models.json
 ### Provider-Specific Rules
 
 #### OpenAI
-- ✅ Include: GPT-5 series, o3/o4 series, text-embedding-3-*, `gpt-image-*` series
+- ✅ Include: GPT-5 series, o3/o4 series, text-embedding-3-*, `gpt-image-*` series (through the **GPT Image 2.5** pair — see below)
 - ✅ Include (audio / realtime allow-list, exact match via `INCLUDE_PATTERNS`). Scope is the **"Realtime and audio generation models"** and **"Transcription models"** tables of [developers.openai.com/api/docs/pricing](https://developers.openai.com/api/docs/pricing) (snapshot 2026-09-04), plus older SKUs that have left the pricing page but still have live model pages:
 
   | Key | Kind | Rate | Status |
@@ -101,6 +101,8 @@ python filter_models.py --url https://custom-source.com/models.json
 
   Plus `gpt-4o` and `gpt-4o-mini` themselves. ❌ **Not** included: `gpt-realtime-2`, `gpt-realtime-1.5`, `gpt-realtime-mini` — superseded snapshots the pricing page no longer lists (upstream prices `gpt-realtime-2` identically to `2.1`, which is the tell), and `gpt-4o-transcribe-diarize`, which is absent from the Transcription table so has no authoritative rate
 - ✅ Supports **audio_speech** (TTS) and **audio_transcription** (ASR) modes — `PRICE_FIELDS_BY_MODE` accepts per-token, per-second, or per-character billing (whisper-1 uses `input_cost_per_second`; gpt-4o-*-transcribe/tts use `input_cost_per_token` + `output_cost_per_audio_token`; `tts-1` / `tts-1-hd` use `output_cost_per_character`). Standalone `tts-1` / `tts-1-hd` render as their lowercase id, per OpenAI's utility-model style
+- ✅ **GPT Image 2.5 is a pair, not a single SKU.** There is no bare `gpt-image-2.5`; OpenAI ships the generation as `gpt-image-2.5-sunburst` (most capable, for editing precision) and `gpt-image-2.5-flare` (fastest, everyday generation), and the official model index lists only those two. Both are **pre-staged in `OPENAI_SYNTH_DATA`** — upstream carries no `gpt-image-2.5*` key at all. Identical tariff, which [developers.openai.com](https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst) states outright (*"Token rates match GPT Image 2"*): text **$5 / $1.25 cached**, image **$8 in / $2 cached / $30 out**, text output not billed. Their dated default snapshots (`-2026-09-08`) are excluded by the usual `date_pattern` rule
+- ⚠️ **The $2/M cached-image-token rate is not representable and is deliberately not stored.** LiteLLM has exactly one cache field (`cache_read_input_token_cost`) with no `cache_read_input_image_token_cost` counterpart, so these entries carry the **$1.25 text** cache rate — which is exactly what upstream stores for `gpt-image-2`, whose tariff is the same. Storing `$2` instead would over-bill cached text by 60% and leave two entries with an identical published tariff carrying different numbers. This is a schema limitation across the whole `gpt-image` family, not something 2.5 introduced; fixing it means adding a field upstream, not inventing a value locally
 - ✅ Include GPT-4.1 lineage: `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano` (passes narrowed `^gpt-4` pattern)
 - ✅ Supports `responses` mode (OpenAI's `/v1/responses` endpoint — used by codex, gpt-*-pro, deep-research families). `MODE_MAPPING["responses"] = "language"`. Only `gpt-5.3-codex` is whitelisted; wider codex / pro / deep-research variants stay excluded (see below)
 - ✅ Supports `realtime` mode (OpenAI's `/v1/realtime` endpoint). LiteLLM re-classified these SKUs out of `chat` in 2026-08; `MODE_MAPPING["realtime"] = "language"` keeps them where downstream already had them. `PRICE_FIELDS_BY_MODE["realtime"]` accepts any of the four token billing axes (text in/out, audio in/out), plus `input_cost_per_image` and **`input_cost_per_second`** — the latter because `gpt-realtime-translate` is quoted purely per minute and carries no token price at all, so without it the model reads as unpriced and is dropped. Only allow-listed keys pass; the wider `gpt-realtime-*` family stays excluded via `EXCLUDE_PATTERNS`
@@ -502,6 +504,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.27 (2026-09-09)
+- Add the **GPT Image 2.5** pair: **`gpt-image-2.5-sunburst`** (most capable, for workflows where editing precision matters) and **`gpt-image-2.5-flare`** (fastest, high-quality everyday generation). Exported total **163 → 165**; pure addition, no existing entry changes.
+- ⚠️ **There is no bare `gpt-image-2.5`.** OpenAI ships this generation as two named variants and the official model index lists only those — a request for "gpt-image-2.5" resolves to the pair, not a single SKU. Their dated default snapshots (`-2026-09-08`) are excluded by the usual `date_pattern` rule.
+- **Pre-staged via `OPENAI_SYNTH_DATA`** — BerriAI upstream carries no `gpt-image-2.5*` key at all (verified 2026-09-09), so both are injected wholesale. Identical tariff, which [developers.openai.com](https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst) states outright (*"Token rates match GPT Image 2"*):
+
+  | | Input | Cached input | Output |
+  |---|---|---|---|
+  | Text tokens | $5.00 /M | $1.25 /M | not billed — these models emit images |
+  | Image tokens | $8.00 /M | $2.00 /M | **$30.00 /M** |
+
+- ⚠️ **The $2/M cached-image rate is not representable, and is deliberately not stored.** LiteLLM has exactly one cache field (`cache_read_input_token_cost`) and no `cache_read_input_image_token_cost` counterpart. These entries carry the **$1.25 text** rate — which is precisely what upstream stores for `gpt-image-2`, whose tariff is identical. Storing `$2` instead would over-bill cached text by 60% *and* leave two SKUs with the same published tariff carrying different numbers, which is how overlays start rotting (v1.16.18 / 20 / 23 / 24). The gap spans the whole `gpt-image` family and predates 2.5; closing it means adding a field upstream, not inventing a value here.
+- 🩹 Fixed a stale docstring on `apply_openai_synth`: it claimed the synth "only patches keys already present, never injects wholesale models", contradicting both the inline comment directly beneath it and the code, which has injected `tts-1` / `tts-1-hd` since v1.15.x. Now states the same two-behaviour contract as `apply_anthropic_synth`.
+- No formatter changes needed — the existing rules already render `GPT Image 2.5 Sunburst` and `GPT Image 2.5 Flare`.
 
 ### v1.16.26 (2026-09-04)
 - Bring the **OpenAI audio / realtime allow-list up to the current generation** — it had been frozen on `gpt-realtime` + `gpt-4o-realtime-preview-2024-12-17` while OpenAI shipped two whole generations past it. Adds seven SKUs, all verified against the *"Realtime and audio generation models"* and *"Transcription models"* tables of [developers.openai.com/api/docs/pricing](https://developers.openai.com/api/docs/pricing). Exported total **156 → 163**; pure addition, no existing entry changes.
