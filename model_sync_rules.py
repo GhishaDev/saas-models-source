@@ -180,38 +180,43 @@ class ModelSyncRules:
             "supports_json_mode": False,
         },
         "zai/glm-5.3-flash": {
-            # GLM-5.3-Flash — the first NATIVE MULTIMODAL model in the GLM-5
-            # series (320B total / 18B active), so supports_vision is True
-            # even though the key has no "v" infix and therefore does not
-            # match _GLM_VISION_KEY. Text parameters are "consistent with
-            # GLM-5.3, with support for a 1M-token context window" per
-            # docs.z.ai/guides/vlm/glm-5.3-flash (2026-08-26).
+            # PROMOTION ENDED 2026-09-09 24:00 UTC+8 — reverted on schedule,
+            # after verifying rather than trusting the calendar note.
             #
-            # PROMOTIONAL PRICE, not list. docs.z.ai/guides/overview/pricing
-            # states: "GLM-5.3-Flash is available at a 50% discount
-            # (strikethrough prices are list prices). The promotion ends at
-            # 24:00 on September 9, 2026 (UTC+8, Singapore time)."
-            #   list:      input $0.15 / cached $0.03 / output $0.50 per M
-            #   effective: input $0.075 / cached $0.015 / output $0.25 per M
-            # The discount is UNCONDITIONAL — every caller gets it — so the
-            # effective rate is what customers are actually billed today.
-            # Same treatment as ANTHROPIC_SYNTH_DATA's introductory overlays,
-            # and deliberately unlike BYTEPLUS_SYNTH_DATA, which stores list
-            # because those campaigns are gated on account balance / savings
-            # plan and so are not universal.
+            # The 50%-off overlay (input $0.075 / cached $0.015 / output
+            # $0.25) is gone; list price — input $0.15 / cached $0.03 /
+            # output $0.50 per M — is what callers pay now, and upstream
+            # carries exactly those numbers. So the price fields were not
+            # edited, they were DELETED: keeping them would duplicate
+            # upstream and rot the moment z.ai moves again (v1.16.18 / 20 /
+            # 23 / 24).
             #
-            # >>> REVERT TO LIST PRICE ON 2026-09-10 <<<
-            # input 1.5e-07, cache_read 3e-08, output 5e-07.
-            "litellm_provider": "zai",
-            "mode": "chat",
+            # How the lapse was confirmed — read the markup, not the number
+            # (the qwen3.7-max lesson, v1.16.24). docs.z.ai renders a
+            # discounted cell as a price PAIR (list + live); on 2026-09-04
+            # the GLM-5.3-Flash row read "$0.15 $0.075 | $0.03 $0.015 |
+            # ... | $0.50 $0.25". Today the same row is five bare <td>
+            # cells with single values. The pair is gone, not merely the
+            # smaller number.
+            #
+            # What survives is ONE field, because upstream has it wrong:
+            #
+            # max_input_tokens — upstream says 1048576, i.e. someone read
+            # "1M" as 1024². It is 1,000,000. docs.z.ai/guides/vlm/
+            # glm-5.3-flash spells it out in prose — "context lengths of up
+            # to one million tokens" — and upstream's own zai/glm-5.2 and
+            # zai/glm-5.3 entries, same 1M context, both say 1000000. This
+            # is the mirror image of the DeepSeek case (v1.16.23), where the
+            # page said "384K" and the API really did take 384x1024: there
+            # the round number was the wrong reading, here it is the right
+            # one. Check which unit the vendor actually spells out.
+            #
+            # Everything else now comes from upstream unchanged, including
+            # supports_vision — GLM-5.3-Flash is the first NATIVE MULTIMODAL
+            # model in the GLM-5 series (320B total / 18B active), which is
+            # why it needs the flag despite having no "v" infix to match
+            # _GLM_VISION_KEY. Upstream sets it too, so we no longer do.
             "max_input_tokens": 1000000,
-            "max_output_tokens": 128000,
-            "input_cost_per_token": 0.075e-06,
-            "output_cost_per_token": 0.25e-06,
-            "cache_read_input_token_cost": 0.015e-06,
-            "supports_function_calling": True,
-            "supports_vision": True,
-            "supports_json_mode": False,
         },
         "zai/glm-5.1": {
             "litellm_provider": "zai",

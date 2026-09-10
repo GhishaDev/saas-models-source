@@ -143,8 +143,9 @@ python filter_models.py --url https://custom-source.com/models.json
 - ✅ **z.ai as source of truth** via `ZAI_SYNTH_DATA` overlay (sourced from [docs.z.ai/guides/overview/overview](https://docs.z.ai/guides/overview/overview) + [pricing](https://docs.z.ai/guides/overview/pricing)):
   - Pre-staged SKUs absent from LiteLLM are synthesised from z.ai data (GLM-5.3-Flash, GLM-5.2, GLM-5.1, GLM-5-Turbo, GLM-4.7-FlashX, GLM-5V-Turbo, GLM-4.6V, GLM-4.6V-FlashX, GLM-OCR)
   - When upstream conflicts with z.ai, z.ai wins (e.g. `zai/glm-4.5v` context = 64K per z.ai overview, not the 128K LiteLLM reports)
-- ✅ Vision flag auto-inferred for keys matching `glm-*v` or `glm-ocr` when upstream omits `supports_vision`. **`zai/glm-5.3-flash` is the exception**: it is natively multimodal but its key has no `v` infix, so `_GLM_VISION_KEY` does not match it — `supports_vision: True` is set explicitly in `ZAI_SYNTH_DATA` instead
-- ⏳ **`zai/glm-5.3-flash` carries a promotional price.** z.ai runs a flat **50% discount** on it until **24:00 on 2026-09-09 (UTC+8)**: list $0.15 / $0.03 / $0.50 per M (input / cached / output), effective **$0.075 / $0.015 / $0.25**. The discount is **unconditional** — every caller gets it — so the catalogue stores the effective rate, matching how `ANTHROPIC_SYNTH_DATA` handles introductory pricing. This deliberately differs from `BYTEPLUS_SYNTH_DATA`, which stores *list* because those campaigns are gated on account balance / savings-plan tier and so are not universal. **Revert to list on 2026-09-10** (`input` 1.5e-07, `cache_read` 3e-08, `output` 5e-07) — the code carries the same reminder
+- ✅ Vision flag auto-inferred for keys matching `glm-*v` or `glm-ocr` when upstream omits `supports_vision`. `zai/glm-5.3-flash` is natively multimodal but its key has no `v` infix, so `_GLM_VISION_KEY` does not match it — it used to need an explicit `supports_vision: True` in `ZAI_SYNTH_DATA`; upstream now sets the flag itself, so the overlay was dropped in v1.16.29
+- ✅ **`zai/glm-5.3-flash`'s 50% promotion ended 2026-09-09 24:00 UTC+8** and was reverted on schedule in v1.16.29. List price ($0.15 / $0.03 / $0.50 per M) is now what callers pay, and upstream carries exactly those numbers — so the price fields were **deleted from the overlay** rather than edited, leaving upstream to supply them
+- ⚠️ **`zai/glm-5.3-flash` keeps a one-field overlay: `max_input_tokens: 1000000`, because upstream is wrong.** Upstream says `1048576` — someone read "1M" as 1024². It is one million: [docs.z.ai/guides/vlm/glm-5.3-flash](https://docs.z.ai/guides/vlm/glm-5.3-flash) spells it out in prose (*"context lengths of up to one million tokens"*), and upstream's own `zai/glm-5.2` / `zai/glm-5.3` entries — same 1M context — both say `1000000`. This is the **mirror image of the DeepSeek case** (v1.16.23), where the page said "384K" and the API really did take 384×1024. Check which unit the vendor actually spells out; neither reading is safe by default
 - ❌ Exclude: `zai/glm-5-code` (not on z.ai official pricing page), other-gateway GLM (openrouter / fireworks / together / bedrock / vertex / novita / cerebras / baseten / gmi / wandb / vercel_ai_gateway / deepinfra)
 - ❌ Exclude: Free-tier SKUs via Zero Price rule (e.g. `zai/glm-4.5-flash`, `glm-4.7-flash`, `glm-4.6v-flash`)
 
@@ -504,6 +505,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.29 (2026-09-10)
+- 🔴 **`zai/glm-5.3-flash` (and its `bigmodel/` mirror) was under-billing by 50%.** z.ai's flat 50% promotion ended at **24:00 on 2026-09-09 (UTC+8)** exactly as announced. Reverted to list on schedule:
+
+  | | Promo (before) | List (after) |
+  |---|---|---|
+  | Input | $0.075 /M | **$0.15** /M |
+  | Output | $0.25 /M | **$0.50** /M |
+  | Cached input | $0.015 /M | **$0.03** /M |
+
+- ✅ **Verified before acting, not trusted from the calendar note** — the v1.16.20 lesson, where a scheduled `claude-sonnet-5` revert turned out to be wrong because Anthropic cancelled the increase. Here the revert was genuinely due.
+- 🔍 **Confirmed by the markup, not the number** (the v1.16.24 `qwen3.7-max` method). docs.z.ai renders a discounted cell as a price **pair**; on 2026-09-04 the GLM-5.3-Flash row read `$0.15 $0.075 | $0.03 $0.015 | … | $0.50 $0.25`. Today the same row is five bare `<td>` cells with single values — the *pair* is gone, not merely the smaller number.
+- ♻️ **The price fields were deleted, not edited.** Upstream now carries the list price verbatim, so keeping our own copy would duplicate it and rot the moment z.ai moves again (v1.16.18 / 20 / 23 / 24). `supports_vision`, `mode`, `max_output_tokens` and the rest also now come from upstream; the entry shrank from a 10-field wholesale record to a **one-field partial overlay**, which `ZAI_SYNTH_DATA` already does for `zai/glm-4.5v` and the GLM-4.5 family.
+- ⚠️ **That surviving field is `max_input_tokens: 1000000`, because upstream has it wrong.** Upstream says `1048576` — "1M" read as 1024². It is one million: [docs.z.ai](https://docs.z.ai/guides/vlm/glm-5.3-flash) says *"context lengths of up to one million tokens"* in prose, and upstream's own `zai/glm-5.2` / `zai/glm-5.3`, same 1M context, both say `1000000`. **This is the mirror image of DeepSeek V4 (v1.16.23)**, where the page said "384K" and the API really did take 384×1024 = 393,216. Neither the round number nor the binary one is safe by default — check which unit the vendor spells out.
+- `bigmodel/glm-5.3-flash` picked the change up automatically: per the mirror mechanic `apply_bigmodel_synth` copies prices from the `zai/` sibling, so the revert lives in exactly one place. `zai/glm-5.3` is unaffected ($1.4 / $4.4 / $0.26, verified unchanged today). Exported total stays **165**.
 
 ### v1.16.28 (2026-09-09)
 - 🔴 **Every OpenAI `gpt-image-*` SKU was under-billing cached image tokens by 20–50%.** Each publishes *two* cache rates — one for text input, a higher one for image input — and LiteLLM's single `cache_read_input_token_cost` can only hold one. We hold the text rate (matching upstream), so cached image tokens were being billed at the text rate. This affects the whole family, not just the 2.5 pair flagged in v1.16.27:
