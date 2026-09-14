@@ -17,7 +17,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 - **OpenAI**: GPT-6 Astra, GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5, Sonnet 5) and the Fable / Mythos 5.1 pair, including dated snapshots
-- **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash**, Gemini Embedding 2, and the `gemini-*-image*` series — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`
+- **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash, + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (13 SKUs: GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (3 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Flash-Vision-Exp, DeepSeek-V4-Pro — 1M context, 393,216 max output). The official tariff is **USD-native** and split into peak / off-peak windows; we carry the **peak** rate, straight from upstream with no overlay
@@ -505,6 +505,24 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.31 (2026-09-14)
+- 🔴 **Retired four Gemini models that Google has already SHUT DOWN.** These were not merely old — calls to them fail. Exported total **166 → 162**.
+
+  | Key | Shutdown | Evidence | Replacement (already in catalogue) |
+  |---|---|---|---|
+  | `gemini/gemini-3-pro-preview` | **2026-03-09** | models page labels it *"(Shut down)"* | `gemini-3.1-pro-preview` |
+  | `gemini/gemini-3.1-flash-lite-preview` | **2026-05-25** | models page labels it *"(Shut down)"* | `gemini-3.1-flash-lite` |
+  | `gemini/gemini-3-pro-image-preview` | **2026-06-25** | dropped from the models page entirely | `gemini-3-pro-image` |
+  | `gemini/gemini-3.1-flash-image-preview` | **2026-06-25** | dropped from the models page entirely | `gemini-3.1-flash-image` |
+
+  The oldest had been dead for **six months**. Every replacement was already carried, so nothing is left uncovered.
+
+- ⚠️ **Root cause, and it is structural: nothing in the pipeline reads a lifecycle signal.** These entered via the `^gemini/gemini-[3-9].*-preview$` `INCLUDE_PATTERN`, which admits 3.x previews wholesale and has no notion of shutdown. Upstream carries a `deprecation_date` field on *some* entries, but `should_exclude_with_reason` never looks at it. **A retired model stays in the catalogue until someone reads the deprecations page by hand.** Reading [ai.google.dev/gemini-api/docs/deprecations](https://ai.google.dev/gemini-api/docs/deprecations) belongs in every Gemini sweep from now on.
+- 🩹 **Corrected a wrong comment on `INCLUDE_PATTERNS`.** It claimed the include patterns shortcut `EXCLUDE_MODEL_KEYS`; they never have. `should_exclude_with_reason` checks provider rules, then `EXCLUDE_MODEL_KEYS`, *then* includes — so an exact-match exclusion always wins. The retirement above depends on that order being what the code actually does, not what the comment said.
+- ✅ **`gemini/gemini-embedding-2` verified correct and left alone.** An earlier reading of the models page suggested the published ID was `gemini-embedding-2-preview`; the deprecations table settles it the other way — `gemini-embedding-2` (released 2026-04-22) has **no shutdown date**, while `embedding-2-preview` **shut down 2026-08-10** with `gemini-embedding-2` as its replacement. Upstream's `deprecation_date: 2026-08-10` on the `-preview` entry corroborates this.
+- ⏳ **Calendar: `gemini/gemini-2.5-flash-image` shuts down 2026-10-02** — kept for now by decision. ⚠️ Google's own table names `gemini-3.1-flash-image-preview` as the replacement, but **that model shut down on 2026-06-25** (retired in this release). The real successor is **`gemini-3.1-flash-image`** (Nano Banana 2). Do not follow the published replacement column without checking whether the replacement is itself alive.
+- 📅 Also announced: `gemini/gemini-3.1-flash-lite` shuts down **2027-05-07**, replacement `gemini-3.5-flash-lite`. No action needed yet.
 
 ### v1.16.30 (2026-09-14)
 Full audit of all **20 `gemini/*` entries** against [ai.google.dev/gemini-api/docs/pricing](https://ai.google.dev/gemini-api/docs/pricing). 19 were correct; one was wrong by 2×.
