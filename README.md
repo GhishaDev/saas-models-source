@@ -15,7 +15,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Supported Providers
 
-- **OpenAI**: GPT-6 Astra, GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
+- **OpenAI**: GPT-6 Astra, GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5, Sonnet 5) and the Fable / Mythos 5.1 pair, including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash, + vision/OCR variants), priced in USD
@@ -505,6 +505,41 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.32 (2026-09-14)
+Same lifecycle sweep as v1.16.31, extended to every provider by scanning all 162 exported keys against upstream's `deprecation_date` and then verifying each hit on the vendor's own deprecations page. **34 of 162 carry a shutdown date; five had already passed — all OpenAI.**
+
+- 🔴 **Retired five OpenAI models that OpenAI has already SHUT DOWN.** Calls to these fail; they are not merely superseded. Exported total **162 → 157**.
+
+  | Key | Shutdown | Dead for | Replacement (already carried) |
+  |---|---|---|---|
+  | `gpt-4o-realtime-preview-2024-12-17` | **2026-05-07** | 4 months | `gpt-realtime-2.1` |
+  | `gpt-5-chat-latest` | **2026-07-23** | 2 months | `gpt-5.6-sol` |
+  | `gpt-5.1-chat-latest` | **2026-07-23** | 2 months | `gpt-5.6-sol` |
+  | `gpt-5.2-chat-latest` | **2026-08-10** | 1 month | `gpt-5.6-sol` |
+  | `gpt-5.3-chat-latest` | **2026-08-10** | 1 month | `gpt-5.6-sol` |
+
+  That is **every `*-chat-latest` SKU the catalogue carried** — the whole family is dead. [developers.openai.com/api/docs/deprecations](https://developers.openai.com/api/docs/deprecations) labels its tables "Shutdown date" and defines the term explicitly: *"At the time of the shut down, the model or endpoint will no longer be accessible."*
+
+- ⚠️ **Same structural gap as v1.16.31, different provider.** The four `*-chat-latest` keys entered via the `^gpt-.*-chat-latest$` `INCLUDE_PATTERN`, which admits the family wholesale and has no notion of lifecycle. The pattern is **kept** so a future chat-latest is still picked up — which also means it will be admitted with no decision made. `gpt-4o-realtime-preview-2024-12-17` had its own dedicated include line; that line is now **deleted**, so the generic `-preview-` and date-pattern rules exclude the model again without needing an `EXCLUDE_MODEL_KEYS` entry.
+- 🔍 **`deprecation_date` is a usable signal, but only where upstream carries it.** 34 of 162 exported models have one. The field is never read by `should_exclude_with_reason`, so it is a manual check — but scanning it is far cheaper than reading five vendor deprecation pages, and it is what surfaced these five. Gemini's shutdowns (v1.16.31) were *not* all covered by it, so the vendor pages still matter.
+
+- ⏳ **Shutdown calendar for models we still carry** (none actioned here):
+
+  | Date | Models | Replacement |
+  |---|---|---|
+  | 2026-09-29 | `claude-sonnet-4-5` + dated snapshot | — |
+  | **2026-10-02** | `gemini/gemini-2.5-flash-image` | `gemini-3.1-flash-image` ⚠️ *not* the one Google's table names |
+  | 2026-10-15 | `claude-haiku-4-5` + dated snapshot | — |
+  | 2026-10-23 | `gpt-4.1-nano`, `gpt-image-1`, `o3-mini`, `o4-mini` | `gpt-5.6-luna` / `gpt-image-2` / `gpt-5.6-sol` / `gpt-5.6-terra` |
+  | 2026-11-24 | `claude-opus-4-5` + dated snapshot | — |
+  | 2026-12-01 | `gpt-image-1.5`, `gpt-image-1-mini` | `gpt-image-2` |
+  | 2027-01-20 | `gpt-realtime` | `gpt-realtime-2.1` |
+  | 2027-02-26 | `whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe` | `gpt-transcribe` / `gpt-live-transcribe` |
+  | 2027-05-07 | `gemini/gemini-3.1-flash-lite` | `gemini-3.5-flash-lite` |
+
+- ✅ **"Old but alive" is not the same as retired and was left alone**: `gemini-3.5-flash`, `gemini-3.6-flash`, `gemini-3-flash-preview`, `gpt-4o`, `gpt-4.1`, `o3` and the Gemini 2.5 family all carry **no** shutdown date. Whether to migrate off them is a cost decision, not a correctness one — though note `gemini-3.5-flash` ($1.50 / $9.00) is both older *and* double the price of `gemini-3.8-flash` ($0.75 / $3.75).
+- ✅ Other providers are clean: Moonshot's `kimi-k2.5` / `moonshot-v1` family (retired 2026-08-31) and DeepSeek's `deepseek-chat` / `deepseek-reasoner` are all held out by their reverse-whitelists.
 
 ### v1.16.31 (2026-09-14)
 - 🔴 **Retired four Gemini models that Google has already SHUT DOWN.** These were not merely old — calls to them fail. Exported total **166 → 162**.
