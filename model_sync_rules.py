@@ -1996,6 +1996,28 @@ class ModelSyncRules:
         # Gemini special-purpose models
         "gemini/gemini-3.1-pro-preview-customtools",
         "gemini/gemini-3.1-flash-live-preview",
+        # SHUT DOWN by Google — retired from the export 2026-09-14. These are
+        # not "old but usable"; calls to them fail. Verified against
+        # ai.google.dev/gemini-api/docs/deprecations plus the models page,
+        # which labels the first two "(Shut down)" and has dropped the last
+        # two entirely. Every replacement is already in the catalogue, so
+        # nothing is left uncovered.
+        #
+        #   key                             shutdown      replacement
+        #   gemini-3-pro-preview            2026-03-09    gemini-3.1-pro-preview
+        #   gemini-3.1-flash-lite-preview   2026-05-25    gemini-3.1-flash-lite
+        #   gemini-3-pro-image-preview      2026-06-25    gemini-3-pro-image
+        #   gemini-3.1-flash-image-preview  2026-06-25    gemini-3.1-flash-image
+        #
+        # They reached the export through the ^gemini/gemini-[3-9].*-preview$
+        # INCLUDE_PATTERN, which admits 3.x previews wholesale and has no
+        # notion of lifecycle. Nothing in the pipeline reads a shutdown date,
+        # so a retired model stays in the catalogue until someone checks the
+        # deprecations page by hand. That is the actual gap here.
+        "gemini/gemini-3-pro-preview",
+        "gemini/gemini-3.1-flash-lite-preview",
+        "gemini/gemini-3-pro-image-preview",
+        "gemini/gemini-3.1-flash-image-preview",
         # Same policy, 2026-08 arrivals: non-conversational Gemini modalities.
         # The Google scope is Gemini 2.5+ chat (Flash / Flash-Lite / Pro),
         # Gemini Embedding, and the gemini-*-image* series — audio is not in
@@ -2049,9 +2071,13 @@ class ModelSyncRules:
     _CORE_CLAUDE_VARIANTS = frozenset({"opus", "sonnet", "haiku"})
 
     # Include patterns (exceptions to exclude rules)
-    # NOTE: INCLUDE_PATTERNS shortcuts every rule *after* PROVIDER_EXCLUSION_RULES
-    # (date_pattern, EXCLUDE_PATTERNS, EXCLUDE_MODEL_KEYS). It does NOT override
-    # provider-level exclusions — those must be narrowed at their own site.
+    # NOTE: INCLUDE_PATTERNS shortcuts date_pattern and EXCLUDE_PATTERNS only.
+    # It does NOT override PROVIDER_EXCLUSION_RULES or EXCLUDE_MODEL_KEYS —
+    # both are checked BEFORE the include patterns in
+    # should_exclude_with_reason, so an exact-match exclusion always wins.
+    # (This note used to claim EXCLUDE_MODEL_KEYS was shortcut too; it never
+    # was. Corrected 2026-09-14 after checking the actual evaluation order.)
+    # Provider-level exclusions must still be narrowed at their own site.
     INCLUDE_PATTERNS: list[re.Pattern] = [
         re.compile(r"^gpt-.*-chat-latest$", re.IGNORECASE),  # Allow gpt-*-chat-latest despite -latest rule
         re.compile(r"^gemini/gemini-[3-9].*-preview$", re.IGNORECASE),  # Allow Gemini 3.x+ preview models
