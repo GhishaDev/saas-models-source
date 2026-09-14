@@ -15,9 +15,9 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Supported Providers
 
-- **OpenAI**: GPT-6 Astra, GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
+- **OpenAI**: GPT-6 Astra, GPT-5 series, o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5, Sonnet 5) and the Fable / Mythos 5.1 pair, including dated snapshots
-- **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro), Gemini Embedding 2, `gemini-*-image*` series
+- **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash**, Gemini Embedding 2, and the `gemini-*-image*` series — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash, + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (13 SKUs: GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` (3 SKUs: DeepSeek-V4-Flash, DeepSeek-V4-Flash-Vision-Exp, DeepSeek-V4-Pro — 1M context, 393,216 max output). The official tariff is **USD-native** and split into peak / off-peak windows; we carry the **peak** rate, straight from upstream with no overlay
@@ -505,6 +505,28 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.30 (2026-09-14)
+Full audit of all **20 `gemini/*` entries** against [ai.google.dev/gemini-api/docs/pricing](https://ai.google.dev/gemini-api/docs/pricing). 19 were correct; one was wrong by 2×.
+
+- 🔴 **`gemini/gemini-3.6-flash` was OVER-billing by 100%.** `GOOGLE_SYNTH_DATA` pinned **$1.50 in / $7.50 out / $0.15 cache**; the real current rate is **$0.75 / $3.75 / $0.075**. The pricing page reads *"$0.75 through December 31, 2026. **$1.50 starting January 1, 2027**"* — the overlay had captured the **second sentence**. Upstream carries the correct effective rate (identical to 3.7-flash and 3.8-flash, which share the same time-boxed tariff), so the entry was **deleted** rather than corrected. It also pinned `max_output_tokens` `65535` against upstream's `65536`.
+- ⚠️ **New rule: when a vendor publishes a dated price change, store the rate in effect *today* and schedule a re-check — never pre-load the future one.** An overlay cannot know what day it is, so a future price written today is simply a wrong price until the switchover. `gemini-3.7-flash` and `gemini-3.8-flash` carry the same 2027-01-01 increase and deliberately have **no overlay at all**; upstream already tracks the effective rate. This is the same failure shape as the DeepSeek "384K" misread (v1.16.23) — acting on one half of a two-part statement.
+- ♻️ **`gemini/gemini-3.5-flash-lite` overlay deleted** — byte-identical to upstream on every field, pure redundancy. Fifth and sixth overlays retired on the standing rule (after v1.16.18 / 20 / 23 / 24 / 29): **delete an overlay once upstream catches up.**
+- 🔻 **`gemini/gemini-3.1-flash-lite-image` shrunk from 21 fields to 1.** Prices matched upstream, but on capabilities the old overlay was *mostly wrong* — verified against the official model page:
+
+  | Field | Overlay | Upstream | Official page | Winner |
+  |---|---|---|---|---|
+  | `max_output_tokens` | 32768 | 4096 | **4,096** | upstream (overlay was 8× high) |
+  | `supports_prompt_caching` | True | False | **Not supported** | upstream |
+  | `supports_response_schema` | True | False | **Not supported** | upstream |
+  | `supports_web_search` | True | *(unset)* | **Not supported** | upstream |
+  | `supports_function_calling` | False | True | **Not supported** | **overlay** |
+
+  Only the last row survives, as a one-field partial overlay.
+- ➕ **Added `gpt-live-1`** — OpenAI's full-duplex voice model, **$0.05 per minute** billed per second (upstream `input_cost_per_second` 8.333e-04 × 60). Exported total **165 → 166**.
+- 🔎 **Structural note surfaced by `gpt-live-1`: the OpenAI audio "allow-list" is not a whitelist.** It is a set of exceptions to `EXCLUDE_PATTERNS`, so `gpt-live-1` — which matches neither `^gpt-realtime` nor `^gpt-audio` — entered the export **on its own** the first time upstream published it, without any decision being made. It is now listed explicitly for the record. Any future OpenAI key that dodges those patterns will likewise be admitted automatically. Unlike DeepSeek / Moonshot / DashScope / Z.AI, OpenAI has no reverse-whitelist.
+- ⚠️ `gpt-live-1` has **no token pricing at all**, so its top-level `input_cost_per_token` / `output_cost_per_token` export as `0`. The real rate is `input_cost_per_second` in `raw_data` — the same top-level-schema blind spot flagged for the image family in v1.16.28.
+- ✅ Verified unchanged: the other 19 Gemini entries, including `gemini-3.8-flash` ($0.75 / $3.75 / $0.075), `gemini-3.5-flash` ($1.50 / $9.00 / $0.15), `gemini-3.1-pro-preview` ($2 / $12 / $0.20), `gemini-2.5-pro` ($1.25 / $10 / $0.125) and the three Nano Banana image SKUs.
 
 ### v1.16.29 (2026-09-10)
 - 🔴 **`zai/glm-5.3-flash` (and its `bigmodel/` mirror) was under-billing by 50%.** z.ai's flat 50% promotion ended at **24:00 on 2026-09-09 (UTC+8)** exactly as announced. Reverted to list on schedule:
