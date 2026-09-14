@@ -1971,6 +1971,29 @@ class ModelSyncRules:
         # absent from the pricing page's Transcription table, so there is no
         # authoritative rate to carry.
         "gpt-4o-transcribe-diarize",
+        # SHUT DOWN by OpenAI — retired from the export 2026-09-14. Calls to
+        # these fail; they are not merely superseded. Verified against
+        # developers.openai.com/api/docs/deprecations, whose tables are
+        # labelled "Shutdown date" and whose own definition is explicit: "At
+        # the time of the shut down, the model or endpoint will no longer be
+        # accessible."
+        #
+        #   key                   shutdown       replacement
+        #   gpt-5-chat-latest     2026-07-23     gpt-5.6-sol
+        #   gpt-5.1-chat-latest   2026-07-23     gpt-5.6-sol
+        #   gpt-5.2-chat-latest   2026-08-10     gpt-5.6-sol
+        #   gpt-5.3-chat-latest   2026-08-10     gpt-5.6-sol
+        #
+        # That is EVERY *-chat-latest SKU the catalogue carried. They reached
+        # the export through the ^gpt-.*-chat-latest$ INCLUDE_PATTERN, which
+        # admits the family wholesale and has no notion of lifecycle. The
+        # pattern is kept so a future chat-latest is still picked up, which
+        # also means it will be admitted with no decision made — check the
+        # deprecations page when one appears.
+        "gpt-5-chat-latest",
+        "gpt-5.1-chat-latest",
+        "gpt-5.2-chat-latest",
+        "gpt-5.3-chat-latest",
         # OpenAI responses-mode variants outside the approved whitelist.
         # (gpt-5.3-codex is the sanctioned responses SKU; the wider codex /
         # pro / deep-research families are intentionally kept out — same
@@ -2114,8 +2137,16 @@ class ModelSyncRules:
         re.compile(r"^gpt-live-1$", re.IGNORECASE),
         # Previous realtime generation — off the pricing page but the model
         # pages are still live, so they stay until OpenAI retires them.
+        # gpt-realtime itself is now scheduled: shutdown 2027-01-20,
+        # replacement gpt-realtime-2.1 (already carried).
         re.compile(r"^gpt-realtime$", re.IGNORECASE),
-        re.compile(r"^gpt-4o-realtime-preview-2024-12-17$", re.IGNORECASE),
+        # gpt-4o-realtime-preview-2024-12-17 had an include line here. REMOVED
+        # 2026-09-14: OpenAI shut the whole gpt-4o-realtime-preview family
+        # down on 2026-05-07 (replacement gpt-realtime-1.5, itself superseded
+        # by gpt-realtime-2.1, which we carry). With the include gone the
+        # generic "-preview-" and date-pattern rules exclude it again, so no
+        # EXCLUDE_MODEL_KEYS entry is needed — the model only ever reached
+        # the export because this line let it past them.
         re.compile(r"^gpt-4o-mini-transcribe$", re.IGNORECASE),
         re.compile(r"^gpt-4o-mini-tts$", re.IGNORECASE),
         re.compile(r"^whisper-1$", re.IGNORECASE),
