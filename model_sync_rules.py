@@ -1471,96 +1471,54 @@ class ModelSyncRules:
         },
     }
 
-    # Google / Gemini pre-staged entries — models newly published on
-    # ai.google.dev but not yet on BerriAI upstream. Each is a complete
-    # litellm-style entry, injected wholesale by apply_google_synth. Prices
-    # from ai.google.dev/gemini-api/docs/pricing; context windows mirror the
-    # same-generation sibling (the pricing page omits them).
+    # Google / Gemini overlays. Two kinds, same as the other providers:
+    # complete pre-staged records for models newly on ai.google.dev but not
+    # yet upstream (injected wholesale), and partial overlays patching a
+    # field upstream gets wrong. Prices from ai.google.dev/gemini-api/docs/
+    # pricing.
+    #
+    # RETIRED 2026-09-14 after a full audit of all 20 gemini/* entries
+    # against the official pricing page:
+    #
+    #   gemini/gemini-3.6-flash — DELETED. It pinned $1.50 in / $7.50 out /
+    #     $0.15 cache, DOUBLE the real rate, and had been OVER-billing ever
+    #     since upstream picked the model up. The page reads "$0.75 through
+    #     December 31, 2026. $1.50 starting January 1, 2027" — the overlay
+    #     captured the second sentence. Upstream carries $0.75 / $3.75 /
+    #     $0.075, matching 3.7-flash and 3.8-flash, which share the same
+    #     time-boxed tariff. (It also had max_output_tokens 65535 for
+    #     upstream's 65536.)
+    #
+    #   gemini/gemini-3.5-flash-lite — DELETED. Byte-identical to upstream
+    #     on every field; pure redundancy.
+    #
+    # ⚠️ WHEN A VENDOR PUBLISHES A DATED PRICE CHANGE, STORE THE RATE IN
+    # EFFECT TODAY AND SCHEDULE A RE-CHECK — never pre-load the future one.
+    # An overlay cannot know what day it is, so a future price written today
+    # is simply a wrong price until the switchover. gemini-3.7-flash and
+    # gemini-3.8-flash carry the same 2027-01-01 increase and deliberately
+    # have no overlay at all: upstream already tracks the effective rate.
     GOOGLE_SYNTH_DATA: dict[str, dict[str, Any]] = {
-        # Gemini 3.6 Flash — $1.50 in / $7.50 out per M, cache $0.15.
-        "gemini/gemini-3.6-flash": {
-            "litellm_provider": "gemini",
-            "mode": "chat",
-            "input_cost_per_token": 1.5e-06,
-            "output_cost_per_token": 7.5e-06,
-            "output_cost_per_reasoning_token": 7.5e-06,
-            "cache_read_input_token_cost": 1.5e-07,
-            "max_input_tokens": 1048576,
-            "max_output_tokens": 65535,
-            "max_tokens": 65535,
-            "source": "https://ai.google.dev/gemini-api/docs/pricing",
-            "supported_endpoints": ["/v1/chat/completions", "/v1/completions", "/v1/batch"],
-            "supported_modalities": ["text", "image", "audio", "video"],
-            "supported_output_modalities": ["text"],
-            "supports_audio_input": True,
-            "supports_audio_output": False,
-            "supports_function_calling": True,
-            "supports_parallel_function_calling": True,
-            "supports_pdf_input": True,
-            "supports_prompt_caching": True,
-            "supports_reasoning": True,
-            "supports_response_schema": True,
-            "supports_system_messages": True,
-            "supports_tool_choice": True,
-            "supports_url_context": True,
-            "supports_video_input": True,
-            "supports_vision": True,
-            "supports_web_search": True,
-            "supports_native_streaming": True,
-        },
-        # Gemini 3.5 Flash-Lite — $0.30 in / $2.50 out per M, cache $0.03.
-        "gemini/gemini-3.5-flash-lite": {
-            "litellm_provider": "gemini",
-            "mode": "chat",
-            "input_cost_per_token": 3e-07,
-            "output_cost_per_token": 2.5e-06,
-            "output_cost_per_reasoning_token": 2.5e-06,
-            "cache_read_input_token_cost": 3e-08,
-            "max_input_tokens": 1048576,
-            "max_output_tokens": 65536,
-            "max_tokens": 65536,
-            "source": "https://ai.google.dev/gemini-api/docs/pricing",
-            "supported_endpoints": ["/v1/chat/completions", "/v1/completions", "/v1/batch"],
-            "supported_modalities": ["text", "image", "audio", "video"],
-            "supported_output_modalities": ["text"],
-            "supports_audio_input": True,
-            "supports_audio_output": False,
-            "supports_function_calling": True,
-            "supports_parallel_function_calling": True,
-            "supports_pdf_input": True,
-            "supports_prompt_caching": True,
-            "supports_reasoning": True,
-            "supports_response_schema": True,
-            "supports_system_messages": True,
-            "supports_tool_choice": True,
-            "supports_url_context": True,
-            "supports_video_input": True,
-            "supports_vision": True,
-            "supports_web_search": True,
-            "supports_native_streaming": True,
-        },
-        # Gemini 3.1 Flash-Lite Image (Nano Banana 2 Lite) — image model:
-        # $0.25 in / $1.50 out text per M; images $30/M tokens ($0.0336/image).
+        # Gemini 3.1 Flash-Lite Image (Nano Banana 2 Lite) — shrunk from a
+        # 21-field pre-staged record to this single flag on 2026-09-14, once
+        # upstream picked the model up. Prices matched ($0.25 in / $1.50 out
+        # text per M), so those were deleted; on capabilities the OLD OVERLAY
+        # WAS MOSTLY WRONG, and upstream is right:
+        #
+        #   field                     overlay   upstream   official page
+        #   max_output_tokens          32768     4096       4,096   -> upstream
+        #   supports_prompt_caching    True      False      Not supported
+        #   supports_response_schema   True      False      Not supported
+        #   supports_web_search        True      (unset)    Not supported
+        #   supports_function_calling  False     True       Not supported  -> OVERLAY
+        #
+        # Only the last row survives: ai.google.dev/gemini-api/docs/models/
+        # gemini-3.1-flash-lite-image lists Function calling as "Not
+        # supported", and upstream has it as True. Everything else now comes
+        # from upstream, including the 4,096 output limit the overlay had 8x
+        # too high.
         "gemini/gemini-3.1-flash-lite-image": {
-            "litellm_provider": "gemini",
-            "mode": "image_generation",
-            "input_cost_per_token": 2.5e-07,
-            "output_cost_per_token": 1.5e-06,
-            "output_cost_per_image_token": 3e-05,
-            "output_cost_per_image": 0.0336,
-            "max_input_tokens": 65536,
-            "max_output_tokens": 32768,
-            "max_tokens": 32768,
-            "source": "https://ai.google.dev/gemini-api/docs/pricing",
-            "supported_endpoints": ["/v1/chat/completions", "/v1/completions", "/v1/batch"],
-            "supported_modalities": ["text", "image"],
-            "supported_output_modalities": ["text", "image"],
             "supports_function_calling": False,
-            "supports_prompt_caching": True,
-            "supports_response_schema": True,
-            "supports_system_messages": True,
-            "supports_vision": True,
-            "supports_web_search": True,
         },
     }
 
@@ -2115,6 +2073,19 @@ class ModelSyncRules:
         re.compile(r"^gpt-realtime-2\.1-mini$", re.IGNORECASE),
         re.compile(r"^gpt-realtime-translate$", re.IGNORECASE),
         re.compile(r"^gpt-realtime-whisper$", re.IGNORECASE),
+        # gpt-live-1 — full-duplex voice, $0.05/minute billed per second
+        # (upstream input_cost_per_second 8.333e-04 x 60 = $0.05). It has NO
+        # token pricing at all, so its top-level input/output_cost_per_token
+        # export as 0; the real rate is input_cost_per_second in raw_data.
+        #
+        # Listed here for the record, not because it is load-bearing: nothing
+        # excludes it. "^gpt-realtime" and "^gpt-audio" do not match
+        # "gpt-live-1", so it entered the export on its own the first time
+        # upstream published it. That is worth knowing — the OpenAI audio
+        # "allow-list" is a set of exceptions to EXCLUDE_PATTERNS, not a
+        # whitelist, so any future OpenAI key that dodges those patterns is
+        # admitted automatically rather than by decision.
+        re.compile(r"^gpt-live-1$", re.IGNORECASE),
         # Previous realtime generation — off the pricing page but the model
         # pages are still live, so they stay until OpenAI retires them.
         re.compile(r"^gpt-realtime$", re.IGNORECASE),

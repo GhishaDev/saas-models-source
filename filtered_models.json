@@ -1268,7 +1268,7 @@
       "output_cost_per_token": 1.5e-06,
       "cache_read_input_token_cost": null,
       "max_input_tokens": 65536,
-      "max_output_tokens": 32768,
+      "max_output_tokens": 4096,
       "supports_vision": true,
       "supports_function_calling": false,
       "supports_json_output": false,
@@ -1278,15 +1278,15 @@
         "input_cost_per_token_batches": 1.25e-07,
         "litellm_provider": "gemini",
         "max_input_tokens": 65536,
-        "max_output_tokens": 32768,
-        "max_tokens": 32768,
+        "max_output_tokens": 4096,
+        "max_tokens": 4096,
         "mode": "image_generation",
         "output_cost_per_image": 0.0336,
         "output_cost_per_image_token": 3e-05,
         "output_cost_per_token": 1.5e-06,
         "output_cost_per_token_batches": 7.5e-07,
         "rpm": 1000,
-        "source": "https://ai.google.dev/gemini-api/docs/pricing",
+        "source": "https://ai.google.dev/gemini-api/docs/pricing#gemini-3.1-flash-lite-image",
         "supported_endpoints": [
           "/v1/chat/completions",
           "/v1/completions",
@@ -1301,13 +1301,12 @@
           "image"
         ],
         "supports_function_calling": false,
-        "supports_prompt_caching": true,
+        "supports_prompt_caching": false,
         "supports_reasoning": false,
-        "supports_response_schema": true,
+        "supports_response_schema": false,
         "supports_system_messages": true,
         "supports_vision": true,
-        "tpm": 4000000,
-        "supports_web_search": true
+        "tpm": 4000000
       }
     },
     "gemini/gemini-2.5-flash-lite": {
@@ -1716,7 +1715,8 @@
           "search_context_size_medium": 0.014,
           "search_context_size_high": 0.014
         },
-        "web_search_billing_unit": "per_query"
+        "web_search_billing_unit": "per_query",
+        "google_maps_grounding_cost_per_query": 0.014
       }
     },
     "gemini/gemini-3-flash-preview": {
@@ -1867,28 +1867,28 @@
       "type": "language",
       "friendly_name": "Gemini 3.6 Flash",
       "is_default_available": true,
-      "input_cost_per_token": 1.5e-06,
-      "output_cost_per_token": 7.5e-06,
-      "cache_read_input_token_cost": 1.5e-07,
+      "input_cost_per_token": 7.5e-07,
+      "output_cost_per_token": 3.75e-06,
+      "cache_read_input_token_cost": 7.5e-08,
       "max_input_tokens": 1048576,
-      "max_output_tokens": 65535,
+      "max_output_tokens": 65536,
       "supports_vision": true,
       "supports_function_calling": true,
       "supports_json_output": false,
       "raw_data": {
         "prompt_cache_min_tokens": 4096,
-        "cache_read_input_token_cost": 1.5e-07,
+        "cache_read_input_token_cost": 7.5e-08,
         "cache_read_input_token_cost_flex": 3.75e-08,
-        "input_cost_per_token": 1.5e-06,
+        "input_cost_per_token": 7.5e-07,
         "input_cost_per_token_batches": 3.75e-07,
         "input_cost_per_token_flex": 3.75e-07,
         "litellm_provider": "gemini",
         "max_input_tokens": 1048576,
-        "max_output_tokens": 65535,
-        "max_tokens": 65535,
+        "max_output_tokens": 65536,
+        "max_tokens": 65536,
         "mode": "chat",
-        "output_cost_per_reasoning_token": 7.5e-06,
-        "output_cost_per_token": 7.5e-06,
+        "output_cost_per_reasoning_token": 3.75e-06,
+        "output_cost_per_token": 3.75e-06,
         "output_cost_per_token_batches": 1.875e-06,
         "output_cost_per_token_flex": 1.875e-06,
         "rpm": 2000,
@@ -1931,7 +1931,8 @@
           "search_context_size_medium": 0.014,
           "search_context_size_high": 0.014
         },
-        "web_search_billing_unit": "per_query"
+        "web_search_billing_unit": "per_query",
+        "google_maps_grounding_cost_per_query": 0.014
       }
     },
     "gemini/gemini-3.7-flash": {
@@ -4919,6 +4920,38 @@
           "text"
         ],
         "supports_audio_input": true
+      }
+    },
+    "gpt-live-1": {
+      "model_key": "gpt-live-1",
+      "provider": "openai",
+      "type": "language",
+      "friendly_name": "GPT Live 1",
+      "is_default_available": true,
+      "input_cost_per_token": null,
+      "output_cost_per_token": null,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "input_cost_per_second": 0.0008333333333333334,
+        "litellm_provider": "openai",
+        "mode": "realtime",
+        "source": "https://developers.openai.com/api/docs/models/gpt-live-1",
+        "supported_modalities": [
+          "text",
+          "audio"
+        ],
+        "supported_output_modalities": [
+          "text",
+          "audio"
+        ],
+        "supports_audio_input": true,
+        "supports_audio_output": true,
+        "supports_function_calling": true
       }
     },
     "gpt-realtime-translate": {
