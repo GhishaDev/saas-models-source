@@ -514,19 +514,30 @@ class ModelSyncRules:
     #                     1M ctx, 384K out, no vision
     #   (peak rates; off-peak is exactly half — see the note below)
     #
-    # RETIRED 2026-09-16: deepseek-v4-flash and deepseek-v4-flash-vision-exp.
-    # DeepSeek consolidated the Flash line into V4.1-Flash, which has vision
-    # built in, and renamed the SKU to plain "deepseek-flash". Its footnote:
-    # "The legacy names deepseek-v4-flash and deepseek-v4-flash-vision-exp
-    # are still accepted, but the corresponding models have been retired,
-    # their requests are served by the DeepSeek-V4.1-Flash model and billed
-    # at the Flash price."
+    # deepseek-v4-flash is carried as a THIRD key: a legacy alias, not a
+    # third model. DeepSeek consolidated the Flash line into V4.1-Flash
+    # (vision built in) and renamed the SKU to plain "deepseek-flash", with
+    # this footnote:
     #
-    # So unlike the shut-down OpenAI/Gemini keys retired in v1.16.31/32,
-    # these two still RESOLVE — they are live aliases. They are dropped
-    # anyway because three keys pointing at one model is misleading, and
-    # "-vision-exp" in particular names an experimental vision variant that
-    # no longer exists as a distinct model.
+    #   "The legacy names deepseek-v4-flash and deepseek-v4-flash-vision-exp
+    #    are still accepted, but the corresponding models have been retired,
+    #    their requests are served by the DeepSeek-V4.1-Flash model and
+    #    billed at the Flash price."
+    #
+    # So unlike the shut-down OpenAI/Gemini keys retired in v1.16.31/32, the
+    # legacy names still RESOLVE. deepseek-v4-flash is kept so callers that
+    # already reference it keep working; upstream carries it byte-identical
+    # to deepseek-flash (verified 2026-09-16), so it picks up the V4.1 price
+    # automatically and cannot drift from the canonical entry.
+    #
+    # ⚠️ Its friendly name renders "DeepSeek-V4-Flash", but the model behind
+    # it is V4.1-Flash. The name comes from the key, and the key is the
+    # legacy one. Prefer deepseek-flash for anything new.
+    #
+    # deepseek-v4-flash-vision-exp stays OUT (retired v1.16.33): it names an
+    # experimental vision variant that no longer exists as a distinct model,
+    # and V4.1-Flash has vision natively, so the key is actively misleading
+    # rather than merely redundant.
     #
     # Excluded for being deprecated / no longer listed officially:
     #   - deepseek-chat, deepseek-reasoner: scheduled deprecation 2026-07-24
@@ -534,6 +545,7 @@ class ModelSyncRules:
     #     superseded by V4, not on official pricing page
     DEEPSEEK_ALLOWED_KEYS = frozenset({
         "deepseek/deepseek-flash",
+        "deepseek/deepseek-v4-flash",
         "deepseek/deepseek-v4-pro",
     })
 
