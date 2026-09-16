@@ -546,8 +546,35 @@ class ModelSyncRules:
     DEEPSEEK_ALLOWED_KEYS = frozenset({
         "deepseek/deepseek-flash",
         "deepseek/deepseek-v4-flash",
+        "deepseek/deepseek-v4.1-flash",
         "deepseek/deepseek-v4-pro",
     })
+
+    # DeepSeek alias mirrors: <alias key> -> <canonical source key>.
+    #
+    # ⚠️ deepseek-v4.1-flash IS NOT A DEEPSEEK API NAME. On
+    # api-docs.deepseek.com "DeepSeek-V4.1-Flash" appears only in the MODEL
+    # VERSION row; the callable names are exactly deepseek-flash,
+    # deepseek-v4-flash, deepseek-v4-flash-vision-exp and deepseek-v4-pro.
+    # Upstream carries no deepseek/deepseek-v4.1-flash either — only
+    # third-party rehosts use the v4.1 spelling
+    # (openrouter/deepseek/deepseek-v4.1-flash,
+    # fireworks_ai/.../deepseek-v4p1-flash).
+    #
+    # It is carried as a PROJECT alias by request, for gateways that expose
+    # the version-style name to their own callers. A request sent straight
+    # to api.deepseek.com under this name is expected to fail; route it to
+    # deepseek-flash.
+    #
+    # MIRRORED, NOT HAND-WRITTEN. Copying the canonical entry at build time
+    # is what keeps the alias from drifting. Six overlays in this file have
+    # rotted from a hand-copied price (v1.16.18 / 20 / 23 / 24 / 29 / 30),
+    # and an alias whose price is a literal is that same failure waiting to
+    # happen. Same mechanic as NEWAPI_MIRROR_SOURCES, minus the
+    # litellm_provider rewrite since the namespace is unchanged.
+    DEEPSEEK_ALIAS_SOURCES: dict[str, str] = {
+        "deepseek/deepseek-v4.1-flash": "deepseek/deepseek-flash",
+    }
 
     # Moonshot (Kimi) whitelist — reverse-whitelist for moonshot/* keys.
     # Scope is exactly the "Multi-modal Model" table of platform.kimi.ai's
@@ -2931,6 +2958,30 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_deepseek_alias(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Mirror canonical deepseek/* entries onto project alias keys.
+
+        For each row in ``DEEPSEEK_ALIAS_SOURCES`` the source entry is copied
+        verbatim. The namespace does not change, so unlike
+        ``apply_newapi_synth`` nothing is overridden — the alias is a copy of
+        its source and therefore cannot carry a different price.
+
+        A missing source means the alias is skipped rather than injected
+        half-formed, so a vanished source surfaces as a missing model instead
+        of a stale duplicate.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for alias_key, source_key in cls.DEEPSEEK_ALIAS_SOURCES.items():
+            source = merged.get(source_key)
+            if source is None:
+                continue
+            merged[alias_key] = dict(source)
+        return merged
+
+    @classmethod
     def apply_moonshot_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
         """
         Inject Moonshot / Kimi SKUs published on platform.kimi.ai but not yet
@@ -3148,6 +3199,12 @@ class ModelSyncRules:
             merged[key] = mirrored
         return merged
 
+    # Synth/overlay pipeline, applied in order by filter_all_models and
+    # get_filter_stats. Both call sites share this list so the two cannot
+    # drift — the stats.passed == len(filter_all_models) invariant depends
+    # on them running exactly the same steps.
+    SYNTH_PIPELINE: tuple = ()  # populated below the class body
+
     @classmethod
     def filter_all_models(cls, models: dict[str, Any]) -> dict[str, dict[str, Any]]:
         """
@@ -3156,25 +3213,16 @@ class ModelSyncRules:
         Returns:
             dict mapping model_key to transformed model data
         """
-        enriched = cls.apply_ecloud_aicc_synth(
-            cls.apply_newapi_synth(
-                cls.apply_anthropic_synth(
-                    cls.apply_byteplus_synth(
-                        cls.apply_dashscope_synth(
-                        cls.apply_volcengine_synth(
-                            cls.apply_bigmodel_synth(
-                                cls.apply_zai_synth(
-                                    cls.apply_google_synth(
-                                        cls.apply_moonshot_synth(cls.apply_openai_synth(models))
-                                    )
-                                )
-                            )
-                        )
-                        )
-                    )
-                )
-            )
-        )
+        # Order matters and is now explicit. Mirror/alias steps must run
+        # after whatever populates their sources: apply_deepseek_alias after
+        # the vendor synths, and the two aggregator mirrors
+        # (new-api, ecloud_aicc) last of all. Previously this was a
+        # ten-deep nested call whose indentation had drifted out of step
+        # with its parentheses; a flat pipeline is the same computation and
+        # makes an insertion a one-line change.
+        enriched = models
+        for step in cls.SYNTH_PIPELINE:
+            enriched = step.__func__(cls, enriched)
         filtered: dict[str, dict[str, Any]] = {}
 
         for model_key, model_data in enriched.items():
@@ -3191,25 +3239,16 @@ class ModelSyncRules:
 
         Mirrors filter_model's pipeline exactly so passed == len(filter_all_models(models)).
         """
-        enriched = cls.apply_ecloud_aicc_synth(
-            cls.apply_newapi_synth(
-                cls.apply_anthropic_synth(
-                    cls.apply_byteplus_synth(
-                        cls.apply_dashscope_synth(
-                        cls.apply_volcengine_synth(
-                            cls.apply_bigmodel_synth(
-                                cls.apply_zai_synth(
-                                    cls.apply_google_synth(
-                                        cls.apply_moonshot_synth(cls.apply_openai_synth(models))
-                                    )
-                                )
-                            )
-                        )
-                        )
-                    )
-                )
-            )
-        )
+        # Order matters and is now explicit. Mirror/alias steps must run
+        # after whatever populates their sources: apply_deepseek_alias after
+        # the vendor synths, and the two aggregator mirrors
+        # (new-api, ecloud_aicc) last of all. Previously this was a
+        # ten-deep nested call whose indentation had drifted out of step
+        # with its parentheses; a flat pipeline is the same computation and
+        # makes an insertion a one-line change.
+        enriched = models
+        for step in cls.SYNTH_PIPELINE:
+            enriched = step.__func__(cls, enriched)
         total = len(enriched)
         passed = 0
         excluded_by_rule: dict[str, int] = {
@@ -3273,6 +3312,25 @@ def is_default_available(model_key: str, provider: str, model_type: str = "langu
 def filter_model(model_key: str, model_data: dict[str, Any]) -> dict[str, Any] | None:
     """Filter and transform a single model."""
     return ModelSyncRules.filter_model(model_key, model_data)
+
+
+# Populated after the class body because the members are classmethod objects.
+# Inside-out order of the former nested expression, with apply_deepseek_alias
+# inserted after the vendor synths that could populate its source.
+ModelSyncRules.SYNTH_PIPELINE = (
+    ModelSyncRules.__dict__["apply_openai_synth"],
+    ModelSyncRules.__dict__["apply_moonshot_synth"],
+    ModelSyncRules.__dict__["apply_google_synth"],
+    ModelSyncRules.__dict__["apply_zai_synth"],
+    ModelSyncRules.__dict__["apply_bigmodel_synth"],
+    ModelSyncRules.__dict__["apply_deepseek_alias"],
+    ModelSyncRules.__dict__["apply_volcengine_synth"],
+    ModelSyncRules.__dict__["apply_dashscope_synth"],
+    ModelSyncRules.__dict__["apply_byteplus_synth"],
+    ModelSyncRules.__dict__["apply_anthropic_synth"],
+    ModelSyncRules.__dict__["apply_newapi_synth"],
+    ModelSyncRules.__dict__["apply_ecloud_aicc_synth"],
+)
 
 
 def filter_all_models(models: dict[str, Any]) -> dict[str, dict[str, Any]]:
