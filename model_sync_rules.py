@@ -504,19 +504,36 @@ class ModelSyncRules:
     )
 
     # ── DeepSeek (api.deepseek.com) ───────────────────────────────────────
-    # Reverse-whitelist for deepseek/* SKUs. Only the V4 series is active
-    # on api-docs.deepseek.com/quick_start/pricing (snapshot 2026-09-04).
-    # deepseek-v4-flash-vision-exp is the vision-capable sibling of
-    # deepseek-v4-flash — identical tariff and limits, adds image input
-    # (billed as input tokens by dimension), drops FIM completion.
+    # Reverse-whitelist for deepseek/* SKUs. The official pricing page
+    # (api-docs.deepseek.com/quick_start/pricing, snapshot 2026-09-16) lists
+    # exactly TWO models, and these are they:
+    #
+    #   deepseek-flash    DeepSeek-V4.1-Flash   $0.30 / $1.20, cache $0.006
+    #                     1M ctx, 384K out, VISION, FIM (non-thinking only)
+    #   deepseek-v4-pro   DeepSeek-V4-Pro-0813  $1.32 / $3.96, cache $0.044
+    #                     1M ctx, 384K out, no vision
+    #   (peak rates; off-peak is exactly half — see the note below)
+    #
+    # RETIRED 2026-09-16: deepseek-v4-flash and deepseek-v4-flash-vision-exp.
+    # DeepSeek consolidated the Flash line into V4.1-Flash, which has vision
+    # built in, and renamed the SKU to plain "deepseek-flash". Its footnote:
+    # "The legacy names deepseek-v4-flash and deepseek-v4-flash-vision-exp
+    # are still accepted, but the corresponding models have been retired,
+    # their requests are served by the DeepSeek-V4.1-Flash model and billed
+    # at the Flash price."
+    #
+    # So unlike the shut-down OpenAI/Gemini keys retired in v1.16.31/32,
+    # these two still RESOLVE — they are live aliases. They are dropped
+    # anyway because three keys pointing at one model is misleading, and
+    # "-vision-exp" in particular names an experimental vision variant that
+    # no longer exists as a distinct model.
+    #
     # Excluded for being deprecated / no longer listed officially:
     #   - deepseek-chat, deepseek-reasoner: scheduled deprecation 2026-07-24
-    #     (currently aliases of deepseek-v4-flash thinking/non-thinking modes)
     #   - deepseek-v3, deepseek-v3.2, deepseek-r1, deepseek-coder:
     #     superseded by V4, not on official pricing page
     DEEPSEEK_ALLOWED_KEYS = frozenset({
-        "deepseek/deepseek-v4-flash",
-        "deepseek/deepseek-v4-flash-vision-exp",
+        "deepseek/deepseek-flash",
         "deepseek/deepseek-v4-pro",
     })
 
@@ -2010,6 +2027,26 @@ class ModelSyncRules:
         "o3-deep-research",
         "o3-pro",
         "o4-mini-deep-research",
+        # Same policy, 2026-09 arrivals. Neither is on the official pricing
+        # page and neither has a model page on developers.openai.com — they
+        # entered the export on their own the first time upstream published
+        # them, which is now the THIRD time this has happened (gpt-live-1 in
+        # v1.16.30, these two here). OpenAI has no reverse-whitelist, so its
+        # scope is enforced only by exclusion patterns that new keys can
+        # simply fail to match.
+        #
+        #   gpt-5.5-cyber — superseded Daybreak cyber model. The pricing
+        #     page's "Cyber models" table lists only gpt-5.6-sol and
+        #     gpt-5.6-cyber, and the deprecations page already retires
+        #     gpt-5.4-cyber (2026-10-01) in favour of gpt-5.6-cyber. Its
+        #     upstream prices are identical to gpt-5.6-cyber's short-context
+        #     tier, but it lacks the >272k tier that entry carries.
+        #   gpt-rosalind-research — a research variant, same family as the
+        #     *-deep-research keys already excluded above.
+        #
+        # Promote either one if it appears on the official pricing page.
+        "gpt-5.5-cyber",
+        "gpt-rosalind-research",
         # Note: gpt-audio-* and gpt-realtime-* are excluded via EXCLUDE_PATTERNS
         # Gemini non-standard models
         "gemini/gemini-gemma-2-27b-it",
