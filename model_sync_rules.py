@@ -44,6 +44,21 @@ def _cny_per_m_to_usd_per_token(cny_per_m: float, sig: int = 4) -> float:
     return round(raw, digits)
 
 
+def _cny_per_image_to_usd_per_image(cny_per_image: float, sig: int = 4) -> float:
+    """Convert CNY per image → USD per image, rounded to ``sig`` sig figs.
+
+    Volcengine's Seedream image models are billed per generated image in CNY
+    (元/张), not per token, so they need their own converter rather than
+    _cny_per_m_to_usd_per_token. Same fixed 7.0 policy rate, same 4-sig-fig
+    rounding, and the source CNY stays recoverable (round(val * FX, 2)).
+    """
+    raw = cny_per_image / _CNY_USD_FX_RATE
+    if raw == 0:
+        return 0.0
+    digits = sig - int(math.floor(math.log10(abs(raw)))) - 1
+    return round(raw, digits)
+
+
 def _usd_per_m_to_usd_per_token(usd_per_m: float, sig: int = 4) -> float:
     """Convert USD per million tokens → USD per token, rounded to ``sig`` sig figs.
 
@@ -970,6 +985,13 @@ class ModelSyncRules:
         # Seedance 2.5 (date-less alias + dated snapshot)
         "volcengine/doubao-seedance-2-5",
         "volcengine/doubao-seedance-2-5-260628",
+        # Seedream 5.0 image models — the first NON-video volcengine SKUs.
+        # Scope was Seedance video only until 2026-09-17; these two were
+        # added by request. Dated + alias pairs, same convention as Seedance.
+        "volcengine/doubao-seedream-5-0-pro",
+        "volcengine/doubao-seedream-5-0-pro-260628",
+        "volcengine/doubao-seedream-5-0-lite",
+        "volcengine/doubao-seedream-5-0-lite-260128",
     })
 
     # Volcengine Seedance pre-stage. Upstream BerriAI/litellm/main does
@@ -1092,6 +1114,73 @@ class ModelSyncRules:
             # Volcengine publishes a 2.5 4K tier.
             "output_cost_per_token_4k": _cny_per_m_to_usd_per_token(39),
             "output_cost_per_token_4k_with_input_video": _cny_per_m_to_usd_per_token(24),
+        },
+        # ── Seedream 5.0 image generation ────────────────────────────────
+        # Billed PER IMAGE in CNY (元/张), not per token — a different shape
+        # from every other volcengine SKU here, hence
+        # _cny_per_image_to_usd_per_image rather than the per-token helper.
+        # Same 7.0 policy FX. Source: the 图片生成模型 table on
+        # volcengine.com/docs/82379/1544106 (read 2026-09-17).
+        #
+        # Seedream 5.0 Pro has a 2x2 output matrix — scene x resolution:
+        #
+        #                       <=261万像素 (<=1.5K)   >261万像素 (>1.5K)
+        #   单图生成 single           0.30 CNY              0.60 CNY
+        #   图层拆分 layered          0.15 CNY              0.30 CNY
+        #
+        # output_cost_per_image carries the CEILING (0.60, single >1.5K) so a
+        # consumer that ignores the variants over-bills visibly instead of
+        # under-billing silently — the same never-under-bill rule used for
+        # the DeepSeek peak tariff, the BytePlus list price and the DashScope
+        # tiered flats. The three cheaper cells are exposed as suffixed
+        # variants, mirroring Seedance's output_cost_per_token_1080p family.
+        #
+        # ⚠️ input_cost_per_image is the MARGINAL rate: Volcengine gives the
+        # first input image free and charges 0.02 from the 2nd. The schema
+        # has no volume axis, so a single-image request is over-billed by
+        # 0.02 CNY (~$0.003). Over-billing is the deliberate direction; the
+        # exact rule is recorded here rather than approximated in the number.
+        "volcengine/doubao-seedream-5-0-pro-260628": {
+            "litellm_provider": "volcengine",
+            "mode": "image_generation",
+            "source": "https://www.volcengine.com/docs/82379/1544106",
+            "input_cost_per_image": _cny_per_image_to_usd_per_image(0.02),
+            "output_cost_per_image": _cny_per_image_to_usd_per_image(0.60),
+            "output_cost_per_image_1_5k": _cny_per_image_to_usd_per_image(0.30),
+            "output_cost_per_image_layered": _cny_per_image_to_usd_per_image(0.30),
+            "output_cost_per_image_1_5k_layered": _cny_per_image_to_usd_per_image(0.15),
+            "supports_vision": True,
+        },
+        "volcengine/doubao-seedream-5-0-pro": {
+            "litellm_provider": "volcengine",
+            "mode": "image_generation",
+            "source": "https://www.volcengine.com/docs/82379/1544106",
+            "input_cost_per_image": _cny_per_image_to_usd_per_image(0.02),
+            "output_cost_per_image": _cny_per_image_to_usd_per_image(0.60),
+            "output_cost_per_image_1_5k": _cny_per_image_to_usd_per_image(0.30),
+            "output_cost_per_image_layered": _cny_per_image_to_usd_per_image(0.30),
+            "output_cost_per_image_1_5k_layered": _cny_per_image_to_usd_per_image(0.15),
+            "supports_vision": True,
+        },
+        # Seedream 5.0 Lite — single flat output rate, input free. Its ONLY
+        # non-zero price is output_cost_per_image, which is why
+        # PRICE_FIELDS_BY_MODE["image_generation"] had to learn about output
+        # fields before this entry could survive the zero-price filter.
+        "volcengine/doubao-seedream-5-0-lite-260128": {
+            "litellm_provider": "volcengine",
+            "mode": "image_generation",
+            "source": "https://www.volcengine.com/docs/82379/1544106",
+            "input_cost_per_image": 0.0,
+            "output_cost_per_image": _cny_per_image_to_usd_per_image(0.22),
+            "supports_vision": True,
+        },
+        "volcengine/doubao-seedream-5-0-lite": {
+            "litellm_provider": "volcengine",
+            "mode": "image_generation",
+            "source": "https://www.volcengine.com/docs/82379/1544106",
+            "input_cost_per_image": 0.0,
+            "output_cost_per_image": _cny_per_image_to_usd_per_image(0.22),
+            "supports_vision": True,
         },
     }
 
@@ -2136,6 +2225,19 @@ class ModelSyncRules:
         # (Gemini 2.5+ chat + Gemini Embedding + gemini-*-image*).
         "gemini/gemini-3.5-transcribe",
         "gemini/gemini-3.5-transcribe-live",
+        # Same scope rule, 2026-09 arrivals: the Gemini Live API pair. Both
+        # are mode "realtime" with audio in and out — the modality the Google
+        # scope excludes — and they join gemini-3.1-flash-live-preview and
+        # gemini-3.5-live-translate-preview, already excluded on the same
+        # basis. Like the transcribe pair they carry no "-preview" suffix, so
+        # nothing else keeps them out.
+        #
+        # Listed in BOTH forms: upstream publishes a bare key alongside the
+        # gemini/ one for these, and both reach the filter.
+        "gemini/gemini-3.8-live",
+        "gemini/gemini-3.8-live-extended-thinking",
+        "gemini-3.8-live",
+        "gemini-3.8-live-extended-thinking",
         # DEFERRED, not rejected: ai.google.dev calls gemini-omni-1.1-flash
         # "our next-generation video generation and editing model", but
         # upstream classifies it as mode "chat" and carries only the $1.50 in
@@ -2372,10 +2474,21 @@ class ModelSyncRules:
 
     # Per-mode pricing fields used for "non-zero price" validation
     PRICE_FIELDS_BY_MODE = {
+        # Image generation. OUTPUT fields are listed too, and they matter:
+        # a model billed purely on generated images with free input — e.g.
+        # volcengine/doubao-seedream-5-0-lite, whose input is 免费 — has no
+        # non-zero input field at all and was invisible to this check before
+        # 2026-09-17. Third instance of the same defect class, after
+        # tiered_pricing (v1.16.19) and realtime input_cost_per_second
+        # (v1.16.26): a priced model vanishing because the vendor bills on
+        # an axis this tuple did not enumerate.
         "image_generation": (
             "input_cost_per_token",
             "input_cost_per_image_token",
             "input_cost_per_image",
+            "output_cost_per_token",
+            "output_cost_per_image_token",
+            "output_cost_per_image",
         ),
         # Volcengine Seedance: USD/token via the standard
         # output_cost_per_token family, tiered by resolution (base 720p
@@ -2662,28 +2775,39 @@ class ModelSyncRules:
                 overrides.get(p.lower(), p.title()) for p in suffix.split("-")
             )
 
-        # Volcengine / new-api / ecloud_aicc Seedance video:
+        # Volcengine / new-api / ecloud_aicc Doubao families:
         #   volcengine/doubao-seedance-2-0-260128       → Doubao-Seedance 2.0
         #   volcengine/doubao-seedance-2-0-fast-260128  → Doubao-Seedance 2.0 Fast
         #   volcengine/doubao-seedance-2-0-mini-260615  → Doubao-Seedance 2.0 Mini
         #   volcengine/doubao-seedance-2-0              → Doubao-Seedance 2.0
+        #   volcengine/doubao-seedream-5-0-pro-260628   → Doubao-Seedream 5.0 Pro
+        #   volcengine/doubao-seedream-5-0-lite         → Doubao-Seedream 5.0 Lite
         #   new-api/doubao-seedance-2-0-fast            → Doubao-Seedance 2.0 Fast
         #   ecloud_aicc/doubao-seedance-2-0-mini        → Doubao-Seedance 2.0 Mini
         # Dated suffixes (-260128, -260615) are the official Volcengine
         # model-version stamps (YYMMDD); strip them for the friendly name.
         # new-api and ecloud_aicc are catalogue-layer mirror providers that
         # reuse Volcengine's naming; the branch covers all three prefixes.
-        if (
+        #
+        # The family (seedance video / seedream image) is CAPTURED rather
+        # than hard-coded. It used to be literal "Doubao-Seedance" with a
+        # regex that only stripped the seedance prefix, so the first
+        # non-Seedance volcengine SKU rendered as
+        # "Doubao-Seedance volcengine/doubao.seedream 5 0 Pro" — the prefix
+        # survived the failed substitution and was then split on "-".
+        # The match is now a guard: a key that fits neither family falls
+        # through to the generic formatter instead of producing that.
+        seedx = re.match(
+            r"^(?:volcengine|new-api|ecloud_aicc)/doubao-(seedance|seedream)-(.+)$",
+            key,
+            flags=re.IGNORECASE,
+        )
+        if seedx and (
             provider in ("volcengine", "new-api", "ecloud_aicc")
             or key.startswith(("volcengine/", "new-api/", "ecloud_aicc/"))
         ):
-            suffix = re.sub(
-                r"^(?:volcengine|new-api|ecloud_aicc)/doubao-seedance-",
-                "",
-                key,
-                flags=re.IGNORECASE,
-            )
-            suffix = re.sub(r"-\d{6}$", "", suffix)  # drop -YYMMDD
+            family = seedx.group(1).capitalize()
+            suffix = re.sub(r"-\d{6}$", "", seedx.group(2))  # drop -YYMMDD
             parts = suffix.split("-")
             version = (
                 f"{parts[0]}.{parts[1]}" if len(parts) >= 2 else suffix
@@ -2693,7 +2817,7 @@ class ModelSyncRules:
                 if len(parts) > 2
                 else ""
             )
-            return f"Doubao-Seedance {version} {variant}".rstrip()
+            return f"Doubao-{family} {version} {variant}".rstrip()
 
         # BytePlus (overseas Ark) Dreamina Seedance video:
         #   byteplus/dreamina-seedance-2-5-260628       → Dreamina Seedance 2.5
