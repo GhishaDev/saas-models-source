@@ -183,6 +183,7 @@ class ModelSyncRules:
         "zai/glm-5.2",
         "zai/glm-5.3",
         "zai/glm-5.3-flash",
+        "zai/glm-5.3-flashx",
         "zai/glm-5.1",
         "zai/glm-5-turbo",
         "zai/glm-4.7-flashx",
@@ -285,6 +286,42 @@ class ModelSyncRules:
             # why it needs the flag despite having no "v" infix to match
             # _GLM_VISION_KEY. Upstream sets it too, so we no longer do.
             "max_input_tokens": 1000000,
+        },
+        "zai/glm-5.3-flashx": {
+            # GLM-5.3-FlashX — the higher-throughput tier of GLM-5.3-Flash,
+            # natively multimodal like its sibling (图片、视频、文件、文本).
+            #
+            # Prices read off docs.z.ai/guides/overview/pricing on
+            # 2026-09-18: $0.37 in / $0.075 cached / $1.25 out per M. The row
+            # renders as three BARE values, not the list+live price PAIR z.ai
+            # uses for a discount, so this is list price with no promotion to
+            # schedule a revert against (contrast GLM-5.3-Flash, whose 50%
+            # promo lapsed on 2026-09-09 — see v1.16.29).
+            #
+            # Pre-staged: upstream carries no zai/glm-5.3-flashx (verified
+            # 2026-09-18). Remove this entry once it does.
+            #
+            # ⚠️ max_output_tokens 128000 is INFERRED, not published. z.ai has
+            # no model page for FlashX — neither guides/llm/glm-5.3-flashx nor
+            # guides/vlm/glm-5.3-flashx exists — so the only authoritative
+            # data is the pricing row. 128000 is what every other GLM-5 SKU
+            # here carries, including GLM-5.3-Flash. Replace with a quote if
+            # z.ai publishes one.
+            #
+            # max_input_tokens 1000000 IS published: 1M on both the z.ai
+            # pricing table and the bigmodel 旗舰模型 table. Note upstream
+            # stores 1048576 for the sibling glm-5.3-flash, which is wrong —
+            # z.ai spells out "one million" in prose (see v1.16.29).
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "input_cost_per_token": 3.7e-07,
+            "output_cost_per_token": 1.25e-06,
+            "cache_read_input_token_cost": 7.5e-08,
+            "supports_function_calling": True,
+            "supports_vision": True,
+            "supports_json_mode": False,
         },
         "zai/glm-5.1": {
             "litellm_provider": "zai",
@@ -413,6 +450,7 @@ class ModelSyncRules:
         "bigmodel/glm-5.2",
         "bigmodel/glm-5.3",
         "bigmodel/glm-5.3-flash",
+        "bigmodel/glm-5.3-flashx",
         "bigmodel/glm-5",
         "bigmodel/glm-4.7",
         "bigmodel/glm-4.5v",
@@ -461,6 +499,20 @@ class ModelSyncRules:
         # place. supports_vision must still be stated: it is metadata, not a
         # mirrored price field, and glm-5.3-flash is natively multimodal
         # despite having no "v" infix in the key.
+        "bigmodel/glm-5.3-flashx": {
+            # Metadata only — prices are copied from zai/glm-5.3-flashx by
+            # apply_bigmodel_synth, so the FlashX tariff lives in exactly one
+            # place. Domestic bigmodel quotes CNY (2 / 7 / 0.57 元 per M) but
+            # this catalogue mirrors the z.ai USD book for bigmodel/*, as it
+            # has since v1.9.0.
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "supports_function_calling": True,
+            "supports_vision": True,
+            "supports_json_mode": False,
+        },
         "bigmodel/glm-5.3-flash": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
