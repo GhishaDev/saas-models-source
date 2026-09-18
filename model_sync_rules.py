@@ -44,19 +44,72 @@ def _cny_per_m_to_usd_per_token(cny_per_m: float, sig: int = 4) -> float:
     return round(raw, digits)
 
 
-def _cny_per_image_to_usd_per_image(cny_per_image: float, sig: int = 4) -> float:
-    """Convert CNY per image → USD per image, rounded to ``sig`` sig figs.
+def _cny_per_image_to_usd_per_image(cny_per_image: float) -> float:
+    """Convert CNY per image → USD per image at the policy FX rate, EXACTLY.
 
     Volcengine's Seedream image models are billed per generated image in CNY
-    (元/张), not per token, so they need their own converter rather than
-    _cny_per_m_to_usd_per_token. Same fixed 7.0 policy rate, same 4-sig-fig
-    rounding, and the source CNY stays recoverable (round(val * FX, 2)).
+    (元/张) rather than per token, so they need their own converter.
+
+    Unlike the per-token helpers this one does NOT round. These values are
+    compared field-by-field against the internal LiteLLM fork's own price
+    table (GhishaDev/litellm-internal), which stores the unrounded quotient,
+    and that table is the side that actually bills. A 4-sig-fig copy here
+    would differ from the gateway in the 5th digit and turn every future
+    reconciliation into a "is 0.08571 the same number as 0.085714…?"
+    argument. Exact division makes the two tables byte-comparable.
     """
-    raw = cny_per_image / _CNY_USD_FX_RATE
-    if raw == 0:
-        return 0.0
-    digits = sig - int(math.floor(math.log10(abs(raw)))) - 1
-    return round(raw, digits)
+    return cny_per_image / _CNY_USD_FX_RATE
+
+
+# Seedream record templates. Each alias/dated pair shares ONE object, so a
+# price can only be written once: the 11 whitelisted Seedream keys are really
+# 4 distinct tariffs, and hand-copying them 11 times is exactly how an alias
+# and its dated twin drift apart.
+#
+# Key names mirror GhishaDev/litellm-internal, because the meaning of each key
+# is defined by the gateway code that reads it
+# (litellm/llms/volcengine/image_generation/cost_calculator.py).
+_SEEDREAM_ENDPOINTS = ["/v1/images/generations", "/v1/images/edits"]
+_SEEDREAM_SOURCE = "https://www.volcengine.com/docs/82379/1544106?lang=zh"
+
+_SEEDREAM_PRO: dict[str, Any] = {
+    "litellm_provider": "volcengine",
+    "mode": "image_generation",
+    "source": _SEEDREAM_SOURCE,
+    "supported_endpoints": _SEEDREAM_ENDPOINTS,
+    # Marginal rate: the first reference image is free, ¥0.02 from the 2nd.
+    "input_cost_per_image": _cny_per_image_to_usd_per_image(0.02),
+    # Fallback band, read only when no banded key matches. The gateway's own
+    # table puts the <=1.5K single-image price here; this must agree with it.
+    "output_cost_per_image": _cny_per_image_to_usd_per_image(0.30),
+    "output_cost_per_image_1_5k_and_below": _cny_per_image_to_usd_per_image(0.30),
+    "output_cost_per_image_above_1_5k": _cny_per_image_to_usd_per_image(0.60),
+    "output_cost_per_image_layer_decomposition_1_5k_and_below": _cny_per_image_to_usd_per_image(0.15),
+    "output_cost_per_image_layer_decomposition_above_1_5k": _cny_per_image_to_usd_per_image(0.30),
+    "supports_vision": True,
+}
+
+
+def _seedream_flat(cny_per_image: float) -> dict[str, Any]:
+    """A single-price Seedream SKU: one output rate, no bands, no input fee.
+
+    These SKUs do not bill reference images, so they carry NO
+    input_cost_per_image key at all — a 0.0 would be pushed to the gateway as
+    a deployment-level override of a field the gateway does not define.
+    """
+    return {
+        "litellm_provider": "volcengine",
+        "mode": "image_generation",
+        "source": _SEEDREAM_SOURCE,
+        "supported_endpoints": _SEEDREAM_ENDPOINTS,
+        "output_cost_per_image": _cny_per_image_to_usd_per_image(cny_per_image),
+        "supports_vision": True,
+    }
+
+
+_SEEDREAM_FLAT_022 = _seedream_flat(0.22)   # 5-0 and 5-0-lite
+_SEEDREAM_FLAT_025 = _seedream_flat(0.25)   # 4-5
+_SEEDREAM_FLAT_020 = _seedream_flat(0.20)   # 4-0
 
 
 def _usd_per_m_to_usd_per_token(usd_per_m: float, sig: int = 4) -> float:
@@ -985,13 +1038,22 @@ class ModelSyncRules:
         # Seedance 2.5 (date-less alias + dated snapshot)
         "volcengine/doubao-seedance-2-5",
         "volcengine/doubao-seedance-2-5-260628",
-        # Seedream 5.0 image models — the first NON-video volcengine SKUs.
-        # Scope was Seedance video only until 2026-09-17; these two were
-        # added by request. Dated + alias pairs, same convention as Seedance.
+        # Seedream image models — the NON-video volcengine SKUs (scope was
+        # Seedance video only until 2026-09-17). All 11 keys the internal
+        # LiteLLM fork supports, so an operator sees every one of them in the
+        # Add Model dropdown with its price pre-filled instead of having to
+        # type a model id by hand.
         "volcengine/doubao-seedream-5-0-pro",
         "volcengine/doubao-seedream-5-0-pro-260628",
         "volcengine/doubao-seedream-5-0-lite",
         "volcengine/doubao-seedream-5-0-lite-260128",
+        "volcengine/doubao-seedream-5-0",
+        "volcengine/doubao-seedream-5-0-260128",
+        "volcengine/doubao-seedream-4-5",
+        "volcengine/doubao-seedream-4-5-251128",
+        "volcengine/doubao-seedream-4-0",
+        "volcengine/doubao-seedream-4-0-250828",
+        "volcengine/doubao-seedream-4-0-20260415",
     })
 
     # Volcengine Seedance pre-stage. Upstream BerriAI/litellm/main does
@@ -1115,73 +1177,57 @@ class ModelSyncRules:
             "output_cost_per_token_4k": _cny_per_m_to_usd_per_token(39),
             "output_cost_per_token_4k_with_input_video": _cny_per_m_to_usd_per_token(24),
         },
-        # ── Seedream 5.0 image generation ────────────────────────────────
+        # ── Seedream image generation ────────────────────────────────────
         # Billed PER IMAGE in CNY (元/张), not per token — a different shape
         # from every other volcengine SKU here, hence
         # _cny_per_image_to_usd_per_image rather than the per-token helper.
-        # Same 7.0 policy FX. Source: the 图片生成模型 table on
-        # volcengine.com/docs/82379/1544106 (read 2026-09-17).
+        # Same 7.0 policy FX, but EXACT division with no rounding: these
+        # values are reconciled field-by-field against the internal LiteLLM
+        # fork's own table, which stores the unrounded quotient and is the
+        # side that actually bills.
         #
-        # Seedream 5.0 Pro has a 2x2 output matrix — scene x resolution:
+        # Source: the 图片生成模型 table on
+        # volcengine.com/docs/82379/1544106?lang=zh (read 2026-09-17), with
+        # key NAMES taken from GhishaDev/litellm-internal because the meaning
+        # of each key is defined by the gateway code that reads it
+        # (litellm/llms/volcengine/image_generation/cost_calculator.py).
         #
-        #                       <=261万像素 (<=1.5K)   >261万像素 (>1.5K)
-        #   单图生成 single           0.30 CNY              0.60 CNY
-        #   图层拆分 layered          0.15 CNY              0.30 CNY
+        # ⚠️ output_cost_per_image IS THE FALLBACK, NOT THE HEADLINE PRICE.
+        # The gateway reads it only when no banded key matches. For the
+        # single-price SKUs (4-0, 4-5, 5-0, 5-0-lite) that makes it the one
+        # and only price; for 5-0-pro the gateway's own table puts the
+        # ≤1.5K band there. An earlier version of this file put the >1.5K
+        # band in it under a locally-invented name — the gateway saw one
+        # unrecognised flat override plus three keys it had never heard of,
+        # took the branch that discards its own band table, and billed
+        # 1024x1024 at 2x and ≤1.5K layer decomposition at 4x. Key names here
+        # are not cosmetic; they are the contract.
         #
-        # output_cost_per_image carries the CEILING (0.60, single >1.5K) so a
-        # consumer that ignores the variants over-bills visibly instead of
-        # under-billing silently — the same never-under-bill rule used for
-        # the DeepSeek peak tariff, the BytePlus list price and the DashScope
-        # tiered flats. The three cheaper cells are exposed as suffixed
-        # variants, mirroring Seedance's output_cost_per_token_1080p family.
+        # ⚠️ input_cost_per_image (5-0-pro only) is the MARGINAL rate:
+        # Volcengine gives the first reference image free and charges ¥0.02
+        # from the 2nd. The schema has no volume axis, so a single-image
+        # request is over-billed by ¥0.02 (~$0.003). The other SKUs do not
+        # bill reference images at all and deliberately carry NO
+        # input_cost_per_image key — a 0.0 would be pushed to the gateway as
+        # a deployment-level override of a field it does not define.
         #
-        # ⚠️ input_cost_per_image is the MARGINAL rate: Volcengine gives the
-        # first input image free and charges 0.02 from the 2nd. The schema
-        # has no volume axis, so a single-image request is over-billed by
-        # 0.02 CNY (~$0.003). Over-billing is the deliberate direction; the
-        # exact rule is recorded here rather than approximated in the number.
-        "volcengine/doubao-seedream-5-0-pro-260628": {
-            "litellm_provider": "volcengine",
-            "mode": "image_generation",
-            "source": "https://www.volcengine.com/docs/82379/1544106",
-            "input_cost_per_image": _cny_per_image_to_usd_per_image(0.02),
-            "output_cost_per_image": _cny_per_image_to_usd_per_image(0.60),
-            "output_cost_per_image_1_5k": _cny_per_image_to_usd_per_image(0.30),
-            "output_cost_per_image_layered": _cny_per_image_to_usd_per_image(0.30),
-            "output_cost_per_image_1_5k_layered": _cny_per_image_to_usd_per_image(0.15),
-            "supports_vision": True,
-        },
-        "volcengine/doubao-seedream-5-0-pro": {
-            "litellm_provider": "volcengine",
-            "mode": "image_generation",
-            "source": "https://www.volcengine.com/docs/82379/1544106",
-            "input_cost_per_image": _cny_per_image_to_usd_per_image(0.02),
-            "output_cost_per_image": _cny_per_image_to_usd_per_image(0.60),
-            "output_cost_per_image_1_5k": _cny_per_image_to_usd_per_image(0.30),
-            "output_cost_per_image_layered": _cny_per_image_to_usd_per_image(0.30),
-            "output_cost_per_image_1_5k_layered": _cny_per_image_to_usd_per_image(0.15),
-            "supports_vision": True,
-        },
-        # Seedream 5.0 Lite — single flat output rate, input free. Its ONLY
-        # non-zero price is output_cost_per_image, which is why
-        # PRICE_FIELDS_BY_MODE["image_generation"] had to learn about output
-        # fields before this entry could survive the zero-price filter.
-        "volcengine/doubao-seedream-5-0-lite-260128": {
-            "litellm_provider": "volcengine",
-            "mode": "image_generation",
-            "source": "https://www.volcengine.com/docs/82379/1544106",
-            "input_cost_per_image": 0.0,
-            "output_cost_per_image": _cny_per_image_to_usd_per_image(0.22),
-            "supports_vision": True,
-        },
-        "volcengine/doubao-seedream-5-0-lite": {
-            "litellm_provider": "volcengine",
-            "mode": "image_generation",
-            "source": "https://www.volcengine.com/docs/82379/1544106",
-            "input_cost_per_image": 0.0,
-            "output_cost_per_image": _cny_per_image_to_usd_per_image(0.22),
-            "supports_vision": True,
-        },
+        # ⚠️ doubao-seedream-5-0 is priced identically to 5-0-lite. That is
+        # the gateway's definition, not an oversight: 5-0 is an alias of the
+        # lite family, and a request to -lite-260128 echoes back 5-0-260128.
+        #
+        # CNY source values: 5-0-pro 0.60 / 0.30 / 0.30 / 0.15 output and
+        # 0.02 input; 5-0 + 5-0-lite 0.22; 4-5 0.25; 4-0 0.20.
+        "volcengine/doubao-seedream-5-0-pro-260628": _SEEDREAM_PRO,
+        "volcengine/doubao-seedream-5-0-pro": _SEEDREAM_PRO,
+        "volcengine/doubao-seedream-5-0-lite-260128": _SEEDREAM_FLAT_022,
+        "volcengine/doubao-seedream-5-0-lite": _SEEDREAM_FLAT_022,
+        "volcengine/doubao-seedream-5-0-260128": _SEEDREAM_FLAT_022,
+        "volcengine/doubao-seedream-5-0": _SEEDREAM_FLAT_022,
+        "volcengine/doubao-seedream-4-5-251128": _SEEDREAM_FLAT_025,
+        "volcengine/doubao-seedream-4-5": _SEEDREAM_FLAT_025,
+        "volcengine/doubao-seedream-4-0-250828": _SEEDREAM_FLAT_020,
+        "volcengine/doubao-seedream-4-0-20260415": _SEEDREAM_FLAT_020,
+        "volcengine/doubao-seedream-4-0": _SEEDREAM_FLAT_020,
     }
 
     # ── BytePlus ModelArk (ByteDance Ark overseas — Dreamina Seedance) ────
@@ -2290,6 +2336,13 @@ class ModelSyncRules:
         # "Transcription models" tables of developers.openai.com/api/docs/pricing
         # (snapshot 2026-09-04), plus the older SKUs below that are no longer
         # on the pricing page but still have live model pages.
+        # Volcengine Seedream version stamps. contains_date_pattern() fires on
+        # the 8-digit YYYYMMDD form (doubao-seedream-4-0-20260415) but not on
+        # the 6-digit YYMMDD one, so without this the catalogue would carry an
+        # arbitrary subset of the dated Seedream SKUs. Which keys are admitted
+        # is decided by VOLCENGINE_ALLOWED_KEYS, checked earlier; this only
+        # stops the generic date rule from second-guessing that decision.
+        re.compile(r"^volcengine/doubao-seedream-", re.IGNORECASE),
         re.compile(r"^gpt-4o$", re.IGNORECASE),
         re.compile(r"^gpt-4o-mini$", re.IGNORECASE),
         # Current realtime generation. gpt-realtime-2 / -1.5 / -mini are
@@ -2807,7 +2860,10 @@ class ModelSyncRules:
             or key.startswith(("volcengine/", "new-api/", "ecloud_aicc/"))
         ):
             family = seedx.group(1).capitalize()
-            suffix = re.sub(r"-\d{6}$", "", seedx.group(2))  # drop -YYMMDD
+            # Drop the trailing version stamp. Volcengine uses YYMMDD for most
+            # SKUs but shipped at least one 8-digit YYYYMMDD
+            # (doubao-seedream-4-0-20260415), so both widths are handled.
+            suffix = re.sub(r"-(?:\d{8}|\d{6})$", "", seedx.group(2))
             parts = suffix.split("-")
             version = (
                 f"{parts[0]}.{parts[1]}" if len(parts) >= 2 else suffix
