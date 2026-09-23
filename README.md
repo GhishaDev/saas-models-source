@@ -38,6 +38,79 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 | `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `byteplus/dreamina-seedance-2-5`, `new-api/doubao-seedance-2-0-fast`, `ecloud_aicc/doubao-seedance-2-0-mini` |
 | `audio` | `audio_speech`, `audio_transcription` | `gpt-4o-mini-tts` / `tts-1` / `tts-1-hd` (TTS), `gpt-4o-mini-transcribe` / `whisper-1` (ASR) |
 
+## Price and Lifecycle Calendar
+
+Dates that need a human to look at something. **Nothing in the pipeline reads a
+lifecycle or expiry signal** — `should_exclude_with_reason` never looks at
+`deprecation_date`, and no overlay knows what day it is. These are manual checks.
+
+Two rules learned the hard way:
+
+- **Verify before acting on a scheduled date.** A calendar entry is a reminder to
+  *check*, not an instruction to change. On 2026-09-01 a scheduled `claude-sonnet-5`
+  revert would have been wrong — Anthropic had cancelled the increase (v1.16.20).
+- **Read the markup, not the number.** A lapsed promotion and a price rise look
+  identical in rendered text. Vendors mark discounts structurally: qwencloud uses
+  `originalPrice` / `discountedPrice` / `discountTag` spans, docs.z.ai uses a price
+  *pair*. Check the cell structure (v1.16.24, v1.16.29).
+
+### ⏳ Time-boxed prices
+
+| Date | What | Direction | Action |
+|---|---|---|---|
+| **2026-11-21** | `gpt-5.6-sol` promotional pricing, *"available **at least** through November 21, 2026"* | Price will **rise** → we would **under**-bill | Re-check. No post-promo price is published, and *"at least through"* is not a firm end — nothing can be pre-staged. |
+| **2027-01-01** | `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash`: *"$0.75 through December 31, 2026. $1.50 starting January 1, 2027"* (output $3.75 → $7.50, cache $0.075 → $0.15) | Price will **rise** | Re-check **upstream**, which tracks the effective rate. Do **not** pre-load the future price — that is what made `gemini-3.6-flash` over-bill 2× (v1.16.30). |
+
+**No published end date** — recorded inline in the code instead, so restoring list price is a copy-paste:
+
+- `dashscope/qwen3.7-plus` — 20% off in both input-size tiers.
+- z.ai / bigmodel GLM family — *"Limited-time Free"* cache **storage**. Only storage;
+  cache-*hit* rates are normal and are what the catalogue stores.
+
+### 🔴 Vendor-confirmed shutdowns
+
+OpenAI is explicit: its tables say **"Shutdown date"** and the page defines it as
+*"the model or endpoint will no longer be accessible."* These are real.
+
+| Date | Models we still carry | Replacement |
+|---|---|---|
+| **2026-10-23** | `gpt-4.1-nano`, `gpt-image-1`, `o3-mini`, `o4-mini` | `gpt-5.6-luna` / `gpt-image-2` / `gpt-5.6-sol` / `gpt-5.6-terra` |
+| **2026-12-01** | `gpt-image-1.5`, `gpt-image-1-mini` | `gpt-image-2` |
+| **2027-01-20** | `gpt-realtime` | `gpt-realtime-2.1` |
+| **2027-02-26** | `whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe` | `gpt-transcribe` / `gpt-live-transcribe` |
+
+### ⚪ Availability floors — NOT shutdowns
+
+Anthropic and Google publish a *lower bound* on how long a model will stay up. These
+read like shutdown dates and are not.
+
+- **Anthropic** lists every model we carry as **`Active`**, with *"Not sooner than
+  &lt;date&gt;"*. Nearest floors: `claude-sonnet-4-5-20250929` 2026-09-29,
+  `claude-haiku-4-5-20251001` 2026-10-15, `claude-opus-4-5-20251101` 2026-11-24 —
+  **all Active, none deprecated.** Upstream briefly carried these as
+  `deprecation_date` and v1.16.32 reported them as a shutdown calendar; that framing
+  was wrong, and upstream has since dropped the field entirely (see v1.16.40).
+- **Google** states the same: *"the shutdown dates listed in the table indicate the
+  **earliest possible** dates on which a model might be retired."* `gemini/gemini-2.5-flash-image`
+  2026-10-02 and `gemini/gemini-3.1-flash-lite` 2027-05-07 both name a replacement,
+  which signals real intent — but neither is retired today.
+  ⚠️ Google's own "Recommended replacement" column can name a model that is **itself
+  already shut down**: it points `gemini-2.5-flash-image` at `gemini-3.1-flash-image-preview`,
+  retired 2026-06-25. The live successor is `gemini-3.1-flash-image`. Check that a
+  replacement is alive before following it.
+
+### Where to check
+
+| Provider | Page |
+|---|---|
+| OpenAI | [developers.openai.com/api/docs/deprecations](https://developers.openai.com/api/docs/deprecations) |
+| Anthropic | [platform.claude.com/docs/en/about-claude/model-deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations) |
+| Google | [ai.google.dev/gemini-api/docs/deprecations](https://ai.google.dev/gemini-api/docs/deprecations) |
+| Others | No deprecation feed; reverse-whitelists hold back retired SKUs (Moonshot, DeepSeek, Z.AI, DashScope) |
+
+Upstream's `deprecation_date` covers only some models and its meaning varies by
+vendor, so scanning it is a cheap first pass, **not** a substitute for these pages.
+
 ## Installation
 
 ```bash
@@ -509,6 +582,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.40 (2026-09-23)
+Documentation only — no data or rule changed.
+
+- 📅 **New top-level [Price and Lifecycle Calendar](#price-and-lifecycle-calendar) section.** Every date that needs a human to look at something was scattered across changelog entries, which are history, not a live list. It now sits near the top of the README, split by what the date actually means.
+- 🔴 **Correction: v1.16.32 reported the Claude entries as having shutdown dates. They do not.** [Anthropic's deprecations page](https://platform.claude.com/docs/en/about-claude/model-deprecations) lists **every** model this catalogue carries as **`Active`**, with a *"Not sooner than &lt;date&gt;"* column — that is a **guaranteed-availability floor**, the opposite of a retirement notice. `claude-sonnet-4-5-20250929` (floor 2026-09-29), `claude-haiku-4-5-20251001` (2026-10-15) and `claude-opus-4-5-20251101` (2026-11-24) are all live and not deprecated. Upstream carried those dates in `deprecation_date` and has since **removed the field from every Claude entry**, which corroborates the correction. No catalogue data was ever wrong — only the changelog's framing of it.
+- ⚪ Google's dates are the same kind of thing: *"the shutdown dates listed in the table indicate the **earliest possible** dates on which a model might be retired."* OpenAI's are **not** — its tables say "Shutdown date" and the page defines it as *"no longer be accessible."* The calendar now separates **vendor-confirmed shutdowns** from **availability floors** so the two are never conflated again.
+- ⏳ Added the `gpt-5.6-sol` promotional-price expiry (**2026-11-21**) — the first *price* expiry tracked here rather than a lifecycle date. Prompted by the question of whether the GPT-6 prices were discounted: **they are not** (Standard tier, list price; Batch and Flex are the discounted tiers and Fast mode is the premium one — all four are stored as separate fields). The only promotional note on OpenAI's pricing page applies to `gpt-5.6-sol`, which we *do* carry at its promo rate. When it lapses the price **rises**, so we would under-bill — the opposite direction from the GLM-5.3-Flash and qwen3.7-max episodes, same consequence.
+- ⚠️ Recorded that Google's "Recommended replacement" column can name a model that is **itself already shut down** — it points `gemini-2.5-flash-image` at `gemini-3.1-flash-image-preview`, retired 2026-06-25.
 
 ### v1.16.39 (2026-09-23)
 Three new flagships, two vendors. Exported total **171 → 174**; no existing entry changed.
