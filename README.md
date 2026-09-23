@@ -15,8 +15,8 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Supported Providers
 
-- **OpenAI**: GPT-6 Astra, GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
-- **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5, Sonnet 5) and the Fable / Mythos 5.1 pair, including dated snapshots
+- **OpenAI**: GPT-6 series (Astra, Sol, Luna), GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
+- **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5.5, Opus 5, Sonnet 5) and the Fable / Mythos 5.1 pair, including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash and GLM-5.3-FlashX, + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (14 SKUs: GLM-5.3-FlashX, GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
@@ -509,6 +509,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.39 (2026-09-23)
+Three new flagships, two vendors. Exported total **171 → 174**; no existing entry changed.
+
+| Key | Input | Output | Cached input | Ctx / max out |
+|---|---|---|---|---|
+| `gpt-6-sol` | **$2.00** | **$10.00** | $0.20 | 1,050,000 / 128K |
+| `gpt-6-luna` | **$0.10** | **$0.50** | $0.01 | 1,050,000 / 128K |
+| `claude-opus-5-5` | **$4.00** | **$20.00** | **$0.20** | 1,000,000 / 128K |
+
+- **GPT-6 Sol and Luna** join `gpt-6-astra` in the Flagship table. Every field verified against [developers.openai.com/api/docs/pricing](https://developers.openai.com/api/docs/pricing) — short context *and* the >272k tier (Sol `$4 / $0.40 / $5 / $15`, Luna `$0.20 / $0.02 / $0.25 / $0.75`). Upstream carries them all correctly, so **only the context field is overlaid**.
+- ⚠️ **`max_input_tokens`: OpenAI publishes two numbers and both are right for different questions** — `1,050,000 context window` and `Maximum input tokens: 922,000` (= 1,050,000 − 128,000 output). Upstream stores 922,000; this catalogue stores the **context window**, which is how the field is used for every other provider (Claude 1M, Gemini 1,048,576, DeepSeek 1,000,000 are all context windows). Seven OpenAI models already carry that overlay; these two join them. Worth revisiting deliberately some day — but as one decision across all nine, not per model. **This is not the upstream defect it resembles.**
+- **Claude Opus 5.5** replaces Opus 5 in Anthropic's featured lineup — same 1M / 128K, notably cheaper ($4 / $20 against Opus 5's $5 / $25). **No overlay at all**: upstream matches the pricing page field for field.
+- ✅ **Its $0.20 cache-read looked wrong and is not.** At 0.05× base input it breaks the family's usual 0.1× — but the pricing-page footnote says so explicitly: *"Cache read (hit) 0.1x base input price (0.025x on Claude Fable 5.1 and Claude Mythos 5.1; **0.05x on Claude Opus 5.5**)."* Third distinct cache ratio in the Claude line now (0.1× / 0.05× / 0.025×), so the ratio cannot be inferred from the tier — read the footnote. Cache writes check out too: $5 at 5m, $8 at 1h.
+- `claude-opus-5` is **kept**: still on the pricing page, no shutdown date announced, just no longer the featured Opus.
 
 ### v1.16.38 (2026-09-18)
 - ➕ **Added GLM-5.3-FlashX** as `zai/glm-5.3-flashx` and its domestic mirror `bigmodel/glm-5.3-flashx` — the higher-throughput tier of GLM-5.3-Flash, natively multimodal (图片、视频、文件、文本). **$0.37 in / $1.25 out**, cache-hit **$0.075**, 1M context. Exported total **169 → 171**.
