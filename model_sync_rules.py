@@ -1823,6 +1823,30 @@ class ModelSyncRules:
             "output_cost_per_token_priority": 7.5e-05,
             "supports_service_tier": True,
         },
+        # GPT-6 Sol / Luna, 2026-09 arrivals. Prices come from upstream
+        # unchanged — every field was checked against the Flagship table on
+        # developers.openai.com/api/docs/pricing and matches, short context
+        # and >272k alike ($2 / $0.20 / $2.50 / $10 and $4 / $0.40 / $5 /
+        # $15 for Sol; $0.10 / $0.01 / $0.125 / $0.50 and $0.20 / $0.02 /
+        # $0.25 / $0.75 for Luna). Only the context field is overlaid.
+        #
+        # ⚠️ On max_input_tokens: OpenAI publishes BOTH numbers, and they are
+        # both correct for different questions —
+        #     1,050,000 context window
+        #     Maximum input tokens: 922,000   (= 1,050,000 - 128,000 output)
+        # Upstream stores 922,000. This catalogue stores the CONTEXT WINDOW
+        # in max_input_tokens, which is how the field is used for every other
+        # provider here (Claude 1M, Gemini 1,048,576, DeepSeek 1,000,000 are
+        # all context windows, not context-minus-output). Seven OpenAI models
+        # already carry the 1,050,000 overlay; these two join them so the
+        # family stays internally consistent. Worth revisiting deliberately
+        # some day — but as one decision across all nine, not per model.
+        "gpt-6-sol": {
+            "max_input_tokens": 1050000,
+        },
+        "gpt-6-luna": {
+            "max_input_tokens": 1050000,
+        },
         "gpt-6-astra": {
             # Same upstream defect as the gpt-5.6 family: max_input_tokens is
             # reported as 922000 (GPT-5.5's figure) while
