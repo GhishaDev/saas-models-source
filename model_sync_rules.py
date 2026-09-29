@@ -2358,6 +2358,13 @@ class ModelSyncRules:
         # gemini/ one for these, and both reach the filter.
         "gemini/gemini-3.8-live",
         "gemini/gemini-3.8-live-extended-thinking",
+        # Same scope rule, 2026-09 arrivals: the Gemini 3.8 TTS pair, both
+        # mode "audio_speech". They join gemini-3.1-flash-tts-preview and
+        # gemini-2.5-flash-preview-tts, already excluded on the same basis.
+        # Like the transcribe and live pairs before them they carry no
+        # "-preview" suffix, so nothing else keeps them out.
+        "gemini/gemini-3.8-flash-tts",
+        "gemini/gemini-3.8-flash-lite-tts",
         "gemini-3.8-live",
         "gemini-3.8-live-extended-thinking",
         # DEFERRED, not rejected: ai.google.dev calls gemini-omni-1.1-flash

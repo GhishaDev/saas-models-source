@@ -16,7 +16,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 ## Supported Providers
 
 - **OpenAI**: GPT-6 series (Astra, Sol, Luna), GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
-- **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5.5, Opus 5, Sonnet 5) and the Fable / Mythos 5.1 pair, including dated snapshots
+- **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5.5, Opus 5, Sonnet 5.5, Sonnet 5) and the Fable / Mythos 5.1 pair, including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash and GLM-5.3-FlashX, + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (14 SKUs: GLM-5.3-FlashX, GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
@@ -582,6 +582,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.41 (2026-09-29)
+- ➕ **Added `claude-sonnet-5-5`** — Claude Sonnet 5.5 replaces Sonnet 5 in Anthropic's featured lineup. **$2 / $10** per M, cache-read **$0.20**, cache-write $2.50 (5m) / $4 (1h), 1M context / 128K output, vision. Exported total **174 → 175**.
+- ✅ **Identical pricing to Sonnet 5**, and the cache-read ratio is the standard **0.1×** — no footnote exception this time, unlike Opus 5.5 (0.05×) or Fable/Mythos 5.1 (0.025×). Upstream matches the pricing page field for field, so **no overlay**. The ratio was checked rather than assumed: it is now the one thing in the Claude line that genuinely cannot be inferred from the tier (v1.16.39).
+- `claude-sonnet-5` is **kept** — still on the pricing page, listed `Active` on the deprecations page, just no longer the featured Sonnet. Same call as `claude-opus-5` in v1.16.39.
+- ❌ **Excluded the Gemini 3.8 TTS pair** (`gemini/gemini-3.8-flash-tts`, `gemini/gemini-3.8-flash-lite-tts`), both `mode: audio_speech` — the modality the Google scope excludes. They join `gemini-3.1-flash-tts-preview` and `gemini-2.5-flash-preview-tts`. **Fourth time running** that a new Google audio SKU has arrived without a `-preview` suffix and so needed an explicit key: transcribe pair (v1.16.22), Live pair (v1.16.36), now TTS. The `-preview` heuristic has stopped tracking how Google names things.
+- 🔍 Swept every provider namespace for uncarried upstream keys. Nothing else new: the remaining gaps are all deliberate — deprecated SKUs held out by reverse-whitelists (Moonshot `moonshot-v1-*`, DeepSeek `deepseek-chat`/`v3`/`r1`), third-party rehosts under `dashscope/`, and the Doubao Seed 2.0/2.1 text family the user declined on 2026-09-04.
 
 ### v1.16.40 (2026-09-23)
 Documentation only — no data or rule changed.
