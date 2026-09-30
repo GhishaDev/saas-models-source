@@ -15,7 +15,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Supported Providers
 
-- **OpenAI**: GPT-6 series (Astra, Sol, Luna), GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
+- **OpenAI**: GPT-6 series (Astra, 6.1 Sol, Sol, Luna), GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5.5, Opus 5, Sonnet 5.5, Sonnet 5) and the Fable / Mythos 5.1 pair, including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash and GLM-5.3-FlashX, + vision/OCR variants), priced in USD
@@ -582,6 +582,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.42 (2026-09-30)
+- ➕ **Added `gpt-6.1-sol`**, which supersedes `gpt-6-sol` in OpenAI's Flagship table. Exported total **175 → 176**. Every field verified against [the pricing page](https://developers.openai.com/api/docs/pricing); only the context field is overlaid, per the convention in v1.16.39.
+- 💰 **Same headline rates, but cached input is HALVED** — the only price that moved:
+
+  | | Input | Cached input | Cache write | Output |
+  |---|---|---|---|---|
+  | `gpt-6-sol` short / long | $2 / $4 | **$0.20 / $0.40** | $2.50 / $5 | $10 / $15 |
+  | `gpt-6.1-sol` short / long | $2 / $4 | **$0.10 / $0.20** | $2.50 / $5 | $10 / $15 |
+
+  Worth knowing for anything cache-heavy: 6.1 Sol is otherwise the same price and strictly cheaper on reads.
+- ⚪ **`gpt-6-sol` is kept, but its status is weaker than the usual "off the pricing page" case.** It has dropped off the Flagship table **and** the official model index, yet carries **no shutdown announcement** on the deprecations page. Every prior keep-it call (`gpt-realtime`, `tts-1`, `whisper-1`) had a live model page backing it; this one has only the absence of a retirement notice. Additive for now — re-check it next sweep, and retire it the moment a shutdown date appears.
+- 📋 **"gpt-6.1 series" is currently one model.** The official index lists exactly `gpt-6-astra`, `gpt-6-luna`, `gpt-6.1-sol` — there is no 6.1 Astra or 6.1 Luna yet.
+- 🔎 **Noted, not acted on: OpenAI's pricing page gained a fifth service tier, "Ultrafast"** (Standard / Batch / Flex / Fast / Ultrafast). Upstream carries **no** `*_ultrafast` fields for any model, so there is nothing to import — adding them would mean inventing field names locally, which is exactly what caused the Seedream billing incident (v1.16.37). Wait for upstream.
 
 ### v1.16.41 (2026-09-29)
 - ➕ **Added `claude-sonnet-5-5`** — Claude Sonnet 5.5 replaces Sonnet 5 in Anthropic's featured lineup. **$2 / $10** per M, cache-read **$0.20**, cache-write $2.50 (5m) / $4 (1h), 1M context / 128K output, vision. Exported total **174 → 175**.

@@ -1844,6 +1844,15 @@ class ModelSyncRules:
         "gpt-6-sol": {
             "max_input_tokens": 1050000,
         },
+        # gpt-6.1-sol supersedes gpt-6-sol in the Flagship table. Same
+        # $2 / $2.50 / $10 short-context and $4 / $5 / $15 long-context
+        # rates, but CACHED INPUT IS HALVED: $0.10 against gpt-6-sol's $0.20
+        # ($0.20 against $0.40 above 272k). Every field verified against
+        # developers.openai.com/api/docs/pricing; only context is overlaid,
+        # for the reason documented above.
+        "gpt-6.1-sol": {
+            "max_input_tokens": 1050000,
+        },
         "gpt-6-luna": {
             "max_input_tokens": 1050000,
         },
