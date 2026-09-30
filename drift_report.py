@@ -15,8 +15,23 @@ Categories (per model, per field):
 * price-changed — a price field present in the committed export changed or
                   disappeared. These affect billing.
 * price-added   — a price field the committed export does not have yet.
+* other-changed — any other difference, in raw_data or in the export's own
+                  top-level fields (type, friendly_name, context limits...).
+                  The dashboard reads those too — `type` decides modelType —
+                  so a regeneration-consistency check must see them.
+
+"Price" means any field that changes what a request is billed: every *cost*
+field, tiered_pricing, off_peak_pricing (time-of-day rates),
+provider_specific_entry (per-geo / per-speed multipliers) and the
+*_multiplier fields. Several of these carry no "cost" in their name, which
+is how a DeepSeek off-peak schedule and an Anthropic fast-mode multiplier
+once slipped through a sync unreported.
 
 Plus models added to / removed from the key set.
+
+Limit: this compares the export with a regeneration, so a value that is
+wrong in BOTH — upstream and committed alike — shows no drift. It is a
+change detector, not a vendor audit.
 
 Usage:
     python drift_report.py                      # vs live upstream (what a sync would bring)
@@ -32,7 +47,7 @@ import json
 import sys
 from typing import Any, Mapping
 
-CATEGORIES = ("stale-true", "missing-true", "changed-false", "price-changed", "price-added")
+CATEGORIES = ("stale-true", "missing-true", "changed-false", "price-changed", "price-added", "other-changed")
 MODEL_CATEGORIES = ("model-added", "model-removed")
 _MISSING = object()
 
@@ -41,8 +56,11 @@ def is_capability_field(field: str) -> bool:
     return field.startswith("supports_")
 
 
+_BILLING_FIELDS_WITHOUT_COST = frozenset({"tiered_pricing", "off_peak_pricing", "provider_specific_entry"})
+
+
 def is_price_field(field: str) -> bool:
-    return "cost" in field or field == "tiered_pricing"
+    return "cost" in field or field.endswith("_multiplier") or "_multiplier_" in field or field in _BILLING_FIELDS_WITHOUT_COST
 
 
 def _classify_capability(old: Any, new: Any) -> str:
@@ -85,6 +103,16 @@ def classify(
             elif is_price_field(field):
                 category = "price-added" if old is _MISSING else "price-changed"
                 report[category].append((key, field, *shown))
+            else:
+                report["other-changed"].append((key, field, *shown))
+        # The export's own top-level fields are derived from raw_data, but a
+        # hand edit can change them independently; report them as "top:<f>".
+        old_top = {f: v for f, v in committed[key].items() if f != "raw_data"}
+        new_top = {f: v for f, v in regenerated[key].items() if f != "raw_data"}
+        for field in sorted(set(old_top) | set(new_top)):
+            old, new = old_top.get(field), new_top.get(field)
+            if old != new:
+                report["other-changed"].append((key, f"top:{field}", old, new))
     return report
 
 

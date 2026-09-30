@@ -58,3 +58,30 @@ def test_fail_on_selects_only_named_non_empty_categories():
     assert failing(report, ["missing-true"]) == []
     assert failing(report, ["stale-true"]) == ["stale-true"]
     assert failing(report, ["any"]) == ["stale-true"]
+
+
+def test_top_level_and_non_price_edits_are_other_changed():
+    # A regeneration-consistency check that only saw prices and supports_*
+    # let `type` — which decides the dashboard's modelType — change silently.
+    committed = {"m": {"type": "video", "friendly_name": "X", "raw_data": {"max_input_tokens": 1}}}
+    regenerated = {"m": {"type": "language", "friendly_name": "X", "raw_data": {"max_input_tokens": 272000}}}
+    report = classify(committed, regenerated)
+    assert sorted(report["other-changed"]) == [
+        ("m", "max_input_tokens", 1, 272000),
+        ("m", "top:type", "video", "language"),
+    ]
+    assert failing(report, ["any"]) == ["other-changed"]
+
+
+def test_billing_fields_without_cost_in_their_name_are_prices():
+    # These once slipped through a sync unreported.
+    committed = {"m": _model(provider_specific_entry={"us": 1.1, "fast": 6.0}, regional_processing_uplift_multiplier_us=1.0)}
+    regenerated = {"m": _model(
+        provider_specific_entry={"us": 1.1},
+        regional_processing_uplift_multiplier_us=1.1,
+        off_peak_pricing={"input_cost_per_token": 1.5e-07},
+    )}
+    report = classify(committed, regenerated)
+    assert {r[1] for r in report["price-changed"]} == {"provider_specific_entry", "regional_processing_uplift_multiplier_us"}
+    assert [r[1] for r in report["price-added"]] == ["off_peak_pricing"]
+    assert report["other-changed"] == []

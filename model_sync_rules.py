@@ -672,6 +672,8 @@ class ModelSyncRules:
             # CAPABILITY_OVERRIDES: upstream leaves it undefined; Kimi documents
             # automatic prefix caching with a published cached-input price.
             "supports_prompt_caching": True,
+            # CAPABILITY_OVERRIDES: `max` is K3's documented DEFAULT effort.
+            "supports_max_reasoning_effort": True,
         },
         "moonshot/kimi-k2.7-code": {
             "input_cost_per_token_cache_hit": 1.9e-07,
@@ -860,8 +862,8 @@ class ModelSyncRules:
             "input_cost_per_token": _usd_per_m_to_usd_per_token(0.96),
             "output_cost_per_token": _usd_per_m_to_usd_per_token(3.84),
             "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.192),
-            # Top image-input tier (2,048 images) per the vision docs;
-            # upstream also sets supports_vision on this SKU.
+            # supports_vision comes from upstream (top 2,048-image tier per
+            # the vision docs); nothing to override.
         },
         "dashscope/qwen3.7-flash": {
             # Three tiers, no promotion — these are list prices.
@@ -1467,6 +1469,13 @@ class ModelSyncRules:
     #     Upstream has since corrected it to False, so the override became
     #     redundant and was removed.
     GOOGLE_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        # Both flags are wrong upstream AND were wrong in the export before —
+        # identical on both sides, so the drift report could not see them.
+        # Found by re-reading the capability table, not by diffing.
+        "gemini/gemini-2.5-flash-image": {
+            "supports_prompt_caching": False,  # "Caching: Not supported"
+            "supports_pdf_input": False,  # "Inputs: Image and Text"
+        },
         # The model page documents "Thinking: Supported (minimal and high)";
         # upstream leaves the minimal flag undefined, so LiteLLM would reject
         # reasoning_effort="minimal" for a model that accepts it. Allowlisted.
@@ -3074,7 +3083,22 @@ class ModelSyncRules:
         "capability table 'Thinking: Supported (minimal and high)'. Upstream leaves it undefined."
     )
 
+    _SRC_GEMINI_25_FLASH_IMAGE = (
+        "https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash-image (2026-09-30): "
+        "capability table 'Caching: Not supported'; 'Inputs: Image and Text' (no PDF). "
+        "Upstream sets both flags true."
+    )
+    _SRC_KIMI_K3_EFFORT = (
+        "https://platform.kimi.ai/docs/guide/kimi-k3-quickstart (2026-09-30): 'Reasoning "
+        "effort supports `low`, `high`, and `max` (default `max`)'. Upstream records the "
+        "levels in reasoning_effort_levels but leaves supports_max_reasoning_effort undefined, "
+        "so LiteLLM would reject the vendor's own default."
+    )
+
     CAPABILITY_OVERRIDES: dict[tuple[str, str], str] = {
+        ("gemini/gemini-2.5-flash-image", "supports_prompt_caching"): _SRC_GEMINI_25_FLASH_IMAGE,
+        ("gemini/gemini-2.5-flash-image", "supports_pdf_input"): _SRC_GEMINI_25_FLASH_IMAGE,
+        ("moonshot/kimi-k3", "supports_max_reasoning_effort"): _SRC_KIMI_K3_EFFORT,
         **dict.fromkeys(
             [
                 (k, "supports_pdf_input")
