@@ -1,0 +1,3 @@
+# Test and CI tooling only. The catalogue scripts themselves use the standard
+# library alone.
+pytest==9.1.1

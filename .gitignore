@@ -1,3 +1,6 @@
 __pycache__/
 diagnose_v1_models.sh
 .gstack/
+upstream_pinned.json
+drift-report.md
+.pytest_cache/
