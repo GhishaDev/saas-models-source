@@ -583,6 +583,24 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Changelog
 
+### v1.16.43 (2026-09-30)
+**Capability hotfix — no price changed, no model added or removed.** Exported total stays **176**.
+
+- 🔴 **Flipped 10 stale `supports_*: true` flags to `false`.** `ghisha-dashboard-pilot` is about to forward catalogue capability flags into LiteLLM deployments, forwarding **only `true` values**, and an explicit flag on a deployment is authoritative. A stale `true` would make LiteLLM pass a parameter the vendor rejects — a live 400. These were the only stale `true`s in the catalogue; each was confirmed against the vendor's own model page, not taken from upstream:
+
+  | Model | Flag(s) → `false` | Vendor source (2026-09-30) |
+  |---|---|---|
+  | `gpt-5.1` | `supports_minimal_reasoning_effort` | [model page](https://developers.openai.com/api/docs/models/gpt-5.1): *"Reasoning.effort supports: none (default), low, medium, and high."* |
+  | `gpt-5.2` | `supports_minimal_reasoning_effort` | [model page](https://developers.openai.com/api/docs/models/gpt-5.2): *"none (default), low, medium, high and xhigh."* |
+  | `gpt-5.4` | `supports_minimal_reasoning_effort` | [model page](https://developers.openai.com/api/docs/models/gpt-5.4): *"none (default), low, medium, high and xhigh."* |
+  | `gemini/gemini-2.5-flash-image` | `supports_function_calling`, `supports_web_search`, `supports_response_schema` | [model page](https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash-image): Function calling / Search grounding / Structured outputs — all *Not supported* |
+  | `gemini/gemini-3-pro-image` | `supports_prompt_caching`, `supports_response_schema` | [model page](https://ai.google.dev/gemini-api/docs/models/gemini-3-pro-image): Caching / Structured outputs — both *Not supported* |
+  | `gemini/gemini-3.1-flash-image` | `supports_prompt_caching`, `supports_response_schema` | [model page](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-image): Caching / Structured outputs — both *Not supported* |
+
+  `minimal` was a GPT-5-only effort level; GPT-5.1 replaced it with `none`, and `gpt-5`'s own page still lists *"minimal, low, medium, and high"*, so `gpt-5` correctly keeps it.
+- **Root cause: entries are frozen at the state they had when first added.** The generator already emits the correct values — upstream fixed these, and no synth table forces them `true` — but no full regeneration has been committed since the 2026-08-26 upstream sync, so the stale values were never refreshed. The structural fix (pinned upstream snapshot, capability-overlay policy, drift report, CI) follows in the next release; this entry only removes the live risk first.
+- `gemini/gemini-2.5-flash-image`'s top-level `supports_function_calling` flips with its `raw_data` value, since the top-level field is derived from it. Verified against a regeneration at upstream `BerriAI/litellm@d098b02` (2026-09-30): all six models now match the rules' output on every `supports_*` field, and no stale `true` remains anywhere in the catalogue.
+
 ### v1.16.42 (2026-09-30)
 - ➕ **Added `gpt-6.1-sol`**, which supersedes `gpt-6-sol` in OpenAI's Flagship table. Exported total **175 → 176**. Every field verified against [the pricing page](https://developers.openai.com/api/docs/pricing); only the context field is overlaid, per the convention in v1.16.39.
 - 💰 **Same headline rates, but cached input is HALVED** — the only price that moved:

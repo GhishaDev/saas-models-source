@@ -1091,7 +1091,7 @@
       "max_input_tokens": 32768,
       "max_output_tokens": 32768,
       "supports_vision": true,
-      "supports_function_calling": true,
+      "supports_function_calling": false,
       "supports_json_output": false,
       "raw_data": {
         "cache_read_input_token_cost": 3e-08,
@@ -1126,16 +1126,16 @@
           "image"
         ],
         "supports_audio_output": false,
-        "supports_function_calling": true,
+        "supports_function_calling": false,
         "supports_parallel_function_calling": true,
         "supports_pdf_input": true,
         "supports_prompt_caching": true,
-        "supports_response_schema": true,
+        "supports_response_schema": false,
         "supports_system_messages": true,
         "supports_tool_choice": true,
         "supports_url_context": true,
         "supports_vision": true,
-        "supports_web_search": true,
+        "supports_web_search": false,
         "tpm": 8000000,
         "search_context_cost_per_query": {
           "search_context_size_low": 0.035,
@@ -1189,8 +1189,8 @@
           "image"
         ],
         "supports_function_calling": false,
-        "supports_prompt_caching": true,
-        "supports_response_schema": true,
+        "supports_prompt_caching": false,
+        "supports_response_schema": false,
         "supports_system_messages": true,
         "supports_vision": true,
         "supports_web_search": true,
@@ -1246,9 +1246,9 @@
           "image"
         ],
         "supports_function_calling": false,
-        "supports_prompt_caching": true,
+        "supports_prompt_caching": false,
         "supports_reasoning": false,
-        "supports_response_schema": true,
+        "supports_response_schema": false,
         "supports_system_messages": true,
         "supports_vision": true,
         "supports_web_search": true,
@@ -2533,7 +2533,7 @@
         "supports_web_search": true,
         "supports_none_reasoning_effort": true,
         "supports_xhigh_reasoning_effort": false,
-        "supports_minimal_reasoning_effort": true,
+        "supports_minimal_reasoning_effort": false,
         "supports_service_tier": true
       }
     },
@@ -2594,7 +2594,7 @@
         "supports_web_search": true,
         "supports_none_reasoning_effort": true,
         "supports_xhigh_reasoning_effort": true,
-        "supports_minimal_reasoning_effort": true,
+        "supports_minimal_reasoning_effort": false,
         "supports_service_tier": true
       }
     },
@@ -3361,7 +3361,7 @@
         "supports_vision": true,
         "supports_none_reasoning_effort": true,
         "supports_xhigh_reasoning_effort": true,
-        "supports_minimal_reasoning_effort": true,
+        "supports_minimal_reasoning_effort": false,
         "supports_service_tier": true
       }
     },
