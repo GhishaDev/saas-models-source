@@ -1329,8 +1329,8 @@
         "supports_audio_output": false,
         "supports_function_calling": false,
         "supports_parallel_function_calling": true,
-        "supports_pdf_input": true,
-        "supports_prompt_caching": true,
+        "supports_pdf_input": false,
+        "supports_prompt_caching": false,
         "supports_response_schema": false,
         "supports_system_messages": true,
         "supports_tool_choice": true,
@@ -4472,7 +4472,8 @@
         "supported_endpoints": [
           "/v1/chat/completions"
         ],
-        "supports_prompt_caching": true
+        "supports_prompt_caching": true,
+        "supports_max_reasoning_effort": true
       }
     },
     "o3": {

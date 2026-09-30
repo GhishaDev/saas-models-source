@@ -40,6 +40,7 @@ def test_every_mirror_target_matches_its_source(exported_models):
     for target, source in ModelSyncRules.CAPABILITY_MIRRORS.items():
         if target not in exported_models:
             continue
+        assert source in exported_models, f"{target} is exported but its mirror source {source} is not"
         caps = lambda key: {f: v for f, v in exported_models[key]["raw_data"].items() if f.startswith("supports_")}
         assert caps(target) == caps(source), f"{target} drifted from {source}"
 
@@ -57,3 +58,22 @@ def test_no_exported_model_is_a_stale_gpt_image_pdf_true(exported_models):
     for key, model in exported_models.items():
         if key.startswith("gpt-image"):
             assert model["raw_data"].get("supports_pdf_input") is not True, key
+
+
+def test_every_apply_step_is_in_the_synth_pipeline():
+    # A new apply_* classmethod that is never wired into SYNTH_PIPELINE is a
+    # silent no-op: its overlay would simply never run.
+    defined = {n for n, v in vars(ModelSyncRules).items() if n.startswith("apply_") and isinstance(v, classmethod)}
+    wired = [step.__func__.__name__ for step in ModelSyncRules.SYNTH_PIPELINE]
+    assert defined == set(wired), f"not wired: {sorted(defined - set(wired))}"
+    assert len(wired) == len(set(wired)), "a step runs twice"
+
+
+def test_known_stale_trues_stay_fixed(exported_models):
+    # Each was confirmed against the vendor page and was wrong upstream.
+    for key, flag in [
+        ("gemini/gemini-2.5-flash-image", "supports_prompt_caching"),
+        ("gemini/gemini-2.5-flash-image", "supports_pdf_input"),
+        ("gpt-5.1", "supports_minimal_reasoning_effort"),
+    ]:
+        assert exported_models[key]["raw_data"].get(flag) is not True, f"{key} {flag}"
