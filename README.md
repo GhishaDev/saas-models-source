@@ -20,7 +20,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash and GLM-5.3-FlashX, + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (14 SKUs: GLM-5.3-FlashX, GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
-- **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` — the two models the page lists, plus one legacy alias: `deepseek-flash` (DeepSeek-V4.1-Flash, **$0.30 / $1.20**, cache $0.006, vision), `deepseek-v4-flash` and `deepseek-v4.1-flash` (**aliases** of the same model, identical price) and `deepseek-v4-pro` (**$1.32 / $3.96**, cache $0.044, no vision). All 1M context / 393,216 max output. The official tariff is **USD-native** and split into peak / off-peak windows; we carry the **peak** rate, straight from upstream with no overlay
+- **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` — the two models the page lists, plus one legacy alias: `deepseek-flash` (DeepSeek-V4.1-Flash, **$0.30 / $1.20**, cache $0.006, vision), `deepseek-v4-flash` and `deepseek-v4.1-flash` (**aliases** of the same model, identical price) and `deepseek-v4-pro` (**$1.32 / $3.96**, cache $0.044, no vision). All 1M context / 393,216 max output. The official tariff is **USD-native** and split into peak / off-peak windows: the flat fields carry the **peak** rate, and `off_peak_pricing` (from upstream since v1.16.44) carries the half-price rates with their UTC windows
 - **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` — the whole "Multi-modal Model" table (4 SKUs: Kimi K3 — $3 / $15 per M, cache-hit $0.30, 1M context; Kimi K2.7 Code — $0.95 / $4.00, cache-hit $0.19, 256K; Kimi K2.7 Code HighSpeed — $1.90 / $8.00, cache-hit $0.38, 256K; Kimi K2.6 — $0.95 / $4.00, cache-hit $0.16, 256K, text+image+video input). K3 and K2.7 Code now come from upstream with small overlays; K2.7 Code HighSpeed is pre-staged via `MOONSHOT_SYNTH_DATA`, its capability flags mirrored from K2.7 Code; K2.6 comes straight from upstream
 - **DashScope (阿里云百炼 / Alibaba Cloud Model Studio, Qwen)**: Whitelist-curated `dashscope/*` SKUs (6 SKUs — the Qwen **3.8** and **3.7** generations, all ~1M context). Prices are the **effective (post-discount)** ones from [qwencloud.com/pricing/api](https://www.qwencloud.com/pricing/api); `qwen3.7-plus` / `qwen3.7-flash` are **tiered by request input size**. *DashScope* is the API/SDK identifier (`dashscope.aliyuncs.com`, `DASHSCOPE_API_KEY`) for the service branded 百炼 / Model Studio — LiteLLM names the provider after the technical id, and using the same namespace means an upstream key of the same name merges instead of colliding. **Unrelated to ModelScope (魔搭)**, which is Alibaba's open-weights community hub. Prices are the **International USD** tariff (the domestic 百炼 CNY book is separate and deliberately not mixed in)
 - **Volcengine (ByteDance Ark — Doubao Seedance video + Seedream image)**: **11 Seedream image** SKUs (5.0 Pro / 5.0 Lite / 5.0 / 4.5 / 4.0, with their dated stamps) billed **per image** in CNY → USD at the 7.0 policy rate. Field names mirror the internal LiteLLM fork's price table exactly, because the gateway's image cost calculator is what defines them. Plus whitelist-curated Seedance 2.0 + 2.5 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (8 entries: 2.0 standard / Fast / Mini × {dated + alias}, plus Seedance 2.5 {dated `-260628` + alias} — 480P/720P 70 / 42 CNY/M no-video / with-video, 1080P 77 / 46 CNY/M, 4K 39 / 24 CNY/M *estimated*). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
@@ -60,6 +60,11 @@ Two rules learned the hard way:
 |---|---|---|---|
 | **2026-11-21** | `gpt-5.6-sol` promotional pricing, *"available **at least** through November 21, 2026"* | Price will **rise** → we would **under**-bill | Re-check. No post-promo price is published, and *"at least through"* is not a firm end — nothing can be pre-staged. |
 | **2027-01-01** | `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash`: *"$0.75 through December 31, 2026. $1.50 starting January 1, 2027"* (output $3.75 → $7.50, cache $0.075 → $0.15) | Price will **rise** | Re-check **upstream**, which tracks the effective rate. Do **not** pre-load the future price — that is what made `gemini-3.6-flash` over-bill 2× (v1.16.30). |
+
+**Recurring — DeepSeek on Chinese public holidays.** DeepSeek bills the whole day off-peak
+(half price); `off_peak_pricing` has no holiday calendar, so weekday peak windows on a holiday
+are billed at the peak rate. Over-billing, never under-billing. Next: **2026-10-01 → 10-07**
+(National Day). Nothing to change in the catalogue; reconcile holiday invoices if it matters.
 
 **No published end date** — recorded inline in the code instead, so restoring list price is a copy-paste:
 
@@ -113,8 +118,15 @@ vendor, so scanning it is a cheap first pass, **not** a substitute for these pag
 
 ## Capability flags
 
-Every `supports_*` flag in `raw_data` is **vendor-verified**, exactly as prices are.
-They are not pass-through baggage.
+`supports_*` flags are held to the same standard as prices, not treated as pass-through
+baggage. Precisely what has been verified, as of v1.16.44–45:
+
+- every flag that **changed** in the 2026-09-30 upstream sync, and every flag on a
+  **pre-staged** entry, was checked against the vendor's own docs;
+- flags upstream and the export **already agreed on** at that baseline were not all
+  individually re-verified. Agreement is not correctness — v1.16.45 found two stale
+  `true`s on `gemini-2.5-flash-image` that were wrong on *both* sides, invisible to any diff.
+  Verify on the vendor page whenever you touch a model; a sync only surfaces what changed.
 
 ### Who reads them, and why a stale `true` is dangerous
 
@@ -213,19 +225,28 @@ python drift_report.py --output report.md   # also write the Markdown report
 ```
 
 The drift report groups every field-level difference into **stale-true**, **missing-true**,
-**changed-false**, **price-changed** (includes removals) and **price-added**, plus models
-added or removed. It never writes to `filtered_models.json`.
+**changed-false**, **price-changed** (includes removals), **price-added** and
+**other-changed** (every remaining `raw_data` field, plus the export's own top-level fields
+as `top:<field>`), plus models added or removed. It never writes to `filtered_models.json`.
+
+"Price" means anything that changes what a request is billed — every `*cost*` field and
+also `tiered_pricing`, `off_peak_pricing`, `provider_specific_entry` and `*_multiplier`,
+which carry no "cost" in their name. **Limit:** the report diffs the export against a
+regeneration, so a value that is wrong on both sides shows no drift. It detects change; it
+is not a vendor audit.
 
 **CI** (`.github/workflows/catalogue-checks.yml`):
 
 - **On every PR** — unit tests; `capability_check.py`; regeneration with
   `python filter_models.py -o /tmp/regenerated.json` against the pinned snapshot; no
-  stale-true drift; and the regenerated export must reproduce the committed file exactly.
+  stale-true drift; and the regenerated export must reproduce the committed file exactly —
+  every `raw_data` field and every top-level field, not just prices and capabilities.
   That last check catches any hand edit the rules would not produce — including the
   append-only edits that left entries frozen before v1.16.44. Everything runs against
   the **pin**, so upstream moving overnight can never fail an unrelated PR.
 - **Daily** — a drift report against live upstream, published to the run summary and
-  uploaded as an artifact. Report-only: it never fails and never applies anything.
+  uploaded as an artifact. Report-only: drift never fails it, and it never applies anything
+  (a failed fetch of live upstream does fail the run, which is the signal you want).
 
 **Syncing upstream** is a deliberate, reviewed change:
 
@@ -408,7 +429,8 @@ added or removed. It never writes to `filtered_models.json`.
 - ✅ **Official DeepSeek pricing page as source of truth** ([api-docs.deepseek.com/quick_start/pricing](https://api-docs.deepseek.com/quick_start/pricing/), verified live 2026-09-04):
   - **No overlay.** LiteLLM upstream now carries every field of the official table verbatim — prices, `max_input_tokens` `1000000`, `max_output_tokens` `393216`, `supports_vision`. `DEEPSEEK_SYNTH_DATA` / `apply_deepseek_synth` were retired in v1.16.23; see the changelog for why keeping them was actively mis-billing
   - ✅ **Currency: USD, native.** The official page is denominated in USD, so nothing goes through `_cny_per_m_to_usd_per_token`. DeepSeek's own implied FX (6.818) is *not* our `7.0` policy rate — deriving USD from the CNY book under-bills by ~2.7%
-  - **Peak-hour tariff is what we carry.** DeepSeek halves every rate outside `01:00–04:00` / `06:00–10:00` UTC, Mon–Fri; LiteLLM has no time-of-day price axis, so the peak (ceiling) rate is stored and off-peak is exactly `0.5x` of it. Peak USD/M — V4-Flash and V4-Flash-Vision-Exp `$0.44` in (cache-miss) / `$0.014` in (cache-hit) / `$1.32` out; V4-Pro `$1.32` / `$0.044` / `$3.96`. Cache writes are free
+  - **Peak and off-peak are both carried** (since v1.16.44). The flat fields hold the **peak** rate — the ceiling, for any consumer that ignores time of day — and `off_peak_pricing` holds the half-price rates with UTC windows: Mon–Fri `00:00–01:00`, `04:00–06:00`, `10:00–24:00`, plus all of Sat–Sun. Matches the vendor: peak is `01:00–04:00` / `06:00–10:00` UTC, Mon–Fri.
+  - ⚠️ **Chinese public holidays are not modelled.** Since 2026-09-30 DeepSeek bills them off-peak "in full"; the windows know weekdays, not holidays, so holiday weekday traffic in the peak windows is billed at peak — **over**-billed 2×, never under-billed. See the calendar. Peak USD/M — V4-Flash and V4-Flash-Vision-Exp `$0.44` in (cache-miss) / `$0.014` in (cache-hit) / `$1.32` out; V4-Pro `$1.32` / `$0.044` / `$3.96`. Cache writes are free
   - ✅ **`deepseek-v4-flash` is a legacy alias, not a third model.** DeepSeek folded the Flash line into **V4.1-Flash** (vision built in) and renamed the SKU to plain `deepseek-flash`, but the old name still **resolves**: *"still accepted… served by the DeepSeek-V4.1-Flash model and billed at the Flash price."* It is carried so existing callers keep working. Upstream holds it **byte-identical** to `deepseek-flash`, so it tracks the V4.1 price automatically and cannot drift from the canonical entry — in the export the two records differ only in `model_key` and `friendly_name`
   - ⚠️ Its friendly name renders **`DeepSeek-V4-Flash`** while the model behind it is **V4.1-Flash**. The name derives from the key, and the key is the legacy one. Prefer `deepseek-flash` for anything new
   - ❌ `deepseek-v4-flash-vision-exp` stays **out** (retired v1.16.33). It names an experimental vision variant that no longer exists as a distinct model, and V4.1-Flash has vision natively — so unlike `deepseek-v4-flash` the key is actively misleading rather than merely redundant
@@ -680,6 +702,42 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.45 (2026-09-30)
+**Review follow-ups to v1.16.44.** A second pass looking for faults rather than confirmation found three real defects in that release and two overclaims in its notes. Exported total stays **176**; the export changes in exactly three flags.
+
+#### Corrections to what v1.16.44 claimed
+- 🔴 **"CI proves the export reproduces from the rules" was not true.** The consistency check compared only `supports_*` and `*cost*` fields, so a hand edit to anything else passed. Demonstrated by tampering: `type` → `video` (which decides the dashboard's `modelType` and would drop image pricing), `friendly_name`, `max_output_tokens`, `raw_data.max_input_tokens` — all four came back "No drift". `drift_report.py` gains an **`other-changed`** category covering every remaining `raw_data` field and every top-level export field (as `top:<field>`); all four are now caught and fail CI.
+- 🔴 **"Every price change is called out separately" was not true.** Billing fields with no "cost" in their name were classified as nothing at all, so v1.16.44's price table **omitted four billing changes** the sync did make. They are now classified as prices (`off_peak_pricing`, `provider_specific_entry`, `*_multiplier`), and were reviewed against the vendors here:
+
+  | Change the sync made | Models | Verdict |
+  |---|---|---|
+  | `off_peak_pricing` **added** — half-price rates with UTC windows | all four `deepseek/*` | **Correct, and a price cut for off-peak traffic.** Off-peak is Mon–Fri outside `01:00–04:00` / `06:00–10:00` UTC plus weekends; rates exactly half of peak (pro $0.66 / $1.98 / $0.022, flash $0.15 / $0.60 / $0.003). [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing) |
+  | `provider_specific_entry` loses `"fast": 6.0` | claude-opus-4-6, -4-7 (+ dated) | Correct — fast mode is Opus 5.5 / 5 / 4.8 only, "not available on Claude Opus 4.7" |
+  | `provider_specific_entry` gains `"us": 1.1` | claude-sonnet-4-6 | Correct — "For Claude 4.6 and later models, using `inference_geo: "us"` applies a 1.1x pricing multiplier." Previously US-geo requests were billed 10% light |
+
+- 🟡 **"Every `supports_*` flag is vendor-verified" overstated it.** Verified were the flags that changed in the sync and every flag on a pre-staged entry; flags upstream and the export already agreed on were not all re-checked. The [Capability flags](#capability-flags) section now says exactly that.
+
+#### Capability fixes (3 flags)
+| Change | Model | Vendor source (2026-09-30) |
+|---|---|---|
+| `supports_prompt_caching` true → **false** | gemini-2.5-flash-image | [model page](https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash-image): "Caching: Not supported" |
+| `supports_pdf_input` true → **false** | gemini-2.5-flash-image | same page: "Inputs: Image and Text" |
+| `supports_max_reasoning_effort` → **true** | moonshot/kimi-k3 | [K3 quickstart](https://platform.kimi.ai/docs/guide/kimi-k3-quickstart): "Reasoning effort supports `low`, `high`, and `max` (default `max`)" — without the flag LiteLLM would reject the vendor's own default |
+
+The two Gemini `true`s were wrong **upstream and in the export alike**, so no diff could surface them; they were found by re-reading the vendor's capability table against every existing `true` for the models checked in v1.16.44. That is the limit of any drift tool, now documented in `drift_report.py` and the README.
+
+#### Also checked and found correct
+GPT-6 effort flags (Astra and 6.1 Sol: no `none` / `minimal`; Sol and Luna: `none` supported — matches the [model guidance](https://developers.openai.com/api/docs/guides/latest-model)); Kimi K3 `reasoning_effort_levels`; `default_reasoning_effort: "none"` on GPT-5.1–5.4; `deprecation_date` additions on whisper-1 / gpt-4o-mini-transcribe (the 2027-02-26 shutdown).
+
+#### Hardening
+- Tests: 25 → **29**, each new one mutation-checked — top-level / non-price edits are `other-changed`; billing fields without "cost" are prices; every `apply_*` classmethod is wired into `SYNTH_PIPELINE` exactly once (an unwired overlay is a silent no-op); the three stale `true`s stay fixed; a mirror target cannot be exported without its source.
+- An orphaned comment in `qwen3.7-plus` (describing a field removed in v1.16.44) rewritten.
+
+#### New known gap
+⚠️ **DeepSeek now bills Chinese public holidays off-peak "in full"** (page updated 2026-09-30). `off_peak_pricing` has no holiday calendar, so holiday traffic in the weekday peak windows is billed at peak — **over**-billed 2×, never under-billed. First occurrence: **2026-10-01 → 10-07**. Added to the [calendar](#price-and-lifecycle-calendar).
+
+`gpt-5-mini`, `gpt-5-nano` and `gpt-5.3-codex` keep upstream's `supports_minimal_reasoning_effort: true`: their model pages state no effort levels, so the vendor neither confirms nor contradicts it.
 
 ### v1.16.44 (2026-09-30)
 **Capability flags become vendor-verified and policy-enforced; first full upstream sync since 2026-08-26.** Exported total stays **176**; no model added or removed. The export was regenerated in full (not appended to) at upstream `BerriAI/litellm@d098b02`, and CI now proves it reproduces from the rules.
