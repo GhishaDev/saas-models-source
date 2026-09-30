@@ -21,7 +21,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash and GLM-5.3-FlashX, + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (14 SKUs: GLM-5.3-FlashX, GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` — the two models the page lists, plus one legacy alias: `deepseek-flash` (DeepSeek-V4.1-Flash, **$0.30 / $1.20**, cache $0.006, vision), `deepseek-v4-flash` and `deepseek-v4.1-flash` (**aliases** of the same model, identical price) and `deepseek-v4-pro` (**$1.32 / $3.96**, cache $0.044, no vision). All 1M context / 393,216 max output. The official tariff is **USD-native** and split into peak / off-peak windows; we carry the **peak** rate, straight from upstream with no overlay
-- **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` — the whole "Multi-modal Model" table (4 SKUs: Kimi K3 — $3 / $15 per M, cache-hit $0.30, 1M context; Kimi K2.7 Code — $0.95 / $4.00, cache-hit $0.19, 256K; Kimi K2.7 Code HighSpeed — $1.90 / $8.00, cache-hit $0.38, 256K; Kimi K2.6 — $0.95 / $4.00, cache-hit $0.16, 256K, text+image+video input). The first three are pre-staged via `MOONSHOT_SYNTH_DATA` (injected — not on LiteLLM upstream); K2.6 comes straight from upstream
+- **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` — the whole "Multi-modal Model" table (4 SKUs: Kimi K3 — $3 / $15 per M, cache-hit $0.30, 1M context; Kimi K2.7 Code — $0.95 / $4.00, cache-hit $0.19, 256K; Kimi K2.7 Code HighSpeed — $1.90 / $8.00, cache-hit $0.38, 256K; Kimi K2.6 — $0.95 / $4.00, cache-hit $0.16, 256K, text+image+video input). K3 and K2.7 Code now come from upstream with small overlays; K2.7 Code HighSpeed is pre-staged via `MOONSHOT_SYNTH_DATA`, its capability flags mirrored from K2.7 Code; K2.6 comes straight from upstream
 - **DashScope (阿里云百炼 / Alibaba Cloud Model Studio, Qwen)**: Whitelist-curated `dashscope/*` SKUs (6 SKUs — the Qwen **3.8** and **3.7** generations, all ~1M context). Prices are the **effective (post-discount)** ones from [qwencloud.com/pricing/api](https://www.qwencloud.com/pricing/api); `qwen3.7-plus` / `qwen3.7-flash` are **tiered by request input size**. *DashScope* is the API/SDK identifier (`dashscope.aliyuncs.com`, `DASHSCOPE_API_KEY`) for the service branded 百炼 / Model Studio — LiteLLM names the provider after the technical id, and using the same namespace means an upstream key of the same name merges instead of colliding. **Unrelated to ModelScope (魔搭)**, which is Alibaba's open-weights community hub. Prices are the **International USD** tariff (the domestic 百炼 CNY book is separate and deliberately not mixed in)
 - **Volcengine (ByteDance Ark — Doubao Seedance video + Seedream image)**: **11 Seedream image** SKUs (5.0 Pro / 5.0 Lite / 5.0 / 4.5 / 4.0, with their dated stamps) billed **per image** in CNY → USD at the 7.0 policy rate. Field names mirror the internal LiteLLM fork's price table exactly, because the gateway's image cost calculator is what defines them. Plus whitelist-curated Seedance 2.0 + 2.5 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (8 entries: 2.0 standard / Fast / Mini × {dated + alias}, plus Seedance 2.5 {dated `-260628` + alias} — 480P/720P 70 / 42 CNY/M no-video / with-video, 1080P 77 / 46 CNY/M, 4K 39 / 24 CNY/M *estimated*). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
 - **BytePlus (ByteDance Ark overseas, Dreamina Seedance video)**: Whitelist-curated Dreamina Seedance 2.0 + 2.5 video SKUs from [docs.byteplus.com/en/docs/ModelArk/1544106](https://docs.byteplus.com/en/docs/ModelArk/1544106) (8 entries: 2.0 standard / Fast / Mini + 2.5, each × {dated + alias}). BytePlus is the overseas sibling of Volcengine — same Ark platform, same YYMMDD version stamps — but a different brand and a **USD-native tariff**, so these are independent SKUs, *not* mirrors of `volcengine/*`. List prices in USD/M tokens (no-video / with-video): 2.5 — 480P/720P **10.70 / 6.40**, 1080P **11.70 / 7.00**, 4K **6.08 / 3.57** *estimated*; 2.0 — 480P/720P **7.00 / 4.30**, 1080P **7.70 / 4.70**, 4K **4.00 / 2.40**; 2.0 Fast — **5.60 / 3.30**; 2.0 Mini — **3.50 / 2.10**. Same `output_cost_per_token[_<res>][_with_input_video]` field family as Volcengine, but **no FX conversion is applied**
@@ -111,6 +111,52 @@ read like shutdown dates and are not.
 Upstream's `deprecation_date` covers only some models and its meaning varies by
 vendor, so scanning it is a cheap first pass, **not** a substitute for these pages.
 
+## Capability flags
+
+Every `supports_*` flag in `raw_data` is **vendor-verified**, exactly as prices are.
+They are not pass-through baggage.
+
+### Who reads them, and why a stale `true` is dangerous
+
+`ghisha-dashboard-pilot` forwards catalogue capability flags into LiteLLM deployments
+(`model_info.supports_*`). It forwards **only flags whose value is `true`**; false and
+absent flags are omitted. LiteLLM gates request parameters on those flags, and an
+explicit flag on a deployment is authoritative. For example, it strips `thinking` /
+`output_config.effort` from Claude requests unless `supports_adaptive_thinking` /
+`supports_output_config` are set, and accepts `reasoning_effort: minimal | none | xhigh |
+max` only when the matching `supports_*_reasoning_effort` flag is `true`. So:
+
+| Flag state here | What happens downstream | Risk |
+|---|---|---|
+| **stale `true`** — the vendor does not support it | LiteLLM passes the parameter through; the vendor rejects it | **live 400** — highest |
+| **missing `true`** — the vendor supports it | the flag is never forwarded; the feature is silently disabled | silent degradation |
+| wrong `false` | not forwarded, but other readers use it | still must be correct |
+
+### The policy
+
+1. **Vendor-verified.** A flag's value comes from the vendor's own model page, API
+   reference or feature guide — never from upstream alone. Upstream is usually right,
+   and where it is, its value simply flows through; where it is not, the vendor wins.
+2. **Absent when undocumented.** If the vendor does not document a capability, the flag
+   is left out. `false` is never written as a placeholder. Mapping a vendor's feature name
+   onto a LiteLLM flag counts as documented (z.ai's "Context Caching" →
+   `supports_prompt_caching`), and the mapping is written down next to the data.
+3. **Overrides are allowlisted.** A synth entry for a key upstream already carries may set
+   a `supports_*` flag only to deliberately differ from upstream, and every such pair must
+   be listed in `ModelSyncRules.CAPABILITY_OVERRIDES` with the vendor URL and date that
+   justify it. `capability_check.py` fails if a synth flag:
+   - **equals** upstream (`redundant` — changes nothing today, pins stale state tomorrow);
+   - **differs** from upstream, including upstream not defining it, without an allowlist
+     entry (`unlisted-override`);
+   - or if an allowlist entry is no longer used (`orphan-override`).
+4. **Pre-staged entries may carry flags.** A key absent upstream has no other source, so
+   its synth entry is authoritative. Once upstream carries the key, the entry is reduced to
+   its documented overrides — the same rule the repo has long applied to prices.
+5. **Derived, not duplicated.** `CAPABILITY_MIRRORS` copies every `supports_*` from a
+   source to a target that the vendor says is the same model: all `bigmodel/*` from their
+   `zai/*` sibling, and `moonshot/kimi-k2.7-code-highspeed` from `kimi-k2.7-code`
+   (*"the same model as Kimi K2.7 Code"*). Targets hand-write no flags; a test enforces it.
+
 ## Installation
 
 ```bash
@@ -146,9 +192,49 @@ python filter_models.py --provider openai
 # Custom output file
 python filter_models.py --output my_models.json
 
-# Custom data source URL
+# Custom upstream source — a URL or a local file (default: the pinned snapshot)
 python filter_models.py --url https://custom-source.com/models.json
+python filter_models.py --url ./upstream_pinned.json
 ```
+
+## Checks, CI and the drift report
+
+```bash
+pip install -r requirements-dev.txt
+pytest -q                                   # offline unit tests
+
+python capability_check.py                  # capability-overlay policy (pinned snapshot)
+
+python drift_report.py --pinned             # committed export vs regeneration at the pin
+                                            #   — should say "No drift."
+python drift_report.py                      # vs LIVE upstream: what a sync would bring
+python drift_report.py --pinned --fail-on stale-true   # CI form; --fail-on any = strict
+python drift_report.py --output report.md   # also write the Markdown report
+```
+
+The drift report groups every field-level difference into **stale-true**, **missing-true**,
+**changed-false**, **price-changed** (includes removals) and **price-added**, plus models
+added or removed. It never writes to `filtered_models.json`.
+
+**CI** (`.github/workflows/catalogue-checks.yml`):
+
+- **On every PR** — unit tests; `capability_check.py`; regeneration with
+  `python filter_models.py -o /tmp/regenerated.json` against the pinned snapshot; no
+  stale-true drift; and the regenerated export must reproduce the committed file exactly.
+  That last check catches any hand edit the rules would not produce — including the
+  append-only edits that left entries frozen before v1.16.44. Everything runs against
+  the **pin**, so upstream moving overnight can never fail an unrelated PR.
+- **Daily** — a drift report against live upstream, published to the run summary and
+  uploaded as an artifact. Report-only: it never fails and never applies anything.
+
+**Syncing upstream** is a deliberate, reviewed change:
+
+1. Set `ModelSyncRules.UPSTREAM_PIN` to the new `BerriAI/litellm` commit SHA.
+2. `python drift_report.py --pinned` and review every capability and price change
+   against vendor docs. Where the vendor contradicts upstream, add a synth overlay (and a
+   `CAPABILITY_OVERRIDES` entry for `supports_*`); where upstream caught up with an
+   overlay, delete it — `capability_check.py` reports those as `redundant`.
+3. `python filter_models.py` to regenerate, then commit rules, pin and export together.
 
 ## Filtering Rules
 
@@ -191,10 +277,10 @@ python filter_models.py --url https://custom-source.com/models.json
 #### Anthropic
 - ✅ Include: Claude 4.5+ variants (Haiku, Sonnet, Opus), plus Claude 5 (Sonnet, Opus), plus special-name flagships (`claude-fable-5`, `claude-fable-5-1`, `claude-mythos-5`, `claude-mythos-5-1`)
 - ⚠️ **The 5.1 pair has a different cache ratio.** `claude-fable-5-1` / `claude-mythos-5-1` bill cache reads at **0.025x** base input ($0.25 against $10), not the usual 0.1x that `claude-fable-5` / `claude-mythos-5` pay ($1). The pricing-page footnote states it explicitly: *"0.1x base input price (0.025x on Claude Fable 5.1 and Claude Mythos 5.1)"*. Do not assume one ratio across the family
-- ✅ Mythos SKUs are **pre-staged** via `ANTHROPIC_SYNTH_DATA` — Project Glasswing is limited-availability and BerriAI upstream does not carry `claude-mythos-5` or `claude-mythos-5-1`. Their Fable twins do come from upstream
+- ✅ Mythos SKUs (Project Glasswing, limited availability) were pre-staged via `ANTHROPIC_SYNTH_DATA` until upstream began carrying `claude-mythos-5` and `claude-mythos-5-1`; both now come from upstream, like their Fable twins (v1.16.44)
 - ✅ Include: Dated snapshots ≥ 4.5 (e.g. `claude-sonnet-4-5-20250929`)
 - ✅ **Introductory-price overlay** via `ANTHROPIC_SYNTH_DATA` / `apply_anthropic_synth`: when Anthropic runs a time-boxed intro price, LiteLLM upstream tracks the post-window standard tariff — we overlay the currently-effective numbers so the catalogue matches what customers actually get billed today
-  - **No price overlay is active.** `ANTHROPIC_SYNTH_DATA` currently holds only pre-staged *entries* (`claude-opus-5`, `claude-mythos-5`), not price corrections
+  - **No price overlay is active.** `ANTHROPIC_SYNTH_DATA` holds only the `claude-sonnet-4-5` context-window correction (200K; upstream says 1M). Its former pre-staged entries were retired in v1.16.44 once upstream carried them identically
   - The `claude-sonnet-5` introductory overlay was **retired on 2026-09-01** — and not because the window closed. Anthropic cancelled the increase: *"The $2/$10 per million input/output token pricing for Claude Sonnet 5, announced at launch as introductory pricing through August 31, 2026, is now the standard price. The previously scheduled increase to $3/$15 per million input/output tokens on September 1, 2026 will not occur."* Upstream carries the permanent rate verbatim, so the overlay had become a no-op and was deleted
   - ⚠️ **Delete an overlay once upstream catches up.** A redundant overlay is not harmless — it silently pins values the moment the vendor moves next. That is exactly how the `gpt-5.6` `*_above_272k_flex` overlays came to bill flex long-context output at $22.50/M against a real $15/M (see v1.16.18)
 - ✅ Friendly name follows Anthropic's official variant-first order: `Claude {Variant} {ver}` for the standard Opus/Sonnet/Haiku family (e.g. `Claude Sonnet 5`, `Claude Sonnet 4.5`, `Claude Opus 4.7`); special-name flagships keep a capitalized fallback (`Claude Fable 5`). Dated snapshots carry **no** date suffix — they share the base model's display name (e.g. `claude-sonnet-4-5-20250929` → `Claude Sonnet 4.5`), matching platform.claude.com
@@ -214,7 +300,8 @@ python filter_models.py --url https://custom-source.com/models.json
 #### Z.AI
 - ✅ Include: only keys listed in `ModelSyncRules.ZAI_ALLOWED_KEYS` (reverse whitelist)
 - ✅ **z.ai as source of truth** via `ZAI_SYNTH_DATA` overlay (sourced from [docs.z.ai/guides/overview/overview](https://docs.z.ai/guides/overview/overview) + [pricing](https://docs.z.ai/guides/overview/pricing)):
-  - Pre-staged SKUs absent from LiteLLM are synthesised from z.ai data (GLM-5.3-Flash, GLM-5.2, GLM-5.1, GLM-5-Turbo, GLM-4.7-FlashX, GLM-5V-Turbo, GLM-4.6V, GLM-4.6V-FlashX, GLM-OCR)
+  - Pre-staged SKUs absent from LiteLLM are synthesised from z.ai data (GLM-5.3-FlashX, GLM-5-Turbo, GLM-4.7-FlashX, GLM-5V-Turbo, GLM-4.6V, GLM-4.6V-FlashX, GLM-OCR). GLM-5.1 / 5.2 / 5.3 were pre-staged too and now come from upstream
+  - Capability flags follow z.ai's per-model guides and capability guides; see the derivation table in `ZAI_SYNTH_DATA`. `supports_response_schema` is deliberately absent on every GLM model — z.ai offers `json_object` only
   - When upstream conflicts with z.ai, z.ai wins (e.g. `zai/glm-4.5v` context = 64K per z.ai overview, not the 128K LiteLLM reports)
 - ✅ Vision flag auto-inferred for keys matching `glm-*v` or `glm-ocr` when upstream omits `supports_vision`. `zai/glm-5.3-flash` is natively multimodal but its key has no `v` infix, so `_GLM_VISION_KEY` does not match it — it used to need an explicit `supports_vision: True` in `ZAI_SYNTH_DATA`; upstream now sets the flag itself, so the overlay was dropped in v1.16.29
 - ✅ **`zai/glm-5.3-flash`'s 50% promotion ended 2026-09-09 24:00 UTC+8** and was reverted on schedule in v1.16.29. List price ($0.15 / $0.03 / $0.50 per M) is now what callers pay, and upstream carries exactly those numbers — so the price fields were **deleted from the overlay** rather than edited, leaving upstream to supply them
@@ -226,6 +313,7 @@ python filter_models.py --url https://custom-source.com/models.json
 - ✅ Include: only keys listed in `ModelSyncRules.BIGMODEL_ALLOWED_KEYS` (reverse whitelist, 11 SKUs)
 - ✅ **Pricing mirrors `zai/*` (z.ai international USD)** via `apply_bigmodel_synth`:
   - Every `bigmodel/` SKU is pre-staged — LiteLLM upstream does not carry `bigmodel/*` keys
+  - Capability flags are **derived** from the `zai/*` sibling via `CAPABILITY_MIRRORS`, never hand-written (v1.16.44)
   - `BIGMODEL_SYNTH_DATA` provides metadata only (context, capabilities); `input_cost_per_token`, `output_cost_per_token`, and `cache_read_input_token_cost` are copied from the sibling `zai/<sku>` at synth time
   - `apply_bigmodel_synth` runs **after** `apply_zai_synth` so prices reflect z.ai overlays + LiteLLM upstream (e.g. `bigmodel/glm-5` inherits `zai/glm-5`'s upstream prices; `bigmodel/glm-4.5v` inherits its z.ai cache overlay)
   - If a sibling `zai/<sku>` lacks a price field, the bigmodel SKU drops out via the zero-price filter — gaps surface instead of being silently zeroed
@@ -334,12 +422,12 @@ python filter_models.py --url https://custom-source.com/models.json
 
   | Key | Input | Output | Cache hit | Context | Source |
   |---|---|---|---|---|---|
-  | `moonshot/kimi-k3` | $3.00 | $15.00 | $0.30 | 1,048,576 | pre-staged |
-  | `moonshot/kimi-k2.7-code` | $0.95 | $4.00 | $0.19 | 262,144 | pre-staged |
+  | `moonshot/kimi-k3` | $3.00 | $15.00 | $0.30 | 1,048,576 | upstream + overlay |
+  | `moonshot/kimi-k2.7-code` | $0.95 | $4.00 | $0.19 | 262,144 | upstream + overlay |
   | `moonshot/kimi-k2.7-code-highspeed` | $1.90 | $8.00 | $0.38 | 262,144 | pre-staged |
   | `moonshot/kimi-k2.6` | $0.95 | $4.00 | $0.16 | 262,144 | **upstream** |
 
-- ✅ **`kimi-k2.6` is whitelisted only, with no synth entry** — upstream carries it complete and matching (including `supports_vision` and `supports_video_input`), so adding one would only create a second place to keep in sync. The other three remain pre-staged in `MOONSHOT_SYNTH_DATA` because upstream does not carry them
+- ✅ **`kimi-k2.6` is whitelisted only, with no synth entry** — upstream carries it complete and matching (including `supports_vision` and `supports_video_input`), so adding one would only create a second place to keep in sync. `kimi-k3` and `kimi-k2.7-code` are now upstream too, so their `MOONSHOT_SYNTH_DATA` entries hold only what upstream lacks; `kimi-k2.7-code-highspeed` remains pre-staged, with its capability flags mirrored from `kimi-k2.7-code`
 - ❌ Exclude the deprecated back catalogue that upstream still carries: `kimi-k2.5`, the `moonshot-v1-*` family (including the `-vision-preview` variants), `kimi-latest*`, `kimi-thinking-preview` and the `kimi-k2-*` previews. Moonshot retired `kimi-k2.5` and `moonshot-v1` on **2026-08-31** and the `kimi-k2` series on **2026-05-25**; calls now return 404. The whitelist is the only thing keeping them out
 - ❌ Exclude bare-key forms (`moonshot.kimi-k2-thinking`) and every third-party rehost of a Kimi model (`azure_ai/`, `bedrock/`, `fireworks_ai/`, `together_ai/`, `novita/`, `deepinfra/`, …): the `moonshot/` namespace is canonical
 
@@ -476,7 +564,12 @@ These models require special access or configuration and are not available to al
 ```
 .
 ├── filter_models.py          # Main filtering script
-├── model_sync_rules.py       # Filtering rules configuration
+├── model_sync_rules.py       # Filtering rules, synth overlays, CAPABILITY_OVERRIDES
+├── capability_check.py       # Enforces the capability-overlay policy
+├── drift_report.py           # Capability / price drift vs a regeneration (report-only)
+├── tests/                    # pytest suite (offline)
+├── .github/workflows/        # PR checks + daily upstream drift report
+├── requirements-dev.txt      # Test tooling (pytest)
 ├── filtered_models.json      # Output file (generated)
 ├── LICENSE                   # MIT License
 └── README.md                 # This file
@@ -484,8 +577,13 @@ These models require special access or configuration and are not available to al
 
 ## Data Source
 
-Model data is fetched from:
-https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
+`filtered_models.json` is generated from a **pinned** upstream snapshot —
+`BerriAI/litellm`'s `model_prices_and_context_window.json` at the commit in
+`ModelSyncRules.UPSTREAM_PIN` — so regeneration is reproducible and CI can prove
+the committed file matches the rules. The live file
+(`https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json`)
+is used only by the drift report, to show what the next sync would bring.
+Bumping the pin *is* the upstream sync; see [Checks, CI and the drift report](#checks-ci-and-the-drift-report).
 
 ## Configuration
 
@@ -525,7 +623,7 @@ Exclusion breakdown:
 ## Requirements
 
 - Python 3.10+
-- Standard library only (no external dependencies)
+- Standard library only for the catalogue scripts; `pytest` (see `requirements-dev.txt`) for the test suite
 
 ## API Reference
 
@@ -582,6 +680,87 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.44 (2026-09-30)
+**Capability flags become vendor-verified and policy-enforced; first full upstream sync since 2026-08-26.** Exported total stays **176**; no model added or removed. The export was regenerated in full (not appended to) at upstream `BerriAI/litellm@d098b02`, and CI now proves it reproduces from the rules.
+
+#### Why
+`ghisha-dashboard-pilot` is about to forward `supports_*` flags into LiteLLM deployments, forwarding only `true`s. Until now this repo verified prices carefully but treated capabilities as pass-through baggage — and every PR since 2026-08-26 only appended entries, so existing ones were frozen at the state they had when first added. See [Capability flags](#capability-flags). (The ten stale `true`s that posed a live-400 risk were removed first, in v1.16.43.)
+
+#### New machinery
+- **Pinned upstream snapshot** — `ModelSyncRules.UPSTREAM_PIN`. `filter_models.py` now reads it by default (`--url` also accepts a local file), so regeneration is reproducible. Bumping the pin is the upstream sync; the export's `source` metadata is unchanged.
+- **`CAPABILITY_OVERRIDES`** — the allowlist of deliberate `supports_*` overrides on upstream keys, each with a vendor URL. 21 entries.
+- **`capability_check.py`** — fails on `redundant` / `unlisted-override` / `orphan-override`. Found 92 violations in the pre-existing synth tables (69 redundant, 23 unlisted); all resolved below.
+- **`CAPABILITY_MIRRORS`** + `apply_capability_mirrors` — `bigmodel/*` and `kimi-k2.7-code-highspeed` derive their flags from their source model instead of hand-writing copies.
+- **`drift_report.py`** — report-only drift classifier. **`tests/`** — 25 pytest tests, each mutation-checked to fail when its behaviour breaks. **CI** — PR checks against the pin, plus a daily report-only drift job.
+- Synth-chain edit: pipeline gains `apply_capability_mirrors` after all vendor synths.
+
+#### Overlays retired because upstream caught up (no output change)
+Whole entries: `claude-opus-5`, `claude-mythos-5`, `claude-mythos-5-1` (25–26 fields each, all identical upstream), `dashscope/qwen3.8-flash`, `zai/glm-5.1`, `gpt-5.1`, `gpt-5.2`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.5`, `gpt-4o-mini-tts`, `gpt-image-1`, `gpt-image-1-mini`, and `gemini/gemini-3.1-flash-lite-image`'s old function-calling override. Plus every remaining field equal to upstream across the synth tables — 271 in all. Notably, **upstream adopted `cache_read_input_image_token_cost`**, the key this repo invented in v1.16.28 for the gpt-image family's separate cached-image rate, with identical values.
+
+#### Capability changes — each checked against the vendor
+Upstream values accepted after verification:
+
+| Change | Models | Vendor source |
+|---|---|---|
+| `supports_anthropic_compaction` → true | Fable 5 / 5.1, Mythos 5 / 5.1, Opus 4.6 / 4.7 / 4.8 / 5, Sonnet 4.6 / 5 (+ dated) | [compaction compatibility](https://platform.claude.com/docs/en/build-with-claude/compaction-on-demand): "Fable 5 and 5.1 · Mythos 5, 5.1 · Opus 4.6, 4.7, 4.8, 5, and 5.5 · Sonnet 4.6, 5, and 5.5" — exact match, and correctly absent on Opus 4.5 / Sonnet 4.5 / Haiku |
+| `supports_thinking_cache_preservation` → true | Opus 4.5 / 4.6 / 4.7 / 4.8 / 5, Sonnet 4.6 / 5 (+ dated) | [context editing](https://platform.claude.com/docs/en/build-with-claude/context-editing): "Keep all prior thinking — Opus 4.5 and later, Sonnet 4.6 and later" |
+| `supports_fast_mode` → true | Opus 4.8, Opus 5 | [fast mode](https://platform.claude.com/docs/en/build-with-claude/fast-mode): "Claude Opus 5.5, Claude Opus 5, Claude Opus 4.8"; "not available on Claude Opus 4.7" |
+| `supports_forced_tool_use` → false; `mid_conversation_system`, `native_structured_output` → true | Mythos 5.1 | [define tools](https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools): "Opus 5.5, Sonnet 5.5, Fable 5.1, and Mythos 5.1 — any and tool return a 400 error"; flags match its twin Fable 5.1 |
+| `supports_reasoning` false → true | gemini-3-pro-image, 3.1-flash-image, 3.1-flash-lite-image | model pages: "Thinking: Supported" |
+| `supports_pdf_input` → true | gemini-3.1-flash-image, 3.1-flash-lite-image | model pages: "Inputs: Text, Image, Video, and PDF" |
+| `supports_audio_input` → true | gemini-2.5-flash, 2.5-flash-lite, 3-flash-preview, embedding-2 | model pages list audio input; pricing lists audio rates |
+| `supports_vision` → true | gemini-embedding-2 | model page: "Text, image, video, audio, PDF" |
+| `supports_audio_input` → false | gemini-2.5-flash-image | model page: "Image and Text" |
+| `supports_minimal_reasoning_effort` → false | gemini-3.7-flash, 3.8-flash | model pages: "Thinking: Supported (low, medium, high)" |
+| `supports_web_search` → false | gemini-3.1-flash-lite-image | model page: "Search grounding: Not supported" |
+| `supports_video_input` → true | qwen3.8-flash; kimi-k2.7-code (+ highspeed by mirror) | qwencloud card "Video Understanding"; Kimi: "supports text, image, and video input" |
+| `supports_web_search` → true | qwen3.8-flash | [Alibaba web search](https://www.alibabacloud.com/help/en/model-studio/web-search): "Qwen3.8 series: … qwen3.8-flash …" |
+| `supports_response_schema` → true | qwen3.8-flash | [structured output](https://www.alibabacloud.com/help/en/model-studio/qwen-structured-output), JSON Schema tab |
+
+Vendor contradicts upstream — overridden, allowlisted:
+
+| Override | Models | Vendor source |
+|---|---|---|
+| `supports_pdf_input` → **false** | gpt-image-2, gpt-image-1.5, gpt-image-2.5-sunburst, gpt-image-2.5-flare | every gpt-image model page: "Input modalities: text, image". ⚠️ gpt-image-2 / -1.5 **were already `true` in the export** — a stale `true` not on the original work list |
+| `supports_minimal_reasoning_effort` → true | gemini-3.1-flash-lite-image | [model page](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite-image): "Thinking: Supported (minimal and high)" |
+| `supports_max_reasoning_effort` → true | zai/glm-5.2, 5.3, 5.3-flash | [z.ai thinking](https://docs.z.ai/guides/capabilities/thinking): reasoning_effort "only supported by GLM-5.2 and above" |
+| `supports_low_reasoning_effort` → true | zai/glm-5.3, 5.3-flash | same page: `low` "only supported by GLM-5.3 and GLM-5.3-FLASH" |
+| `supports_reasoning`, `supports_prompt_caching` → true | zai/glm-4.5, 4.5-x, 4.5-air, 4.5-airx, 4.5v | [glm-4.5 guide](https://docs.z.ai/guides/llm/glm-4.5): Thinking, Context Caching; overview maps the variants to that guide; 4.5V "use forced thinking"; cached-input prices published |
+| `supports_prompt_caching` → true | moonshot/kimi-k3 | [K3 pricing](https://platform.kimi.ai/docs/pricing/chat-k3): "automatically caches repeated request prefixes" |
+
+Pre-staged entries audited (they have no upstream to fall back on):
+- **zai/glm-4.6v, 4.6v-flashx, 4.7-flashx, 5.3-flashx** — reasoning, function calling, tool choice, prompt caching set per their parent guide (z.ai's overview maps each variant to it); 5.3-flashx also gets max effort ("GLM-5.2 and above") but not low (named only for 5.3 / 5.3-FLASH).
+- **supports_response_schema is deliberately absent on every GLM model**: z.ai's structured output is `{"type": "json_object"}` only; its "Schema Validation" tab validates client-side. Upstream agrees.
+- `supports_tool_choice` is set for GLM because z.ai documents the parameter — but note it "only supports `auto`".
+- **dashscope/qwen3.7-flash** — `supports_response_schema` true (JSON Schema tab); **qwen3.8-2.4t-a95b** left without it (the open-source build appears only on the JSON Object tab).
+- **bigmodel/*** (14) — flags now derived from `zai/*` by mirror; **kimi-k2.7-code-highspeed** from `kimi-k2.7-code`.
+- zai/glm-5-turbo, 5v-turbo, glm-ocr — left as they were (the first two are off the vendor site and were declined for audit on 2026-09-04; OCR is a layout-parsing tool, not a chat model).
+
+Removed, no vendor basis or no effect:
+- `supports_service_tier` on 8 GPT-5.x models — upstream never set it, no code in the LiteLLM fork reads it (schema-only), never verified per model.
+- `supports_system_messages` / `_native_streaming` / `_parallel_function_calling` on Kimi — not in the minimum set, upstream never set them, and the fork reads them only in OpenAI o-series / Azure / Vertex code, never for moonshot.
+- Placeholder `supports_json_mode: false` (28 models) and `supports_vision: false` on text-only GLMs (9) — false/absent are equivalent to every reader. **Verified: no top-level export field changed as a result.**
+
+#### Price changes — affect billing downstream
+| Model | Change | Verdict |
+|---|---|---|
+| `gemini/gemini-2.5-pro` priority tier | input $1.25→**$2.25**, >200k $2.50→**$4.50**; output $10→**$18**, >200k $15→**$27** | **Correct and an increase.** The old values were the *Standard* rates, so priority requests were billed ~44% light. [Pricing page](https://ai.google.dev/gemini-api/docs/pricing), Priority tab: $2.25 / $4.50 / $18 / $27, cache $0.225 / $0.45 |
+| `gemini/gemini-embedding-2` | `input_cost_per_image` / `_audio_per_second` / `_video_per_second` removed; `input_cost_per_{image,audio,video}_token` $0.45 / $6.50 / $12.00 per M added | **Unit change, not a price change.** Google's primary unit is per 1M tokens; the per-image/second figures are its parenthetical equivalents. The old video field was also mislabelled — Google says "$0.00079 per **frame**", not per second |
+| `gpt-realtime`, `-2.1`, `-2.1-mini` | `input_cost_per_image` removed; `input_cost_per_image_token` $5 / $5 / $0.80 per M and `cache_read_input_image_token_cost` added | **Unit fix.** The vendor quotes image input per 1M tokens; the old per-image field misread "$5.00" as $0.000005 per image |
+| `gpt-image-2` | `output_cost_per_token` ($10 text output) removed | Correct: OpenAI states GPT Image 2.5 "token rates match GPT Image 2" and "text output is not billed" |
+| `o4-mini` flex cached input | $0.1375 → $0.138 | Upstream rounding, +0.36%. Accepted: the model shuts down 2026-10-23 |
+| `gpt-live-1`, `gpt-live-transcribe`, `gpt-realtime-translate`, `gpt-realtime-whisper` | per-second rates differ at the 13th significant digit | Float noise |
+| **277 prices added** | mostly `*_batches` (Claude 84, OpenAI, Google), plus flex / priority / Ultrafast tiers, Maps grounding, cached-audio rates | Rule-checked: 175 batch rates = 50% of standard; the 9 exceptions are Google cache (no batch discount) and OpenAI-published figures. OpenAI flex = 0.5×, priority = 2× throughout. `gpt-6-astra` Ultrafast $60 / $6 / $75 / $300 (>272k $120 / $12 / $150 / $450) and gemini-2.5-flash priority $0.54 / $4.50 spot-checked against the pricing pages. Maps grounding $25 / 1K (2.5) and $14 / 1K (3.x) match |
+
+#### Non-price, non-capability corrections from the sync
+- `claude-sonnet-4-5` (+ dated): upstream regressed its context to 1M; **kept at 200,000** by overlay. [Context windows](https://platform.claude.com/docs/en/build-with-claude/context-windows): "Other Claude models, including Claude Sonnet 4.5, have a 200k-token context window." All 20 Claude context windows now match that page.
+- Accepted from upstream after checking model pages: Gemini 2.5 max output 65,535 → 65,536; gemini-2.5-flash-image input 32,768 → 65,536 (the old value was its *output* limit); gemini-3.1-flash-image input 65,536 → 131,072.
+
+#### Known gaps, recorded not fixed
+- ⚠️ **Kimi K3 now bills cache writes** — $3.00 (5-min TTL) and $6.00 (1-hour) per M — and neither upstream nor this repo carries `cache_creation_input_token_cost` for it. Needs investigation of how Kimi reports write tokens; separate change.
+- Upstream sets `supports_thinking_cache_preservation` on Opus 4.5+ / Sonnet 4.6+ but not Fable 5 / Mythos 5, which Anthropic lists under "keep all prior thinking — all models". Not overridden: upstream does not define the flag's semantics and nothing in the fork reads it yet.
+- Alibaba documents web search for more Qwen models than upstream flags, subject to "must be called through the multimodal API". Not extended until that path is confirmed for LiteLLM's dashscope route.
 
 ### v1.16.43 (2026-09-30)
 **Capability hotfix — no price changed, no model added or removed.** Exported total stays **176**.

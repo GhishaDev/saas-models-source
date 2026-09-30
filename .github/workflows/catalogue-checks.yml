@@ -1,0 +1,67 @@
+name: Catalogue checks
+
+on:
+  pull_request:
+  schedule:
+    - cron: "17 3 * * *" # daily, 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Blocking checks for every PR. Everything here runs against the PINNED
+  # upstream snapshot (ModelSyncRules.UPSTREAM_PIN), never live upstream, so a
+  # PR can only fail on changes it makes itself — upstream moving overnight
+  # cannot break an unrelated PR. The repo syncs upstream deliberately, by
+  # bumping the pin.
+  pr-checks:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+
+      - name: Unit tests
+        run: pytest -q
+
+      - name: Fetch pinned upstream snapshot
+        run: |
+          url=$(python -c "from model_sync_rules import ModelSyncRules as R; print(R.UPSTREAM_SNAPSHOT_URL)")
+          curl -sfL --retry 3 "$url" -o upstream_pinned.json
+
+      - name: Capability overlay policy
+        run: python capability_check.py --upstream upstream_pinned.json
+
+      - name: Regenerate at the pinned snapshot
+        run: python filter_models.py --quiet --url upstream_pinned.json -o /tmp/regenerated.json
+
+      - name: No stale supports_* true introduced
+        run: python drift_report.py --regenerated /tmp/regenerated.json --fail-on stale-true
+
+      # Catches a hand edit to filtered_models.json that the rules would not
+      # produce — including an append-only edit that leaves older entries stale.
+      - name: Regeneration reproduces the committed export
+        run: python drift_report.py --regenerated /tmp/regenerated.json --fail-on any
+
+  # Daily report of what a sync to live upstream would change. Report-only:
+  # it never fails and never writes to the repo.
+  upstream-drift:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Drift against live upstream
+        run: python drift_report.py --output drift-report.md
+      - name: Publish to the run summary
+        run: cat drift-report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upstream-drift-report
+          path: drift-report.md

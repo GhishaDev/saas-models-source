@@ -8,6 +8,7 @@ using the rules defined in model_sync_rules.py.
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.request
@@ -35,6 +36,23 @@ def fetch_models(url: str, timeout: int = 30, max_retries: int = 3, retry_delay:
                 sys.exit(1)
 
     return {}
+
+
+def load_upstream(source: str) -> dict[str, Any]:
+    """Load the upstream model dict from a local file path or a URL.
+
+    A local path lets CI download the pinned snapshot once and reuse it
+    across steps; anything else is fetched with the usual retry policy.
+    """
+    if os.path.isfile(source):
+        with open(source, encoding="utf-8") as f:
+            return json.load(f)
+    return fetch_models(
+        source,
+        timeout=ModelSyncRules.SYNC_CONFIG["timeout"] // 1000,
+        max_retries=ModelSyncRules.SYNC_CONFIG["max_retries"],
+        retry_delay=ModelSyncRules.SYNC_CONFIG["retry_delay"] // 1000,
+    )
 
 
 def save_to_file(data: Any, filename: str) -> None:
@@ -120,8 +138,11 @@ def main() -> None:
     )
     parser.add_argument(
         "--url",
-        default=ModelSyncRules.DATA_SOURCE_URL,
-        help="Custom data source URL",
+        default=ModelSyncRules.UPSTREAM_SNAPSHOT_URL,
+        help=(
+            "Upstream source, as a URL or a local file path "
+            "(default: the pinned snapshot, ModelSyncRules.UPSTREAM_PIN)"
+        ),
     )
     parser.add_argument(
         "--quiet", "-q",
@@ -141,13 +162,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # Fetch all models
-    all_models = fetch_models(
-        args.url,
-        timeout=ModelSyncRules.SYNC_CONFIG["timeout"] // 1000,
-        max_retries=ModelSyncRules.SYNC_CONFIG["max_retries"],
-        retry_delay=ModelSyncRules.SYNC_CONFIG["retry_delay"] // 1000,
-    )
+    all_models = load_upstream(args.url)
 
     # Filter models using rules
     filtered = ModelSyncRules.filter_all_models(all_models)
