@@ -179,12 +179,13 @@ class ModelSyncRules:
         "zai/glm-4.5-airx",
         "zai/glm-4.5-flash",
         "zai/glm-4-32b-0414-128k",
-        # Pre-staged: announced on docs.z.ai but missing from LiteLLM source
+        "zai/glm-5.1",
         "zai/glm-5.2",
         "zai/glm-5.3",
         "zai/glm-5.3-flash",
+        # Pre-staged: on docs.z.ai but missing from LiteLLM source
+        # (verified against the pinned snapshot, 2026-09-30)
         "zai/glm-5.3-flashx",
-        "zai/glm-5.1",
         "zai/glm-5-turbo",
         "zai/glm-4.7-flashx",
         "zai/glm-5v-turbo",
@@ -203,115 +204,61 @@ class ModelSyncRules:
         "ocr": "OCR",
     }
 
-    # Authoritative z.ai data overlay. Source: docs.z.ai/guides/overview/overview
-    # + docs.z.ai/guides/overview/pricing (snapshot taken 2026-06-13).
+    # Authoritative z.ai data overlay. Source: docs.z.ai (pricing, overview,
+    # per-model guides, capability guides).
     #
     # Two roles:
-    #   1. Inject pre-staged SKUs absent from LiteLLM upstream.
-    #   2. Overlay/correct fields when upstream disagrees with z.ai
-    #      (e.g. zai/glm-4.5v context: upstream 128K vs z.ai 64K — z.ai wins).
+    #   1. Pre-staged SKUs absent from upstream — complete records, and the
+    #      only source for their capability flags.
+    #   2. Overlays on upstream SKUs — ONLY fields upstream lacks or gets
+    #      wrong. Capability flags here must be allowlisted in
+    #      CAPABILITY_OVERRIDES (capability_check.py enforces it).
     #
-    # Once LiteLLM publishes a pre-staged SKU upstream, the entry continues
-    # to overlay any conflicting fields (z.ai remains the source of truth).
+    # ── How GLM capability flags are derived (2026-09-30) ─────────────────
+    # z.ai documents capabilities per model GUIDE, and its overview table
+    # maps each variant to its parent's guide — that mapping is the vendor's
+    # own statement of family membership, so a variant inherits its parent
+    # guide's capabilities:
+    #     GLM-4.5-X / -Air / -AirX → glm-4.5      GLM-4.7-FlashX  → glm-4.7
+    #     GLM-4.6V-FlashX          → glm-4.6v     GLM-5.3-FlashX  → glm-5.3-flash
+    # Feature names map to LiteLLM flags as follows; nothing is set that the
+    # vendor does not name:
+    #     "Thinking" / "Deep Thinking"      → supports_reasoning
+    #     "Function Call"                   → supports_function_calling, and
+    #                                         supports_tool_choice (the
+    #                                         function-calling guide documents
+    #                                         `tool_choice`, "only supports
+    #                                         `auto`")
+    #     "Context Caching", or a published
+    #     cached-input price                → supports_prompt_caching
+    #     reasoning_effort levels           → supports_{max,low}_reasoning_effort
+    #                                         ("only supported by GLM-5.2 and
+    #                                         above"; values max / high, plus
+    #                                         low on GLM-5.3 and 5.3-FLASH only)
+    #
+    # ⚠️ supports_response_schema is deliberately ABSENT on every GLM model.
+    # z.ai's structured-output guide offers only {"type": "json_object"}; its
+    # "Schema Validation" example validates client-side with the `jsonschema`
+    # library. Setting the flag would make LiteLLM send a native json_schema
+    # response_format z.ai does not implement, instead of falling back to
+    # json_object. Upstream agrees (sets it on no zai/* key).
+    #
+    # GLM-5-Turbo and GLM-5V-Turbo are no longer on the z.ai overview or
+    # pricing pages. They are kept by decision (2026-09-04) but NOT audited:
+    # their existing flags are left as-is and no new ones are added, since
+    # there is no current vendor page to derive them from.
     ZAI_SYNTH_DATA: dict[str, dict[str, Any]] = {
-        # ── Pre-staged SKUs (not yet on LiteLLM) ──────────────────────────
-        "zai/glm-5.2": {
-            # Long-horizon flagship: bigmodel.cn advertises "真正可用的 1M 上下文"
-            # (genuinely usable 1M context). Priced identically to GLM-5.1 on
-            # z.ai international (input $1.4 / output $4.4 / cached $0.26 per M).
-            "litellm_provider": "zai",
-            "mode": "chat",
-            "max_input_tokens": 1000000,
-            "max_output_tokens": 128000,
-            "input_cost_per_token": 1.4e-06,
-            "output_cost_per_token": 4.4e-06,
-            "cache_read_input_token_cost": 0.26e-06,
-            "supports_function_calling": True,
-            "supports_vision": False,
-            "supports_json_mode": False,
-        },
-        "zai/glm-5.3": {
-            # Prices CONFIRMED against docs.z.ai/guides/overview/pricing
-            # (2026-08-26): input $1.4 / cached $0.26 / output $4.4 per M,
-            # 1M ctx. These were pre-staged in v1.16.10 by mirroring GLM-5.2
-            # before z.ai published GLM-5.3 rates; the published rates turned
-            # out identical, so the numbers are unchanged — only their status
-            # (guess -> verified) is.
-            "litellm_provider": "zai",
-            "mode": "chat",
-            "max_input_tokens": 1000000,
-            "max_output_tokens": 128000,
-            "input_cost_per_token": 1.4e-06,
-            "output_cost_per_token": 4.4e-06,
-            "cache_read_input_token_cost": 0.26e-06,
-            "supports_function_calling": True,
-            "supports_vision": False,
-            "supports_json_mode": False,
-        },
-        "zai/glm-5.3-flash": {
-            # PROMOTION ENDED 2026-09-09 24:00 UTC+8 — reverted on schedule,
-            # after verifying rather than trusting the calendar note.
-            #
-            # The 50%-off overlay (input $0.075 / cached $0.015 / output
-            # $0.25) is gone; list price — input $0.15 / cached $0.03 /
-            # output $0.50 per M — is what callers pay now, and upstream
-            # carries exactly those numbers. So the price fields were not
-            # edited, they were DELETED: keeping them would duplicate
-            # upstream and rot the moment z.ai moves again (v1.16.18 / 20 /
-            # 23 / 24).
-            #
-            # How the lapse was confirmed — read the markup, not the number
-            # (the qwen3.7-max lesson, v1.16.24). docs.z.ai renders a
-            # discounted cell as a price PAIR (list + live); on 2026-09-04
-            # the GLM-5.3-Flash row read "$0.15 $0.075 | $0.03 $0.015 |
-            # ... | $0.50 $0.25". Today the same row is five bare <td>
-            # cells with single values. The pair is gone, not merely the
-            # smaller number.
-            #
-            # What survives is ONE field, because upstream has it wrong:
-            #
-            # max_input_tokens — upstream says 1048576, i.e. someone read
-            # "1M" as 1024². It is 1,000,000. docs.z.ai/guides/vlm/
-            # glm-5.3-flash spells it out in prose — "context lengths of up
-            # to one million tokens" — and upstream's own zai/glm-5.2 and
-            # zai/glm-5.3 entries, same 1M context, both say 1000000. This
-            # is the mirror image of the DeepSeek case (v1.16.23), where the
-            # page said "384K" and the API really did take 384x1024: there
-            # the round number was the wrong reading, here it is the right
-            # one. Check which unit the vendor actually spells out.
-            #
-            # Everything else now comes from upstream unchanged, including
-            # supports_vision — GLM-5.3-Flash is the first NATIVE MULTIMODAL
-            # model in the GLM-5 series (320B total / 18B active), which is
-            # why it needs the flag despite having no "v" infix to match
-            # _GLM_VISION_KEY. Upstream sets it too, so we no longer do.
-            "max_input_tokens": 1000000,
-        },
+        # ── Pre-staged SKUs (absent upstream) ─────────────────────────────
         "zai/glm-5.3-flashx": {
-            # GLM-5.3-FlashX — the higher-throughput tier of GLM-5.3-Flash,
-            # natively multimodal like its sibling (图片、视频、文件、文本).
+            # Higher-throughput tier of GLM-5.3-Flash; overview maps it to the
+            # glm-5.3-flash guide, which also documents 1M context and 128K
+            # max output. List price per docs.z.ai pricing (2026-09-18):
+            # $0.37 in / $0.075 cached / $1.25 out per M — three bare cells,
+            # not the list+live pair z.ai uses for a discount.
             #
-            # Prices read off docs.z.ai/guides/overview/pricing on
-            # 2026-09-18: $0.37 in / $0.075 cached / $1.25 out per M. The row
-            # renders as three BARE values, not the list+live price PAIR z.ai
-            # uses for a discount, so this is list price with no promotion to
-            # schedule a revert against (contrast GLM-5.3-Flash, whose 50%
-            # promo lapsed on 2026-09-09 — see v1.16.29).
-            #
-            # Pre-staged: upstream carries no zai/glm-5.3-flashx (verified
-            # 2026-09-18). Remove this entry once it does.
-            #
-            # ⚠️ max_output_tokens 128000 is INFERRED, not published. z.ai has
-            # no model page for FlashX — neither guides/llm/glm-5.3-flashx nor
-            # guides/vlm/glm-5.3-flashx exists — so the only authoritative
-            # data is the pricing row. 128000 is what every other GLM-5 SKU
-            # here carries, including GLM-5.3-Flash. Replace with a quote if
-            # z.ai publishes one.
-            #
-            # max_input_tokens 1000000 IS published: 1M on both the z.ai
-            # pricing table and the bigmodel 旗舰模型 table. Note upstream
-            # stores 1048576 for the sibling glm-5.3-flash, which is wrong —
-            # z.ai spells out "one million" in prose (see v1.16.29).
+            # max_reasoning_effort: "GLM-5.2 and above" includes 5.3-FlashX.
+            # low_reasoning_effort is NOT set — the thinking guide names only
+            # "GLM-5.3 and GLM-5.3-FLASH" for `low`.
             "litellm_provider": "zai",
             "mode": "chat",
             "max_input_tokens": 1000000,
@@ -319,23 +266,15 @@ class ModelSyncRules:
             "input_cost_per_token": 3.7e-07,
             "output_cost_per_token": 1.25e-06,
             "cache_read_input_token_cost": 7.5e-08,
+            "supports_reasoning": True,
             "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_prompt_caching": True,
             "supports_vision": True,
-            "supports_json_mode": False,
-        },
-        "zai/glm-5.1": {
-            "litellm_provider": "zai",
-            "mode": "chat",
-            "max_input_tokens": 200000,
-            "max_output_tokens": 128000,
-            "input_cost_per_token": 1.4e-06,
-            "output_cost_per_token": 4.4e-06,
-            "cache_read_input_token_cost": 0.26e-06,
-            "supports_function_calling": True,
-            "supports_vision": False,
-            "supports_json_mode": False,
+            "supports_max_reasoning_effort": True,
         },
         "zai/glm-5-turbo": {
+            # Not audited — see the GLM-5-Turbo note above.
             "litellm_provider": "zai",
             "mode": "chat",
             "max_input_tokens": 200000,
@@ -345,9 +284,10 @@ class ModelSyncRules:
             "cache_read_input_token_cost": 0.24e-06,
             "supports_function_calling": True,
             "supports_vision": False,
-            "supports_json_mode": False,
         },
         "zai/glm-4.7-flashx": {
+            # Inherits the glm-4.7 guide: Thinking, Function Call, Structured
+            # Output (json_object only), Context Caching. Text-only.
             "litellm_provider": "zai",
             "mode": "chat",
             "max_input_tokens": 200000,
@@ -355,11 +295,14 @@ class ModelSyncRules:
             "input_cost_per_token": 0.07e-06,
             "output_cost_per_token": 0.4e-06,
             "cache_read_input_token_cost": 0.01e-06,
+            "supports_reasoning": True,
             "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_prompt_caching": True,
             "supports_vision": False,
-            "supports_json_mode": False,
         },
         "zai/glm-5v-turbo": {
+            # Not audited — see the GLM-5-Turbo note above.
             "litellm_provider": "zai",
             "mode": "chat",
             "max_input_tokens": 200000,
@@ -369,9 +312,10 @@ class ModelSyncRules:
             "cache_read_input_token_cost": 0.24e-06,
             "supports_function_calling": True,
             "supports_vision": True,
-            "supports_json_mode": False,
         },
         "zai/glm-4.6v": {
+            # glm-4.6v guide: "native Function Calling"; overview: "Thinking
+            # Mode Switch Support". Cached input is priced ($0.05).
             "litellm_provider": "zai",
             "mode": "chat",
             "max_input_tokens": 128000,
@@ -379,11 +323,14 @@ class ModelSyncRules:
             "input_cost_per_token": 0.3e-06,
             "output_cost_per_token": 0.9e-06,
             "cache_read_input_token_cost": 0.05e-06,
+            "supports_reasoning": True,
             "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_prompt_caching": True,
             "supports_vision": True,
-            "supports_json_mode": False,
         },
         "zai/glm-4.6v-flashx": {
+            # Inherits the glm-4.6v guide. Cached input is priced ($0.004).
             "litellm_provider": "zai",
             "mode": "chat",
             "max_input_tokens": 128000,
@@ -391,11 +338,15 @@ class ModelSyncRules:
             "input_cost_per_token": 0.04e-06,
             "output_cost_per_token": 0.4e-06,
             "cache_read_input_token_cost": 0.004e-06,
+            "supports_reasoning": True,
             "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_prompt_caching": True,
             "supports_vision": True,
-            "supports_json_mode": False,
         },
         "zai/glm-ocr": {
+            # A layout-parsing tool (overview links /api-reference/tools/
+            # layout-parsing), not a chat model: no thinking, tools or cache.
             "litellm_provider": "zai",
             "mode": "chat",
             "max_input_tokens": None,
@@ -404,31 +355,61 @@ class ModelSyncRules:
             "output_cost_per_token": 0.03e-06,
             "supports_function_calling": False,
             "supports_vision": True,
-            "supports_json_mode": False,
         },
-        # ── Overlays for existing LiteLLM SKUs ────────────────────────────
-        # Strategy: only fill what upstream lacks or disagrees with z.ai.
-        # Upstream already has correct cache pricing for glm-5/4.7/4.6,
-        # so they're not duplicated here. The 4.5 family + 4.5v are.
+        # ── Overlays on upstream SKUs ─────────────────────────────────────
+        # Price/context fields upstream lacks or gets wrong, plus capability
+        # overrides — every supports_* below is listed in CAPABILITY_OVERRIDES.
+        #
+        # Retired 2026-09-30, upstream now carrying them identically:
+        # zai/glm-5.1, zai/glm-5.2 and zai/glm-5.3 pre-staged records (prices,
+        # context, function calling). Their placeholder supports_vision=False
+        # and supports_json_mode=False were dropped rather than allowlisted:
+        # upstream leaves both undefined, and false/absent are equivalent to
+        # every reader (the dashboard forwards only true).
+        "zai/glm-5.3-flash": {
+            # 1M context is one million, not 1024². docs.z.ai says "context
+            # lengths of up to one million tokens"; upstream stores 1048576,
+            # while its own glm-5.2 / glm-5.3 say 1000000. (v1.16.29)
+            "max_input_tokens": 1000000,
+            "supports_max_reasoning_effort": True,
+            "supports_low_reasoning_effort": True,
+        },
+        "zai/glm-5.3": {
+            "supports_max_reasoning_effort": True,
+            "supports_low_reasoning_effort": True,
+        },
+        "zai/glm-5.2": {
+            "supports_max_reasoning_effort": True,
+        },
         "zai/glm-4.5v": {
-            # z.ai/overview lists context 64K; upstream says 128K. z.ai wins.
+            # z.ai overview lists 64K context; upstream says 128K.
             "max_input_tokens": 64000,
             "cache_read_input_token_cost": 0.11e-06,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
         },
         "zai/glm-4.5": {
             "cache_read_input_token_cost": 0.11e-06,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
         },
         "zai/glm-4.5-x": {
             "cache_read_input_token_cost": 0.45e-06,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
         },
         "zai/glm-4.5-air": {
             "cache_read_input_token_cost": 0.03e-06,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
         },
         "zai/glm-4.5-airx": {
             "cache_read_input_token_cost": 0.22e-06,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
         },
-        # zai/glm-4-32b-0414-128k and zai/glm-ocr: no cache pricing on
-        # z.ai/pricing (shown as "-" / "\") — intentionally not added.
+        # zai/glm-4-32b-0414-128k: no cached-input price on z.ai pricing ("-")
+        # and not in the thinking guide's model list — nothing to add.
     }
 
     # ── Bigmodel (智谱开放平台 / bigmodel.cn) ──────────────────────────────
@@ -463,12 +444,15 @@ class ModelSyncRules:
         "bigmodel/glm-4.6v-flashx",
     })
 
-    # Bigmodel SKU metadata. Pricing is *not* stored here — it is mirrored
-    # from the sibling zai/<sku> at synth time (see apply_bigmodel_synth).
-    # Each entry only carries non-price fields: context window, capabilities.
+    # Bigmodel SKU metadata. Neither prices nor capability flags are stored
+    # here — both are derived from the sibling zai/<sku>, so the two
+    # namespaces cannot disagree:
+    #   • prices: apply_bigmodel_synth mirrors _BIGMODEL_MIRRORED_PRICE_FIELDS;
+    #   • supports_*: CAPABILITY_MIRRORS maps every bigmodel/<sku> to
+    #     zai/<sku>, applied by apply_capability_mirrors.
+    # Each entry only carries the context window and the provider label.
     #
-    # Source for context/capabilities: docs.z.ai/guides/overview/overview
-    # (same models, so the metadata matches the zai/* entries by design).
+    # Source for context: docs.z.ai/guides/overview/overview (same models).
     #
     # Every bigmodel/* SKU is pre-staged (LiteLLM upstream does not carry
     # bigmodel/* keys), so apply_bigmodel_synth injects them wholesale.
@@ -479,102 +463,63 @@ class ModelSyncRules:
             "mode": "chat",
             "max_input_tokens": 1000000,
             "max_output_tokens": 128000,
-            "supports_function_calling": True,
-            "supports_vision": False,
-            "supports_json_mode": False,
         },
-        # Pre-staged mirror of GLM-5.2 (price mirrored from zai/glm-5.3 sibling).
         "bigmodel/glm-5.3": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 1000000,
             "max_output_tokens": 128000,
-            "supports_function_calling": True,
-            "supports_vision": False,
-            "supports_json_mode": False,
         },
-        # Domestic mirror of zai/glm-5.3-flash. Prices are NOT written here —
-        # apply_bigmodel_synth copies them from the zai sibling, so the 50%
-        # promotional rate (and its 2026-09-10 revert) is maintained in one
-        # place. supports_vision must still be stated: it is metadata, not a
-        # mirrored price field, and glm-5.3-flash is natively multimodal
-        # despite having no "v" infix in the key.
         "bigmodel/glm-5.3-flashx": {
-            # Metadata only — prices are copied from zai/glm-5.3-flashx by
-            # apply_bigmodel_synth, so the FlashX tariff lives in exactly one
-            # place. Domestic bigmodel quotes CNY (2 / 7 / 0.57 元 per M) but
-            # this catalogue mirrors the z.ai USD book for bigmodel/*, as it
-            # has since v1.9.0.
+            # Domestic bigmodel quotes CNY (2 / 7 / 0.57 元 per M), but this
+            # catalogue mirrors the z.ai USD book for bigmodel/*, as it has
+            # since v1.9.0.
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 1000000,
             "max_output_tokens": 128000,
-            "supports_function_calling": True,
-            "supports_vision": True,
-            "supports_json_mode": False,
         },
         "bigmodel/glm-5.3-flash": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 1000000,
             "max_output_tokens": 128000,
-            "supports_function_calling": True,
-            "supports_vision": True,
-            "supports_json_mode": False,
         },
         "bigmodel/glm-5": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 200000,
             "max_output_tokens": 128000,
-            "supports_function_calling": True,
-            "supports_vision": False,
-            "supports_json_mode": False,
         },
         "bigmodel/glm-4.7": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 200000,
             "max_output_tokens": 128000,
-            "supports_function_calling": True,
-            "supports_vision": False,
-            "supports_json_mode": False,
         },
         "bigmodel/glm-4.5-air": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 128000,
             "max_output_tokens": 32000,
-            "supports_function_calling": True,
-            "supports_vision": False,
-            "supports_json_mode": False,
         },
         "bigmodel/glm-5.1": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 200000,
             "max_output_tokens": 128000,
-            "supports_function_calling": True,
-            "supports_vision": False,
-            "supports_json_mode": False,
         },
         "bigmodel/glm-5-turbo": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 200000,
             "max_output_tokens": 128000,
-            "supports_function_calling": True,
-            "supports_vision": False,
-            "supports_json_mode": False,
         },
         "bigmodel/glm-4.7-flashx": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 200000,
             "max_output_tokens": 128000,
-            "supports_function_calling": True,
-            "supports_vision": False,
-            "supports_json_mode": False,
         },
         # Vision models
         "bigmodel/glm-5v-turbo": {
@@ -582,36 +527,24 @@ class ModelSyncRules:
             "mode": "chat",
             "max_input_tokens": 200000,
             "max_output_tokens": 128000,
-            "supports_function_calling": True,
-            "supports_vision": True,
-            "supports_json_mode": False,
         },
         "bigmodel/glm-4.6v": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 128000,
             "max_output_tokens": 32000,
-            "supports_function_calling": True,
-            "supports_vision": True,
-            "supports_json_mode": False,
         },
         "bigmodel/glm-4.6v-flashx": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 128000,
             "max_output_tokens": 32000,
-            "supports_function_calling": True,
-            "supports_vision": True,
-            "supports_json_mode": False,
         },
         "bigmodel/glm-4.5v": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 64000,
             "max_output_tokens": 32000,
-            "supports_function_calling": True,
-            "supports_vision": True,
-            "supports_json_mode": False,
         },
     }
 
@@ -714,61 +647,42 @@ class ModelSyncRules:
         "moonshot/kimi-k2.6",
     })
 
-    # Moonshot / Kimi pre-staged entries — models on platform.kimi.ai not yet
-    # carried by BerriAI upstream. Complete litellm-style records, injected
-    # wholesale by apply_moonshot_synth. Prices from platform.kimi.ai/docs.
+    # Moonshot / Kimi. kimi-k3 and kimi-k2.7-code were pre-staged and are now
+    # carried upstream, so their entries hold only what upstream lacks;
+    # kimi-k2.7-code-highspeed is still absent upstream and stays a complete
+    # record. Prices from platform.kimi.ai/docs/pricing.
+    #
+    # Retired 2026-09-30, upstream now carrying them identically: prices,
+    # context and the core capability flags of kimi-k3 / kimi-k2.7-code. Also
+    # dropped: supports_system_messages / _native_streaming /
+    # _parallel_function_calling. Upstream never set them, they are not in
+    # the catalogue's minimum flag set, and the LiteLLM fork reads them only
+    # in the OpenAI o-series / Azure / Vertex transformations — never for
+    # moonshot — so they were forwarded with no effect.
+    #
+    # ⚠️ KNOWN GAP, not addressed here: platform.kimi.ai now bills kimi-k3
+    # cache WRITES — $3.00 (5-min TTL) and $6.00 (1-hour TTL) per M — and
+    # neither upstream nor this file carries cache_creation_input_token_cost.
+    # Whether that under-bills depends on how Kimi reports write tokens in
+    # `usage`; to be investigated separately (seen 2026-09-30).
     MOONSHOT_SYNTH_DATA: dict[str, dict[str, Any]] = {
-        # Kimi K3 — $3 in / $15 out per M, cache-hit $0.30; 1M context.
-        # Source https://platform.kimi.ai/docs/pricing/chat-k3.
         "moonshot/kimi-k3": {
-            "litellm_provider": "moonshot",
-            "mode": "chat",
-            "input_cost_per_token": 3e-06,
-            "output_cost_per_token": 1.5e-05,
-            "cache_read_input_token_cost": 3e-07,
             "input_cost_per_token_cache_hit": 3e-07,
-            "max_input_tokens": 1048576,
-            "max_output_tokens": 1048576,
-            "max_tokens": 1048576,
-            "source": "https://platform.kimi.ai/docs/pricing/chat-k3",
             "supported_endpoints": ["/v1/chat/completions"],
-            "supports_reasoning": True,
+            # CAPABILITY_OVERRIDES: upstream leaves it undefined; Kimi documents
+            # automatic prefix caching with a published cached-input price.
             "supports_prompt_caching": True,
-            "supports_response_schema": True,
-            "supports_tool_choice": True,
-            "supports_vision": True,
-            "supports_function_calling": True,
-            "supports_system_messages": True,
-            "supports_native_streaming": True,
-            "supports_parallel_function_calling": True,
         },
-        # Kimi K2.7 Code — coding model, 256K (262,144) context; text/image/
-        # video input, thinking, ToolCalls, JSON Mode. $0.95 in / $4.00 out
-        # per M, cache-hit $0.19. Source chat-k2.7-code pricing page.
         "moonshot/kimi-k2.7-code": {
-            "litellm_provider": "moonshot",
-            "mode": "chat",
-            "input_cost_per_token": 9.5e-07,
-            "output_cost_per_token": 4e-06,
-            "cache_read_input_token_cost": 1.9e-07,
             "input_cost_per_token_cache_hit": 1.9e-07,
-            "max_input_tokens": 262144,
-            "max_output_tokens": 262144,
-            "max_tokens": 262144,
             "source": "https://platform.kimi.ai/docs/pricing/chat-k2.7-code",
             "supported_endpoints": ["/v1/chat/completions"],
-            "supports_reasoning": True,
-            "supports_prompt_caching": True,
-            "supports_response_schema": True,
-            "supports_tool_choice": True,
-            "supports_vision": True,
-            "supports_function_calling": True,
-            "supports_system_messages": True,
-            "supports_native_streaming": True,
-            "supports_parallel_function_calling": True,
         },
-        # Kimi K2.7 Code HighSpeed — same model, higher output speed. $1.90 in
-        # / $8.00 out per M, cache-hit $0.38; 256K context.
+        # Kimi K2.7 Code HighSpeed — "the same model as Kimi K2.7 Code, but
+        # with an output speed of approximately 180 Tokens/s" (vendor). $1.90
+        # in / $8.00 out per M, cache-hit $0.38; 256K context. Capability flags
+        # are NOT written here: CAPABILITY_MIRRORS copies them from
+        # kimi-k2.7-code, so "same model" stays true by construction.
         "moonshot/kimi-k2.7-code-highspeed": {
             "litellm_provider": "moonshot",
             "mode": "chat",
@@ -781,15 +695,6 @@ class ModelSyncRules:
             "max_tokens": 262144,
             "source": "https://platform.kimi.ai/docs/pricing/chat-k2.7-code",
             "supported_endpoints": ["/v1/chat/completions"],
-            "supports_reasoning": True,
-            "supports_prompt_caching": True,
-            "supports_response_schema": True,
-            "supports_tool_choice": True,
-            "supports_vision": True,
-            "supports_function_calling": True,
-            "supports_system_messages": True,
-            "supports_native_streaming": True,
-            "supports_parallel_function_calling": True,
         },
     }
 
@@ -822,87 +727,39 @@ class ModelSyncRules:
         "dashscope/qwen3.7-flash",
     })
 
-    # DashScope pre-stage. Upstream carries 45 dashscope/* keys but NOT
-    # qwen3.8-flash (verified 2026-08-29), so this entry is injected
-    # wholesale rather than overlaid.
+    # DashScope overlays. Upstream now carries qwen3.8-flash, qwen3.8-max,
+    # qwen3.7-max and qwen3.7-plus; qwen3.8-2.4t-a95b and qwen3.7-flash are
+    # still absent and stay complete pre-staged records.
     #
-    # Note on upstream shape: the tiered flash SKUs (qwen-flash,
-    # qwen3-coder-flash) DO carry prices, but in a `tiered_pricing` array
-    # rather than flat input_cost_per_token fields — which is why they read
-    # as unpriced to should_exclude_due_to_price and never reach our export.
-    # qwen3.8-flash is single-tier (0<Token<=1M) on the official tariff, so
-    # flat fields are the correct shape here, matching how upstream models
-    # single-tier SKUs such as dashscope/qwen3.8-max.
+    # Currency: USD-native. Alibaba publishes two separate tariffs — domestic
+    # 百炼 in CNY and International in USD. Upstream's dashscope prices are
+    # the International USD figures (dashscope/qwen3.8-max is $2 / $6 while
+    # 百炼 lists 12 / 36 CNY, which is NOT 12/7), so store USD directly. Do
+    # NOT route these through _cny_per_m_to_usd_per_token.
     #
-    # Currency: USD-native. Alibaba publishes two separate tariffs — the
-    # domestic 百炼 one in CNY (qwen3.8-flash at 0.8 / 2.7 CNY per M) and the
-    # International one in USD. Upstream's dashscope prices are the
-    # International USD figures (e.g. dashscope/qwen3.8-max is $2/$6 upstream
-    # while 百炼 lists 12/36 CNY, which is NOT 12/7), so we match that
-    # convention and store USD directly. Do NOT route these through
-    # _cny_per_m_to_usd_per_token.
+    # Capability flags follow Alibaba's own per-feature model lists:
+    #   supports_response_schema — the structured-output guide's JSON Schema
+    #     tab (2026-09-30): "Qwen3.7-Plus series, Qwen3.7-Flash series,
+    #     Qwen3.7-Max series, Qwen3.8-Max series, and Qwen3.8-Flash series
+    #     models." The open-source Qwen3.8 build (qwen3.8-2.4t-a95b) appears
+    #     only on the JSON Object tab, so it does NOT get the flag.
+    #   supports_vision — help.aliyun.com/zh/model-studio/vision image-count
+    #     tiers: Qwen3.8-Max, Qwen3.8-Flash, Qwen3.7-Plus at 2,048 images;
+    #     Qwen3.7-Flash and older at 256. qwen3.7-max is in neither tier.
     #
-    # Source: alibabacloud.com/help/en/model-studio/model-pricing
-    # (snapshot 2026-08-29), row "qwen3.8-flash | context caching discount |
-    # International | 0<Token≤1M | $0.15 | $0.47". Single tier — unlike
-    # qwen3.7-flash and older, which are tiered by request input size.
+    # Retired 2026-09-30: dashscope/qwen3.8-flash. Pre-staged on 2026-08-29;
+    # upstream now carries it with every price, context and capability field
+    # identical. Two lessons from that entry, kept because they still apply:
+    #   • Read cache prices off the published table; never derive them from a
+    #     ratio. The ratio varies per model AND per currency (qwen3.8-flash
+    #     $0.016 against $0.15 = 10.7%; qwen3.8-max $0.25 against $2 = 12.5%;
+    #     the CNY book differs again). The flag is wrong three times over if
+    #     you use the Context Cache doc's "typically 10% / 20%" rule of thumb.
+    #   • Do not infer capabilities from absence on the "选择模型 / Recommended
+    #     models" page: each category there is a curated shortlist ending in
+    #     查看更多. qwen3.8-flash IS multimodal (model card: "Text & Code |
+    #     Image | Video"; vision docs: top 2,048-image tier).
     DASHSCOPE_SYNTH_DATA: dict[str, dict[str, Any]] = {
-        "dashscope/qwen3.8-flash": {
-            "litellm_provider": "dashscope",
-            "mode": "chat",
-            # Published on the qwencloud.com/models card: "1 M Context",
-            # "131.1 K Max Out" — identical chips to qwen3.8-max and
-            # qwen3.8-2.4t-a95b. 131.1K is 131,072.
-            #
-            # max_input_tokens uses 991,808, the concrete figure upstream
-            # carries for qwen3.8-max, which shows the same "1 M Context"
-            # chip: Alibaba publishes 最大输入 as the 1,000,000 window minus
-            # an 8,192 reserve, so the whole 3.8 family lands on the same
-            # number. Keeping all three identical avoids inventing a
-            # different reserve for the two SKUs upstream does not carry.
-            "max_input_tokens": 991808,
-            "max_output_tokens": 131072,
-            # Upstream mirrors max_output_tokens into max_tokens on every
-            # dashscope entry; match that shape.
-            "max_tokens": 131072,
-            "source": "https://www.qwencloud.com/pricing/api",
-            "input_cost_per_token": _usd_per_m_to_usd_per_token(0.15),
-            "output_cost_per_token": _usd_per_m_to_usd_per_token(0.47),
-            # Cache-hit input: $0.016/M, READ FROM THE PUBLISHED TABLE.
-            #
-            # Do NOT derive this from a percentage. The ratio is per-model
-            # AND per-currency: qwencloud lists qwen3.8-flash implicit cache
-            # at $0.016 against $0.15 input (10.7%), while qwen3.8-max is
-            # $0.25 against $2 (12.5%); the CNY book differs again
-            # (qwen3.8-flash ¥0.1 against ¥0.8 = 12.5%). The Context Cache
-            # doc's "typically 10% explicit / 20% implicit" is a rule of
-            # thumb, not a tariff. The published column is labelled
-            # "Input(Implicit Cache)" — the automatic, always-on path, which
-            # is the right one to map onto cache_read_input_token_cost.
-            "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.016),
-            "supports_function_calling": True,
-            # Flags upstream sets on every dashscope entry; qwen3.8-flash
-            # qualifies for each: tool_choice is universal across the 45
-            # upstream keys, reasoning follows from the tariff row's
-            # "Non-Thinking and Thinking modes", and prompt_caching from the
-            # same row's "context caching discount" marker.
-            "supports_tool_choice": True,
-            "supports_reasoning": True,
-            "supports_prompt_caching": True,
-            # Multimodal. Two independent confirmations: the
-            # qwencloud.com/models card tags it "Text & Code | Image |
-            # Video", and the official vision docs
-            # (help.aliyun.com/zh/model-studio/vision and its EN twin) name
-            # it in the TOP image-input tier — "Qwen3.8-Max, Qwen3.8-Flash,
-            # Qwen3.7-Plus series: Up to 2,048 images", against 256 for
-            # Qwen3.7-Flash and older.
-            #
-            # Do NOT infer this from the "选择模型 / Recommended models" page:
-            # each category there is a curated shortlist ending in 查看更多 /
-            # More, so absence from it says nothing about capability.
-            "supports_vision": True,
-            "supports_json_mode": False,
-        },
         # Qwen3.8-2.4T-A95B — per its qwencloud.com/models card, "the
         # open-source release of Qwen's latest flagship", 2.4T total
         # parameters with ~95B activated. Same tariff as qwen3.8-max
@@ -931,7 +788,6 @@ class ModelSyncRules:
             "supports_reasoning": True,
             "supports_prompt_caching": True,
             "supports_vision": True,
-            "supports_json_mode": False,
         },
         # ── Qwen 3.7 ─────────────────────────────────────────────────────
         # PRICES ARE THE EFFECTIVE (DISCOUNTED) ONES, per request: store what
@@ -985,11 +841,6 @@ class ModelSyncRules:
         "dashscope/qwen3.7-plus": {
             # Two tiers, currently 20% off. List: <=256K $0.4 / $1.6 / $0.08;
             # 256K-1M $1.2 / $4.8 / $0.24.
-            "litellm_provider": "dashscope",
-            "mode": "chat",
-            "max_input_tokens": 991808,
-            "max_output_tokens": 65536,
-            "max_tokens": 65536,
             "source": "https://www.qwencloud.com/pricing/api",
             "tiered_pricing": [
                 {
@@ -1009,14 +860,8 @@ class ModelSyncRules:
             "input_cost_per_token": _usd_per_m_to_usd_per_token(0.96),
             "output_cost_per_token": _usd_per_m_to_usd_per_token(3.84),
             "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.192),
-            "supports_function_calling": True,
-            "supports_tool_choice": True,
-            "supports_reasoning": True,
-            "supports_prompt_caching": True,
             # Top image-input tier (2,048 images) per the vision docs;
             # upstream also sets supports_vision on this SKU.
-            "supports_vision": True,
-            "supports_json_mode": False,
         },
         "dashscope/qwen3.7-flash": {
             # Three tiers, no promotion — these are list prices.
@@ -1059,9 +904,9 @@ class ModelSyncRules:
             "supports_tool_choice": True,
             "supports_reasoning": True,
             "supports_prompt_caching": True,
+            "supports_response_schema": True,
             # 256-image tier per the vision docs.
             "supports_vision": True,
-            "supports_json_mode": False,
         },
         # NOTE: dashscope/qwen3.8-max is deliberately absent from this dict.
         # Upstream already carries it, and its prices were checked field by
@@ -1561,157 +1406,31 @@ class ModelSyncRules:
     # Off-peak is exactly 0.5x if a time-of-day axis is ever added.
 
     # ── Anthropic overlays ────────────────────────────────────────────────
-    # Source: claude.com/pricing (snapshot 2026-07-01).
+    # Two entry kinds may live here (see apply_anthropic_synth): a partial
+    # overlay patching an upstream entry, or a complete pre-staged record
+    # (carries `litellm_provider`) for a model not yet on BerriAI upstream.
     #
-    # LiteLLM upstream tracks Anthropic's post-introductory tariffs. When
-    # Anthropic runs a time-boxed introductory price we overlay the
-    # currently-effective numbers here so saas-models-source reflects what
-    # customers actually get billed today. Remove each entry once its
-    # window closes (upstream then flows through unchanged).
+    # Retired, because upstream caught up (the rule for every overlay here):
     #
-    # Active window(s):
-    #   claude-sonnet-5 — introductory through 2026-08-31.
-    #     input:  $2/M   (standard $3/M kicks in 2026-09-01)
-    #     output: $10/M  (standard $15/M)
-    #     cache_read (0.1×): $0.20/M (standard $0.30/M)
-    #     cache_creation (1.25×, 5m):  $2.50/M (standard $3.75/M)
-    # Two entry kinds live here (see apply_anthropic_synth):
-    #   • Partial overlay — patches an entry already carried by upstream
-    #     (e.g. claude-sonnet-5 introductory pricing). Overlaid, never injected.
-    #   • Complete pre-staged entry (carries `litellm_provider`) — a model not
-    #     yet on BerriAI upstream (e.g. claude-opus-5, current flagship per
-    #     platform.claude.com). Injected wholesale when absent upstream.
+    #   claude-sonnet-5 introductory price — retired 2026-09-01. Anthropic made
+    #     the $2 / $10 rate permanent and upstream carries it verbatim.
+    #   claude-opus-5, claude-mythos-5, claude-mythos-5-1 — retired 2026-09-30.
+    #     Pre-staged while absent upstream; upstream now carries all three and
+    #     matched every one of their 25-26 fields exactly, prices and
+    #     capability flags alike (checked against BerriAI/litellm@d098b02).
+    #     Keeping them would have pinned those capability flags at their
+    #     2026-06/09 state — the silent drift capability_check.py now blocks.
+    #
+    # Anthropic prices still worth knowing, all flowing from upstream: Mythos
+    # 5.1 and Fable 5.1 cache-read at 0.025x base input ($0.25), Opus 5.5 at
+    # 0.05x ($0.20), everything else 0.1x — per the pricing-page footnote.
     ANTHROPIC_SYNTH_DATA: dict[str, dict[str, Any]] = {
-        # RETIRED 2026-09-01: the claude-sonnet-5 introductory overlay
-        # ($2 / $10 / $0.20 / $2.50 per M) is gone, and NOT because the
-        # window closed. platform.claude.com/docs/en/about-claude/pricing
-        # now states: "The $2/$10 per million input/output token pricing for
-        # Claude Sonnet 5, announced at launch as introductory pricing
-        # through August 31, 2026, is now the standard price. The previously
-        # scheduled increase to $3/$15 per million input/output tokens on
-        # September 1, 2026 will not occur."
-        #
-        # So the rate is permanent, upstream carries it verbatim (verified
-        # field by field on 2026-09-01: $2 / $10 / $0.20 / $2.50 — identical),
-        # and the overlay had become a no-op. Keeping a redundant overlay is
-        # not harmless: it silently pins values the moment the vendor moves,
-        # which is exactly how the gpt-5.6 *_above_272k_flex overlays came to
-        # bill flex long-context output at $22.50/M against a real $15/M.
-        # Delete overlays once upstream catches up.
-        # Claude Opus 5 — current flagship ($5/$25 per M, 1M ctx, 128K out),
-        # GA 2026-06-09; source platform.claude.com/docs models overview +
-        # pricing. Same request surface / capabilities as Opus 4.8.
-        "claude-opus-5": {
-            "litellm_provider": "anthropic",
-            "mode": "chat",
-            "input_cost_per_token": 5e-06,
-            "output_cost_per_token": 2.5e-05,
-            "cache_read_input_token_cost": 5e-07,
-            "cache_creation_input_token_cost": 6.25e-06,
-            "cache_creation_input_token_cost_above_1hr": 1e-05,
-            "max_input_tokens": 1000000,
-            "max_output_tokens": 128000,
-            "max_tokens": 128000,
-            "search_context_cost_per_query": {
-                "search_context_size_high": 0.01,
-                "search_context_size_low": 0.01,
-                "search_context_size_medium": 0.01,
-            },
-            "supports_adaptive_thinking": True,
-            "supports_assistant_prefill": False,
-            "supports_computer_use": True,
-            "supports_function_calling": True,
-            "supports_pdf_input": True,
-            "supports_prompt_caching": True,
-            "supports_reasoning": True,
-            "supports_response_schema": True,
-            "supports_sampling_params": False,
-            "supports_tool_choice": True,
-            "supports_vision": True,
-            "supports_xhigh_reasoning_effort": True,
-            "supports_max_reasoning_effort": True,
-            "supports_output_config": True,
-        },
-        # Claude Mythos 5 — Project Glasswing limited-availability sibling of
-        # Fable 5 (defensive-cyber). Same specs, pricing, and API surface as
-        # Fable 5: $10 / $50 per M, cache-read $1, 5m write $12.50, 1h $20,
-        # 1M ctx, 128K out. Source platform.claude.com models overview +
-        # pricing. Not on BerriAI upstream — injected wholesale.
-        "claude-mythos-5": {
-            "litellm_provider": "anthropic",
-            "mode": "chat",
-            "input_cost_per_token": 1e-05,
-            "output_cost_per_token": 5e-05,
-            "cache_read_input_token_cost": 1e-06,
-            "cache_creation_input_token_cost": 1.25e-05,
-            "cache_creation_input_token_cost_above_1hr": 2e-05,
-            "max_input_tokens": 1000000,
-            "max_output_tokens": 128000,
-            "max_tokens": 128000,
-            "search_context_cost_per_query": {
-                "search_context_size_high": 0.01,
-                "search_context_size_low": 0.01,
-                "search_context_size_medium": 0.01,
-            },
-            "supports_adaptive_thinking": True,
-            "supports_assistant_prefill": False,
-            "supports_computer_use": True,
-            "supports_function_calling": True,
-            "supports_pdf_input": True,
-            "supports_prompt_caching": True,
-            "supports_reasoning": True,
-            "supports_response_schema": True,
-            "supports_sampling_params": False,
-            "supports_tool_choice": True,
-            "supports_vision": True,
-            "supports_xhigh_reasoning_effort": True,
-            "supports_max_reasoning_effort": True,
-            "provider_specific_entry": {"us": 1.1},
-            "supports_output_config": True,
-        },
-        # Claude Mythos 5.1 — Project Glasswing limited-availability sibling
-        # of Fable 5.1, same relationship Mythos 5 has to Fable 5. Identical
-        # specs and pricing per platform.claude.com pricing (2026-09-04):
-        # $10 / $50 per M, 5m write $12.50, 1h write $20, 1M ctx, 128K out.
-        #
-        # NOTE the cache-read rate: $0.25, NOT the $1 that Fable 5 / Mythos 5
-        # charge. The pricing page's cache footnote reads "0.1x base input
-        # price (0.025x on Claude Fable 5.1 and Claude Mythos 5.1)" — the 5.1
-        # pair is the exception, at a quarter of the usual ratio. Upstream
-        # already carries that $0.25 for claude-fable-5-1, which corroborates
-        # it. Not on BerriAI upstream — injected wholesale, like Mythos 5.
-        "claude-mythos-5-1": {
-            "litellm_provider": "anthropic",
-            "mode": "chat",
-            "input_cost_per_token": 1e-05,
-            "output_cost_per_token": 5e-05,
-            "cache_read_input_token_cost": 2.5e-07,
-            "cache_creation_input_token_cost": 1.25e-05,
-            "cache_creation_input_token_cost_above_1hr": 2e-05,
-            "max_input_tokens": 1000000,
-            "max_output_tokens": 128000,
-            "max_tokens": 128000,
-            "search_context_cost_per_query": {
-                "search_context_size_high": 0.01,
-                "search_context_size_low": 0.01,
-                "search_context_size_medium": 0.01,
-            },
-            "supports_adaptive_thinking": True,
-            "supports_assistant_prefill": False,
-            "supports_computer_use": True,
-            "supports_function_calling": True,
-            "supports_pdf_input": True,
-            "supports_prompt_caching": True,
-            "supports_reasoning": True,
-            "supports_response_schema": True,
-            "supports_sampling_params": False,
-            "supports_tool_choice": True,
-            "supports_vision": True,
-            "supports_xhigh_reasoning_effort": True,
-            "supports_max_reasoning_effort": True,
-            "provider_specific_entry": {"us": 1.1},
-            "supports_output_config": True,
-        },
+        # Upstream regressed Sonnet 4.5 to a 1M context (2026-09, likely from
+        # the retired context-1m beta). platform.claude.com/docs/en/
+        # build-with-claude/context-windows (2026-09-30): "Other Claude models,
+        # including Claude Sonnet 4.5, have a 200k-token context window."
+        "claude-sonnet-4-5": {"max_input_tokens": 200000},
+        "claude-sonnet-4-5-20250929": {"max_input_tokens": 200000},
     }
 
     # Google / Gemini overlays. Two kinds, same as the other providers:
@@ -1741,307 +1460,113 @@ class ModelSyncRules:
     # is simply a wrong price until the switchover. gemini-3.7-flash and
     # gemini-3.8-flash carry the same 2027-01-01 increase and deliberately
     # have no overlay at all: upstream already tracks the effective rate.
+    #
+    #   gemini/gemini-3.1-flash-lite-image — overlay retired 2026-09-30. It
+    #     had shrunk to one flag, supports_function_calling=False, because
+    #     upstream said True against the model page's "Not supported".
+    #     Upstream has since corrected it to False, so the override became
+    #     redundant and was removed.
     GOOGLE_SYNTH_DATA: dict[str, dict[str, Any]] = {
-        # Gemini 3.1 Flash-Lite Image (Nano Banana 2 Lite) — shrunk from a
-        # 21-field pre-staged record to this single flag on 2026-09-14, once
-        # upstream picked the model up. Prices matched ($0.25 in / $1.50 out
-        # text per M), so those were deleted; on capabilities the OLD OVERLAY
-        # WAS MOSTLY WRONG, and upstream is right:
-        #
-        #   field                     overlay   upstream   official page
-        #   max_output_tokens          32768     4096       4,096   -> upstream
-        #   supports_prompt_caching    True      False      Not supported
-        #   supports_response_schema   True      False      Not supported
-        #   supports_web_search        True      (unset)    Not supported
-        #   supports_function_calling  False     True       Not supported  -> OVERLAY
-        #
-        # Only the last row survives: ai.google.dev/gemini-api/docs/models/
-        # gemini-3.1-flash-lite-image lists Function calling as "Not
-        # supported", and upstream has it as True. Everything else now comes
-        # from upstream, including the 4,096 output limit the overlay had 8x
-        # too high.
+        # The model page documents "Thinking: Supported (minimal and high)";
+        # upstream leaves the minimal flag undefined, so LiteLLM would reject
+        # reasoning_effort="minimal" for a model that accepts it. Allowlisted.
         "gemini/gemini-3.1-flash-lite-image": {
-            "supports_function_calling": False,
+            "supports_minimal_reasoning_effort": True,
         },
     }
 
     # ── OpenAI overlays ───────────────────────────────────────────────────
-    # Source: developers.openai.com/api/docs/pricing (Standard / Batch / Flex /
-    # Priority tabs, snapshot 2026-07-15), cross-checked field-by-field against
-    # the pinned GhishaDev/litellm-internal ship/v1.89.0 backup.
+    # Source: developers.openai.com/api/docs/pricing and the per-model pages.
+    # Merged on top of upstream via {**existing, **synth}. Every entry below
+    # is a field upstream lacks or gets wrong; anything upstream already
+    # carries identically has been removed, because a redundant overlay pins
+    # stale state the moment the vendor moves (v1.16.18, v1.16.20).
     #
-    # LiteLLM upstream (BerriAI/main) trailed OpenAI's July 2026 GPT-5 refresh,
-    # so we overlay the officially-published numbers here. The overlay is purely
-    # ADDITIVE (merged on top of upstream via {**existing, **synth}); it never
-    # removes richer upstream fields the project already carries. Corrections:
-    #   • gpt-5.5 priority tier — $12.50 in / $1.25 cached / $75 out per M
-    #     (upstream had the old $10 / $1 / $60).
-    #   • gpt-5.4-{mini,nano} — short-context only: max_input 272K (not 1.05M),
-    #     plus the batch cached-read rate absent upstream.
-    #   • gpt-5.6 family — the flex long-context (>272K) tier (4 fields).
-    #   • service-tier / regional-uplift billing flags missing upstream.
-    # NOTE: gpt-5.4 cached-read flex stays 1.3e-07 ($0.13) — that is OpenAI's
-    # own published figure (Flex/Batch tabs), NOT a rounding artefact.
-    # Remove an entry once BerriAI upstream carries the same values.
+    # Retired 2026-09-30, upstream having caught up exactly:
+    #   • gpt-5.4-mini / gpt-5.4-nano short-context max_input and batch
+    #     cached-read, gpt-5.5 priority tier, gpt-4o-mini-tts $0.60 text input.
+    #   • cache_read_input_image_token_cost on gpt-image-1 / -1-mini / -1.5 /
+    #     -2 and on the 2.5 pair. This field started life here as a
+    #     PROJECT-INVENTED key (v1.16.28: every OpenAI image SKU publishes a
+    #     separate, higher cached-IMAGE rate that cache_read_input_token_cost
+    #     cannot hold). Upstream has since adopted the same key with the same
+    #     values, so it now flows from there — and is far more likely to be
+    #     read by the gateway's billing code than a local-only field was.
+    #   • supports_service_tier on gpt-5 / 5-mini / 5.1 / 5.2 / 5.4 /
+    #     5.4-mini / 5.4-nano / 5.5. Upstream never set it, no code in the
+    #     LiteLLM fork reads it (schema-only), and it was never
+    #     vendor-verified per model — a forwarded flag with no effect and no
+    #     source. Removed rather than allowlisted.
     OPENAI_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        # Data-residency uplift (10%) — absent upstream for these three.
         "gpt-5": {
             "regional_processing_uplift_multiplier_eu": 1.1,
             "regional_processing_uplift_multiplier_us": 1.1,
-            "supports_service_tier": True,
         },
         "gpt-5-mini": {
             "regional_processing_uplift_multiplier_eu": 1.1,
             "regional_processing_uplift_multiplier_us": 1.1,
-            "supports_service_tier": True,
         },
         "gpt-5-nano": {
             "regional_processing_uplift_multiplier_eu": 1.1,
             "regional_processing_uplift_multiplier_us": 1.1,
         },
-        "gpt-5.1": {
-            "supports_service_tier": True,
-        },
-        "gpt-5.2": {
-            "supports_service_tier": True,
-        },
-        "gpt-5.4": {
-            "supports_service_tier": True,
-        },
-        "gpt-5.4-mini": {
-            "cache_read_input_token_cost_batches": 3.75e-08,
-            "max_input_tokens": 272000,
-            "supports_service_tier": True,
-        },
-        "gpt-5.4-nano": {
-            "cache_read_input_token_cost_batches": 1e-08,
-            "max_input_tokens": 272000,
-            "supports_service_tier": True,
-        },
-        "gpt-5.5": {
-            "cache_read_input_token_cost_priority": 1.25e-06,
-            "input_cost_per_token_priority": 1.25e-05,
-            "output_cost_per_token_priority": 7.5e-05,
-            "supports_service_tier": True,
-        },
-        # GPT-6 Sol / Luna, 2026-09 arrivals. Prices come from upstream
-        # unchanged — every field was checked against the Flagship table on
-        # developers.openai.com/api/docs/pricing and matches, short context
-        # and >272k alike ($2 / $0.20 / $2.50 / $10 and $4 / $0.40 / $5 /
-        # $15 for Sol; $0.10 / $0.01 / $0.125 / $0.50 and $0.20 / $0.02 /
-        # $0.25 / $0.75 for Luna). Only the context field is overlaid.
-        #
-        # ⚠️ On max_input_tokens: OpenAI publishes BOTH numbers, and they are
-        # both correct for different questions —
+        # ── Context window ───────────────────────────────────────────────
+        # OpenAI publishes BOTH numbers on each model page, and both are
+        # correct for different questions:
         #     1,050,000 context window
         #     Maximum input tokens: 922,000   (= 1,050,000 - 128,000 output)
-        # Upstream stores 922,000. This catalogue stores the CONTEXT WINDOW
-        # in max_input_tokens, which is how the field is used for every other
-        # provider here (Claude 1M, Gemini 1,048,576, DeepSeek 1,000,000 are
-        # all context windows, not context-minus-output). Seven OpenAI models
-        # already carry the 1,050,000 overlay; these two join them so the
-        # family stays internally consistent. Worth revisiting deliberately
-        # some day — but as one decision across all nine, not per model.
-        "gpt-6-sol": {
-            "max_input_tokens": 1050000,
-        },
-        # gpt-6.1-sol supersedes gpt-6-sol in the Flagship table. Same
-        # $2 / $2.50 / $10 short-context and $4 / $5 / $15 long-context
-        # rates, but CACHED INPUT IS HALVED: $0.10 against gpt-6-sol's $0.20
-        # ($0.20 against $0.40 above 272k). Every field verified against
-        # developers.openai.com/api/docs/pricing; only context is overlaid,
-        # for the reason documented above.
-        "gpt-6.1-sol": {
-            "max_input_tokens": 1050000,
-        },
-        "gpt-6-luna": {
-            "max_input_tokens": 1050000,
-        },
-        "gpt-6-astra": {
-            # Same upstream defect as the gpt-5.6 family: max_input_tokens is
-            # reported as 922000 (GPT-5.5's figure) while
-            # developers.openai.com/api/docs/models/gpt-6-astra states
-            # "1,050,000 context window / 128,000 max output tokens".
-            # Verified 2026-09-04 on both the model page and the models index.
-            #
-            # ONLY this field is overlaid. Every price field upstream carries
-            # was checked against the official pricing table and matches
-            # exactly — short context $10 / $1 cached / $12.50 write / $50
-            # out, long context (>272K) $20 / $2 / $25 / $75 — including the
-            # flex, priority and batch variants. Do not overlay those; see
-            # the v1.16.18 note on how stale price overlays start over-billing
-            # the moment the vendor moves.
-            "max_input_tokens": 1050000,
-        },
-        "gpt-5.6": {
-            # max_input_tokens: upstream still reports 922000 (that is
-            # GPT-5.5's figure); developers.openai.com states 1,050,000.
-            # Verified 2026-08-21 and re-checked 2026-08-26.
-            #
-            # The four *_above_272k_tokens_flex overlays that used to live
-            # here were REMOVED on 2026-08-26: upstream now carries those
-            # fields itself, and OpenAI cut the 5.6 Sol tariff. Keeping our
-            # (pre-cut) values would have pinned flex long-context output at
-            # $22.50/M against the real $15/M. Do not re-add them without
-            # re-checking whether upstream still supplies them.
-            "max_input_tokens": 1050000,
-        },
-        "gpt-5.6-sol": {
-            # max_input_tokens: upstream regressed to 922000 (2026-08);
-            # developers.openai.com/api/docs/models/gpt-5.6-sol states
-            # 1,050,000. Verified 2026-08-21 on all four family pages.
-            "max_input_tokens": 1050000,
-        },
-        "gpt-5.6-terra": {
-            # max_input_tokens: upstream still reports 922000 (that is
-            # GPT-5.5's figure); developers.openai.com states 1,050,000.
-            # Verified 2026-08-21 and re-checked 2026-08-26.
-            #
-            # The four *_above_272k_tokens_flex overlays that used to live
-            # here were REMOVED on 2026-08-26: upstream now carries those
-            # fields itself, and OpenAI cut the 5.6 Sol tariff. Keeping our
-            # (pre-cut) values would have pinned flex long-context output at
-            # $22.50/M against the real $15/M. Do not re-add them without
-            # re-checking whether upstream still supplies them.
-            "max_input_tokens": 1050000,
-        },
-        "gpt-5.6-luna": {
-            # max_input_tokens: upstream still reports 922000 (that is
-            # GPT-5.5's figure); developers.openai.com states 1,050,000.
-            # Verified 2026-08-21 and re-checked 2026-08-26.
-            #
-            # The four *_above_272k_tokens_flex overlays that used to live
-            # here were REMOVED on 2026-08-26: upstream now carries those
-            # fields itself, and OpenAI cut the 5.6 Sol tariff. Keeping our
-            # (pre-cut) values would have pinned flex long-context output at
-            # $22.50/M against the real $15/M. Do not re-add them without
-            # re-checking whether upstream still supplies them.
-            "max_input_tokens": 1050000,
-        },
-        # gpt-4o-mini-tts text input — OpenAI official is $0.60 / 1M tokens
-        # (developers.openai.com); upstream carried the Azure/aggregator
-        # $2.50 rate. Audio output ($12/1M) is already correct upstream.
-        "gpt-4o-mini-tts": {
-            "input_cost_per_token": 6e-07,
-        },
-        # Standalone TTS models — pre-staged (character-billed). Source
-        # openai.com: tts-1 $15 / 1M characters, tts-1-hd $30 / 1M characters.
+        # Upstream stores 922,000. This catalogue stores the CONTEXT WINDOW in
+        # max_input_tokens, which is how the field is used for every other
+        # provider here (Claude 1M, Gemini 1,048,576, DeepSeek 1,000,000). The
+        # nine entries below keep the family internally consistent. Worth
+        # revisiting deliberately some day — as one decision across all nine.
+        #
+        # Prices for all nine come from upstream unchanged; each was checked
+        # against the pricing page when added (short context and >272k, incl.
+        # flex / priority / batch). The *_above_272k_tokens_flex overlays that
+        # once lived on the gpt-5.6 family were removed on 2026-08-26: kept,
+        # they would have billed flex long-context output at $22.50/M against
+        # a real $15/M after OpenAI cut the 5.6 Sol tariff.
+        "gpt-6-astra": {"max_input_tokens": 1050000},
+        "gpt-6.1-sol": {"max_input_tokens": 1050000},  # supersedes gpt-6-sol; cached input halved ($0.10)
+        "gpt-6-sol": {"max_input_tokens": 1050000},
+        "gpt-6-luna": {"max_input_tokens": 1050000},
+        "gpt-5.6": {"max_input_tokens": 1050000},
+        "gpt-5.6-sol": {"max_input_tokens": 1050000},
+        "gpt-5.6-terra": {"max_input_tokens": 1050000},
+        "gpt-5.6-luna": {"max_input_tokens": 1050000},
+        # Standalone TTS — billed per CHARACTER, a field upstream lacks.
+        # Source openai.com: tts-1 $15 / 1M characters, tts-1-hd $30.
         "tts-1": {
-            "litellm_provider": "openai",
-            "mode": "audio_speech",
             "output_cost_per_character": 1.5e-05,
-            "supported_endpoints": ["/v1/audio/speech"],
             "supported_modalities": ["text"],
             "supported_output_modalities": ["audio"],
         },
         "tts-1-hd": {
-            "litellm_provider": "openai",
-            "mode": "audio_speech",
             "output_cost_per_character": 3e-05,
-            "supported_endpoints": ["/v1/audio/speech"],
             "supported_modalities": ["text"],
             "supported_output_modalities": ["audio"],
         },
-        # ── GPT Image 2.5 ────────────────────────────────────────────────
-        # Pre-staged: BerriAI upstream carries no gpt-image-2.5* key at all
-        # (verified 2026-09-09), so these are injected wholesale.
-        #
-        # There is NO bare `gpt-image-2.5`. OpenAI ships the generation as two
-        # named variants and the model index lists only those:
-        #   sunburst — "our most capable model for image generation and
-        #              editing", for workflows where editing precision matters
-        #   flare    — "our fastest model for high-quality, everyday image
-        #              generation"
-        # Their dated default snapshots (-2026-09-08) are excluded by the
-        # standard date_pattern rule, same as every other family here.
-        #
-        # Both carry an IDENTICAL tariff, and developers.openai.com states it
-        # outright: "Token rates match GPT Image 2."
-        #   text  input $5    /M   cached $1.25 /M
-        #   image input $8    /M   cached $2    /M   output $30 /M
-        # Text output is not billed — these models emit images, not text.
-        #
-        # The $2/M cached-IMAGE rate has its own field as of v1.16.28 —
-        # cache_read_input_token_cost still holds the $1.25 TEXT rate (what
-        # upstream stores), and cache_read_input_image_token_cost holds $2.
-        # See the block below for why that is a new key rather than a value
-        # stuffed into the existing one.
-        # ── gpt-image cached-image-token rates ───────────────────────────
-        # cache_read_input_image_token_cost is a PROJECT-INVENTED field: no
-        # such key exists upstream (LiteLLM's only image cost fields are
-        # input_cost_per_image[_token], output_cost_per_image[_token] and
-        # input_cost_per_image_above_128k_tokens — none of them cached).
-        #
-        # It exists because every OpenAI image SKU publishes TWO cache rates
-        # and LiteLLM's single cache_read_input_token_cost can only hold one.
-        # We hold the TEXT rate there, matching upstream, so without this
-        # field the cached-image rate is silently billed at the text rate —
-        # 20-50% light on every SKU in the family:
-        #
-        #   model                text cache   image cache   shortfall
-        #   gpt-image-1            $1.25         $2.50        -50%
-        #   gpt-image-1-mini       $0.20         $0.25        -20%
-        #   gpt-image-1.5          $1.25         $2.00        -37.5%
-        #   gpt-image-2            $1.25         $2.00        -37.5%
-        #   gpt-image-2.5-*        $1.25         $2.00        -37.5%
-        #
-        # Why a NEW field rather than putting $2 into the existing one (the
-        # call deferred in v1.16.27): reusing cache_read_input_token_cost
-        # would corrupt its meaning and over-bill cached TEXT by 60%. A
-        # correctly-named new key has neither problem — existing consumers
-        # ignore it (non-breaking), and upstream never overwrites it because
-        # upstream has no such key.
-        #
-        # ⚠️ Recording the rate is not yet billing it. The internal LiteLLM
-        # fork's billing manager must learn to read this field before the
-        # shortfall actually closes; until then this is documentation with a
-        # machine-readable shape.
-        #
-        # Rates read from each model's own page on developers.openai.com
-        # (2026-09-09), "Image tokens → Cached input" row.
-        "gpt-image-1": {
-            "cache_read_input_image_token_cost": 2.5e-06,
-        },
-        "gpt-image-1-mini": {
-            "cache_read_input_image_token_cost": 2.5e-07,
-        },
-        "gpt-image-1.5": {
-            "cache_read_input_image_token_cost": 2e-06,
-        },
-        "gpt-image-2": {
-            # ⚠️ INFERRED, not quoted. gpt-image-2's model page carries no
-            # pricing tables at all (checked twice on 2026-09-09). Basis: the
-            # gpt-image-2.5-sunburst and -flare pages both state "Token rates
-            # match GPT Image 2", and both publish $2 image cached input.
-            # Every other gpt-image-2 field we hold is likewise identical to
-            # 2.5's. Replace with a quote if OpenAI publishes one.
-            "cache_read_input_image_token_cost": 2e-06,
-        },
+        # GPT Image 2.5 — there is NO bare `gpt-image-2.5`; OpenAI ships the
+        # generation as two named variants (sunburst: editing precision;
+        # flare: speed). Identical tariff, which the model pages state
+        # outright: "Token rates match GPT Image 2." Upstream now carries both
+        # with every price; only the modality metadata it lacks is added.
         "gpt-image-2.5-sunburst": {
-            "litellm_provider": "openai",
-            "mode": "image_generation",
-            "input_cost_per_token": 5e-06,
-            "cache_read_input_token_cost": 1.25e-06,
-            "input_cost_per_image_token": 8e-06,
-            "cache_read_input_image_token_cost": 2e-06,
-            "output_cost_per_image_token": 3e-05,
-            "supported_endpoints": ["/v1/images/generations", "/v1/images/edits"],
             "supported_modalities": ["text", "image"],
             "supported_output_modalities": ["image"],
-            "supports_vision": True,
+            "supports_pdf_input": False,  # CAPABILITY_OVERRIDES: "text, image" only
         },
         "gpt-image-2.5-flare": {
-            "litellm_provider": "openai",
-            "mode": "image_generation",
-            "input_cost_per_token": 5e-06,
-            "cache_read_input_token_cost": 1.25e-06,
-            "input_cost_per_image_token": 8e-06,
-            "cache_read_input_image_token_cost": 2e-06,
-            "output_cost_per_image_token": 3e-05,
-            "supported_endpoints": ["/v1/images/generations", "/v1/images/edits"],
             "supported_modalities": ["text", "image"],
             "supported_output_modalities": ["image"],
-            "supports_vision": True,
+            "supports_pdf_input": False,  # CAPABILITY_OVERRIDES: "text, image" only
         },
+        # Upstream marks these two PDF-capable; their model pages say "Input
+        # modalities: text, image". See _SRC_GPT_IMAGE_NO_PDF.
+        "gpt-image-2": {"supports_pdf_input": False},
+        "gpt-image-1.5": {"supports_pdf_input": False},
     }
 
     # Supported model modes
@@ -2477,9 +2002,26 @@ class ModelSyncRules:
         re.compile(r"^tts-1-hd$", re.IGNORECASE),
     ]
 
-    # Data source URL
+    # Live upstream (moving target). Used for the export's `source` metadata
+    # and by drift_report.py's default, which asks "what would change if we
+    # synced today?".
     DATA_SOURCE_URL = (
         "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+    )
+
+    # Pinned upstream snapshot — the input filtered_models.json is generated
+    # from. A raw URL at a commit SHA is immutable, so regeneration is
+    # reproducible: `python filter_models.py` against this snapshot must
+    # reproduce the committed export exactly, and CI enforces that.
+    #
+    # Bumping the pin IS the upstream sync. Change the SHA, regenerate, and
+    # review `python drift_report.py --pinned` before committing — every
+    # capability and price change the bump brings in lands in one reviewed
+    # diff instead of leaking into unrelated PRs.
+    UPSTREAM_PIN = "d098b02ed956977834c542d3995382e361d6d41c"  # BerriAI/litellm main, 2026-09-30
+    UPSTREAM_SNAPSHOT_URL = (
+        "https://raw.githubusercontent.com/BerriAI/litellm/"
+        f"{UPSTREAM_PIN}/model_prices_and_context_window.json"
     )
 
     # Sync configuration
@@ -3192,15 +2734,15 @@ class ModelSyncRules:
     @classmethod
     def apply_anthropic_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
         """
-        Overlay time-boxed Anthropic pricing on upstream entries.
+        Apply ANTHROPIC_SYNTH_DATA to the upstream dict.
 
         Two behaviours, keyed on whether upstream already carries the SKU:
-          • Present upstream → overlay (``{**existing, **synth}``). Used for
-            time-boxed price patches like ``claude-sonnet-5`` introductory
-            pricing; remove such entries once their window closes.
-          • Absent upstream → inject the synth entry wholesale. Used for
-            complete pre-staged models not yet on LiteLLM (e.g.
-            ``claude-opus-5``). A partial overlay entry whose SKU is missing
+          • Present upstream → overlay (``{**existing, **synth}``), for fields
+            upstream gets wrong (currently the claude-sonnet-4-5 context
+            window) or time-boxed price patches. Remove each once upstream
+            catches up.
+          • Absent upstream → inject the synth entry wholesale, for complete
+            pre-staged models. A partial overlay entry whose SKU is missing
             upstream would inject a broken record, so only pre-stage entries
             that are complete (carry ``litellm_provider``).
 
@@ -3251,6 +2793,29 @@ class ModelSyncRules:
             if source is None:
                 continue
             merged[alias_key] = dict(source)
+        return merged
+
+    @classmethod
+    def apply_capability_mirrors(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Replace each mirror target's supports_* flags with its source's.
+
+        Runs after every vendor synth so sources are fully resolved (upstream
+        + overlays + allowlisted overrides). The target's own supports_* are
+        dropped first, so a flag the source lacks cannot survive on the target.
+        A missing target or source is skipped rather than half-built.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for target_key, source_key in cls.CAPABILITY_MIRRORS.items():
+            target, source = merged.get(target_key), merged.get(source_key)
+            if target is None or source is None:
+                continue
+            merged[target_key] = {
+                **{f: v for f, v in target.items() if not f.startswith("supports_")},
+                **{f: v for f, v in source.items() if f.startswith("supports_")},
+            }
         return merged
 
     @classmethod
@@ -3319,9 +2884,8 @@ class ModelSyncRules:
         same contract as apply_anthropic_synth:
           • Present upstream → overlay (``{**existing, **synth}``). Used for
             partial corrections such as the gpt-6-astra context fix.
-          • Absent upstream → inject the synth entry wholesale. Used for
-            complete pre-staged models (``tts-1`` / ``tts-1-hd``, the
-            ``gpt-image-2.5-*`` pair). A partial overlay whose SKU is missing
+          • Absent upstream → inject the synth entry wholesale, for complete
+            pre-staged models (none at present). A partial overlay whose SKU is missing
             upstream would inject a broken record, so only pre-stage entries
             that are complete (carry ``litellm_provider``).
 
@@ -3340,14 +2904,12 @@ class ModelSyncRules:
     @classmethod
     def apply_dashscope_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
         """
-        Inject Alibaba Cloud Model Studio (DashScope / 百炼) SKUs.
+        Apply DASHSCOPE_SYNTH_DATA (Alibaba Cloud Model Studio / 百炼).
 
-        Upstream carries 45 ``dashscope/*`` keys but not ``qwen3.8-flash``,
-        and its flash-tier siblings (``qwen-flash``, ``qwen3-coder-flash``)
-        ship with no price at all — they would fail the zero-price filter.
-        Entries here are therefore injected wholesale when absent and
-        overlaid when present, with the official Model Studio pricing page
-        as the source of truth.
+        Entries are injected wholesale when absent upstream (qwen3.7-flash,
+        qwen3.8-2.4t-a95b) and overlaid when present (qwen3.7-plus's
+        discounted tiered prices), with the official Model Studio pricing
+        page as the source of truth.
 
         Prices are the **International USD** tariff, matching the convention
         upstream already uses for ``dashscope/*``; the domestic 百炼 CNY
@@ -3470,6 +3032,93 @@ class ModelSyncRules:
             mirrored["litellm_provider"] = "ecloud_aicc"
             merged[key] = mirrored
         return merged
+
+    # ── Capability overrides ─────────────────────────────────────────────
+    # The ONLY place a synth table may set a supports_* flag on a key that
+    # upstream already carries. capability_check.py enforces it: a synth flag
+    # on an upstream-present key must differ from upstream AND appear here,
+    # with the vendor source that justifies it. See README "Capability flags".
+    _SRC_ZAI_EFFORT = (
+        "https://docs.z.ai/guides/capabilities/thinking (2026-09-30): reasoning_effort "
+        "'is only supported by GLM-5.2 and above', values max / high, and low "
+        "'only supported by GLM-5.3 and GLM-5.3-FLASH'. Upstream leaves it undefined."
+    )
+    _SRC_ZAI_45_THINKING = (
+        "https://docs.z.ai/guides/llm/glm-4.5 (2026-09-30) lists Thinking / Deep Thinking; "
+        "the z.ai overview maps GLM-4.5-X, -Air and -AirX to that same guide. "
+        "Upstream leaves it undefined."
+    )
+    _SRC_ZAI_45V_THINKING = (
+        "https://docs.z.ai/guides/capabilities/thinking (2026-09-30): 'GLM-4.5V use forced "
+        "thinking'; overview tags it 'Flexible Reasoning'. Upstream leaves it undefined."
+    )
+    _SRC_ZAI_45_CACHE = (
+        "https://docs.z.ai/guides/llm/glm-4.5 (2026-09-30) lists Context Caching, and "
+        "https://docs.z.ai/guides/overview/pricing publishes a cached-input price for every "
+        "GLM-4.5-family SKU. Upstream leaves it undefined."
+    )
+    _SRC_KIMI_K3_CACHE = (
+        "https://platform.kimi.ai/docs/pricing/chat-k3 (2026-09-30): 'The Kimi API "
+        "automatically caches repeated request prefixes', with a published Cached Input "
+        "Price. Upstream leaves it undefined."
+    )
+
+    _SRC_GPT_IMAGE_NO_PDF = (
+        "https://developers.openai.com/api/docs/models (2026-09-30): every gpt-image model page "
+        "(gpt-image-1, -1-mini, -1.5, -2, -2.5-sunburst, -2.5-flare) states 'Input modalities: "
+        "text, image', and the image-generation guide never mentions PDF input. Upstream sets "
+        "supports_pdf_input=true on four of them; a forwarded true would let PDFs through."
+    )
+    _SRC_GEMINI_31_FLASH_LITE_IMAGE_MINIMAL = (
+        "https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite-image (2026-09-30): "
+        "capability table 'Thinking: Supported (minimal and high)'. Upstream leaves it undefined."
+    )
+
+    CAPABILITY_OVERRIDES: dict[tuple[str, str], str] = {
+        **dict.fromkeys(
+            [
+                (k, "supports_pdf_input")
+                for k in ("gpt-image-2", "gpt-image-1.5", "gpt-image-2.5-sunburst", "gpt-image-2.5-flare")
+            ],
+            _SRC_GPT_IMAGE_NO_PDF,
+        ),
+        ("gemini/gemini-3.1-flash-lite-image", "supports_minimal_reasoning_effort"): (
+            _SRC_GEMINI_31_FLASH_LITE_IMAGE_MINIMAL
+        ),
+        ("zai/glm-5.3-flash", "supports_max_reasoning_effort"): _SRC_ZAI_EFFORT,
+        ("zai/glm-5.3-flash", "supports_low_reasoning_effort"): _SRC_ZAI_EFFORT,
+        ("zai/glm-5.3", "supports_max_reasoning_effort"): _SRC_ZAI_EFFORT,
+        ("zai/glm-5.3", "supports_low_reasoning_effort"): _SRC_ZAI_EFFORT,
+        ("zai/glm-5.2", "supports_max_reasoning_effort"): _SRC_ZAI_EFFORT,
+        # dict.fromkeys, not a comprehension: a comprehension body cannot see
+        # class-scope names such as _SRC_ZAI_45_THINKING.
+        **dict.fromkeys(
+            [(k, "supports_reasoning") for k in ("zai/glm-4.5", "zai/glm-4.5-x", "zai/glm-4.5-air", "zai/glm-4.5-airx")],
+            _SRC_ZAI_45_THINKING,
+        ),
+        ("zai/glm-4.5v", "supports_reasoning"): _SRC_ZAI_45V_THINKING,
+        **dict.fromkeys(
+            [
+                (k, "supports_prompt_caching")
+                for k in ("zai/glm-4.5", "zai/glm-4.5-x", "zai/glm-4.5-air", "zai/glm-4.5-airx", "zai/glm-4.5v")
+            ],
+            _SRC_ZAI_45_CACHE,
+        ),
+        ("moonshot/kimi-k3", "supports_prompt_caching"): _SRC_KIMI_K3_CACHE,
+    }
+
+    # ── Capability mirrors ───────────────────────────────────────────────
+    # <target key> -> <source key>. apply_capability_mirrors replaces every
+    # supports_* flag on the target with the source's, so a model the vendor
+    # says is "the same model" cannot drift from it. Targets must not carry
+    # supports_* of their own (tests/test_policy.py enforces it).
+    CAPABILITY_MIRRORS: dict[str, str] = {
+        # bigmodel/* is the domestic gateway for the same GLM models as zai/*.
+        **{key: "zai/" + key.split("/", 1)[1] for key in BIGMODEL_SYNTH_DATA},
+        # "the same model as Kimi K2.7 Code, but with an output speed of
+        # approximately 180 Tokens/s" — platform.kimi.ai chat-k27-code pricing.
+        "moonshot/kimi-k2.7-code-highspeed": "moonshot/kimi-k2.7-code",
+    }
 
     # Synth/overlay pipeline, applied in order by filter_all_models and
     # get_filter_stats. Both call sites share this list so the two cannot
@@ -3600,6 +3249,7 @@ ModelSyncRules.SYNTH_PIPELINE = (
     ModelSyncRules.__dict__["apply_dashscope_synth"],
     ModelSyncRules.__dict__["apply_byteplus_synth"],
     ModelSyncRules.__dict__["apply_anthropic_synth"],
+    ModelSyncRules.__dict__["apply_capability_mirrors"],  # after all vendor synths
     ModelSyncRules.__dict__["apply_newapi_synth"],
     ModelSyncRules.__dict__["apply_ecloud_aicc_synth"],
 )
