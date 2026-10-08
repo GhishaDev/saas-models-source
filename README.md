@@ -16,14 +16,14 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 ## Supported Providers
 
 - **OpenAI**: GPT-6 series (Astra, 6.1 Sol, Sol, Luna), GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
-- **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5.5, Opus 5, Sonnet 5.5, Sonnet 5) and the Fable / Mythos 5.1 pair, including dated snapshots
-- **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`
+- **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5.5, Opus 5, Sonnet 5.5, Sonnet 5, Haiku 5.5) and the Fable / Mythos 5.1 pair, including dated snapshots
+- **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`, **Nano Banana 2.1** = `gemini-nano-banana-2.1`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash and GLM-5.3-FlashX, + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (14 SKUs: GLM-5.3-FlashX, GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` — the two models the page lists, plus one legacy alias: `deepseek-flash` (DeepSeek-V4.1-Flash, **$0.30 / $1.20**, cache $0.006, vision), `deepseek-v4-flash` and `deepseek-v4.1-flash` (**aliases** of the same model, identical price) and `deepseek-v4-pro` (**$1.32 / $3.96**, cache $0.044, no vision). All 1M context / 393,216 max output. The official tariff is **USD-native** and split into peak / off-peak windows: the flat fields carry the **peak** rate, and `off_peak_pricing` (from upstream since v1.16.44) carries the half-price rates with their UTC windows
 - **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs` — the whole "Multi-modal Model" table (4 SKUs: Kimi K3 — $3 / $15 per M, cache-hit $0.30, 1M context; Kimi K2.7 Code — $0.95 / $4.00, cache-hit $0.19, 256K; Kimi K2.7 Code HighSpeed — $1.90 / $8.00, cache-hit $0.38, 256K; Kimi K2.6 — $0.95 / $4.00, cache-hit $0.16, 256K, text+image+video input). K3 and K2.7 Code now come from upstream with small overlays; K2.7 Code HighSpeed is pre-staged via `MOONSHOT_SYNTH_DATA`, its capability flags mirrored from K2.7 Code; K2.6 comes straight from upstream
 - **DashScope (阿里云百炼 / Alibaba Cloud Model Studio, Qwen)**: Whitelist-curated `dashscope/*` SKUs (6 SKUs — the Qwen **3.8** and **3.7** generations, all ~1M context). Prices are the **effective (post-discount)** ones from [qwencloud.com/pricing/api](https://www.qwencloud.com/pricing/api); `qwen3.7-plus` / `qwen3.7-flash` are **tiered by request input size**. *DashScope* is the API/SDK identifier (`dashscope.aliyuncs.com`, `DASHSCOPE_API_KEY`) for the service branded 百炼 / Model Studio — LiteLLM names the provider after the technical id, and using the same namespace means an upstream key of the same name merges instead of colliding. **Unrelated to ModelScope (魔搭)**, which is Alibaba's open-weights community hub. Prices are the **International USD** tariff (the domestic 百炼 CNY book is separate and deliberately not mixed in)
-- **Volcengine (ByteDance Ark — Doubao Seedance video + Seedream image)**: **11 Seedream image** SKUs (5.0 Pro / 5.0 Lite / 5.0 / 4.5 / 4.0, with their dated stamps) billed **per image** in CNY → USD at the 7.0 policy rate. Field names mirror the internal LiteLLM fork's price table exactly, because the gateway's image cost calculator is what defines them. Plus whitelist-curated Seedance 2.0 + 2.5 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (8 entries: 2.0 standard / Fast / Mini × {dated + alias}, plus Seedance 2.5 {dated `-260628` + alias} — 480P/720P 70 / 42 CNY/M no-video / with-video, 1080P 77 / 46 CNY/M, 4K 39 / 24 CNY/M *estimated*). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
+- **Volcengine (ByteDance Ark — Doubao Seedance video + Seedream image)**: **13 Seedream image** SKUs (5.0 Pro / 5.0 Lite / 5.0 Flash / 5.0 / 4.5 / 4.0, with their dated stamps) billed **per image** in CNY → USD at the 7.0 policy rate. Field names mirror the internal LiteLLM fork's price table exactly, because the gateway's image cost calculator is what defines them. Plus whitelist-curated Seedance 2.0 + 2.5 video SKUs from [volcengine.com/docs/82379/1544106](https://www.volcengine.com/docs/82379/1544106) (8 entries: 2.0 standard / Fast / Mini × {dated + alias}, plus Seedance 2.5 {dated `-260628` + alias} — 480P/720P 70 / 42 CNY/M no-video / with-video, 1080P 77 / 46 CNY/M, 4K 39 / 24 CNY/M *estimated*). Prices stored as **USD/token** via the standard `output_cost_per_token[_<res>][_with_input_video]` family — the underlying CNY tariff has been converted at our internal LiteLLM fork's policy FX rate (`1 USD = 7.0 CNY`); the LiteLLM billing manager bills in USD with no runtime FX lookup
 - **BytePlus (ByteDance Ark overseas, Dreamina Seedance video)**: Whitelist-curated Dreamina Seedance 2.0 + 2.5 video SKUs from [docs.byteplus.com/en/docs/ModelArk/1544106](https://docs.byteplus.com/en/docs/ModelArk/1544106) (8 entries: 2.0 standard / Fast / Mini + 2.5, each × {dated + alias}). BytePlus is the overseas sibling of Volcengine — same Ark platform, same YYMMDD version stamps — but a different brand and a **USD-native tariff**, so these are independent SKUs, *not* mirrors of `volcengine/*`. List prices in USD/M tokens (no-video / with-video): 2.5 — 480P/720P **10.70 / 6.40**, 1080P **11.70 / 7.00**, 4K **6.08 / 3.57** *estimated*; 2.0 — 480P/720P **7.00 / 4.30**, 1080P **7.70 / 4.70**, 4K **4.00 / 2.40**; 2.0 Fast — **5.60 / 3.30**; 2.0 Mini — **3.50 / 2.10**. Same `output_cost_per_token[_<res>][_with_input_video]` field family as Volcengine, but **no FX conversion is applied**
 - **new-api (aggregator gateway)**: Reverse-whitelist mirror provider. Every `new-api/<sku>` is a full copy of an already-populated `<vendor>/<sku>` record with only `litellm_provider` re-labelled. Seedance is the first family mirrored (8 SKUs from `volcengine/doubao-seedance-*`); extending to more vendors is a two-line change (whitelist entry + `NEWAPI_MIRROR_SOURCES` mapping)
 - **ecloud_aicc (aggregator gateway)**: Second mirror provider — same mechanic as new-api, distinct namespace so deployments routing through the ecloud_aicc gateway can address SKUs by their aggregator-side name. Currently mirrors the same 8 Seedance SKUs from `volcengine/doubao-seedance-*`
@@ -63,8 +63,9 @@ Two rules learned the hard way:
 
 **Recurring — DeepSeek on Chinese public holidays.** DeepSeek bills the whole day off-peak
 (half price); `off_peak_pricing` has no holiday calendar, so weekday peak windows on a holiday
-are billed at the peak rate. Over-billing, never under-billing. Next: **2026-10-01 → 10-07**
-(National Day). Nothing to change in the catalogue; reconcile holiday invoices if it matters.
+are billed at the peak rate. Over-billing, never under-billing. Next: **2027-01-01** (New
+Year's Day), then the 2027 Spring Festival. Nothing to change in the catalogue; reconcile
+holiday invoices if it matters. (First occurrence was National Day, 2026-10-01 → 10-07.)
 
 **No published end date** — recorded inline in the code instead, so restoring list price is a copy-paste:
 
@@ -75,34 +76,41 @@ are billed at the peak rate. Over-billing, never under-billing. Next: **2026-10-
 ### 🔴 Vendor-confirmed shutdowns
 
 OpenAI is explicit: its tables say **"Shutdown date"** and the page defines it as
-*"the model or endpoint will no longer be accessible."* These are real.
+*"the model or endpoint will no longer be accessible."* Anthropic marks a model
+**`Deprecated`** with a retirement date once it is actually going. These are real.
 
 | Date | Models we still carry | Replacement |
 |---|---|---|
 | **2026-10-23** | `gpt-4.1-nano`, `gpt-image-1`, `o3-mini`, `o4-mini` | `gpt-5.6-luna` / `gpt-image-2` / `gpt-5.6-sol` / `gpt-5.6-terra` |
+| **2026-11-30** | `claude-sonnet-4-5` + dated snapshot — Anthropic: Deprecated 2026-09-30 | `claude-sonnet-5-5` |
 | **2026-12-01** | `gpt-image-1.5`, `gpt-image-1-mini` | `gpt-image-2` |
+| **2027-01-06** | `tts-1`, `tts-1-hd` | `gpt-realtime-2.1-mini` (per OpenAI) |
 | **2027-01-20** | `gpt-realtime` | `gpt-realtime-2.1` |
 | **2027-02-26** | `whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe` | `gpt-transcribe` / `gpt-live-transcribe` |
+| **2027-04-01** | `gpt-5.1`, `gpt-5.3-codex`, `gpt-5.4-nano` | `gpt-6-sol` / `gpt-6-sol` / `gpt-6-luna` |
 
 ### ⚪ Availability floors — NOT shutdowns
 
 Anthropic and Google publish a *lower bound* on how long a model will stay up. These
 read like shutdown dates and are not.
 
-- **Anthropic** lists every model we carry as **`Active`**, with *"Not sooner than
-  &lt;date&gt;"*. Nearest floors: `claude-sonnet-4-5-20250929` 2026-09-29,
-  `claude-haiku-4-5-20251001` 2026-10-15, `claude-opus-4-5-20251101` 2026-11-24 —
-  **all Active, none deprecated.** Upstream briefly carried these as
-  `deprecation_date` and v1.16.32 reported them as a shutdown calendar; that framing
-  was wrong, and upstream has since dropped the field entirely (see v1.16.40).
+- **Anthropic** lists every other model we carry as **`Active`**, with *"Not sooner than
+  &lt;date&gt;"*. Nearest floors: `claude-haiku-4-5-20251001` 2026-10-15,
+  `claude-opus-4-5-20251101` 2026-11-24 — Active, not deprecated. A floor can turn into
+  a real shutdown: `claude-sonnet-4-5`'s floor was 2026-09-29, and on 2026-09-30 it was
+  marked Deprecated with a 2026-11-30 retirement (now in the table above). v1.16.32
+  wrongly reported floors as shutdowns; see v1.16.40.
 - **Google** states the same: *"the shutdown dates listed in the table indicate the
-  **earliest possible** dates on which a model might be retired."* `gemini/gemini-2.5-flash-image`
-  2026-10-02 and `gemini/gemini-3.1-flash-lite` 2027-05-07 both name a replacement,
-  which signals real intent — but neither is retired today.
-  ⚠️ Google's own "Recommended replacement" column can name a model that is **itself
-  already shut down**: it points `gemini-2.5-flash-image` at `gemini-3.1-flash-image-preview`,
-  retired 2026-06-25. The live successor is `gemini-3.1-flash-image`. Check that a
-  replacement is alive before following it.
+  **earliest possible** dates on which a model might be retired."* Current entries:
+  `gemini/gemini-2.5-flash-image` **2027-03-15** (moved from 2026-10-02; replacement now
+  `gemini-3.1-flash-lite-image`) and `gemini/gemini-3.1-flash-lite` 2027-05-07.
+  `gemini/gemini-3.1-flash-image` is **deprecated with no shutdown date** — "Migrate to
+  gemini-nano-banana-2.1" (changelog, 2026-10-06). Upstream invented a 2026-10-29 date for
+  it; `GOOGLE_SYNTH_DATA` overrides that back to none.
+  ⚠️ Google's "Recommended replacement" column has named a model that was **itself
+  already shut down** (`gemini-3.1-flash-image-preview`, retired 2026-06-25) and Google
+  rewrites both dates and replacements over time. Re-read it rather than trusting a past
+  entry here.
 
 ### Where to check
 
@@ -702,6 +710,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.46 (2026-10-08)
+**Upstream sync to `BerriAI/litellm@057034d` (2026-10-08).** Exported total **176 → 180**. Every drift item was checked against the vendor before the pin was bumped; the one conflict is overridden locally.
+
+- ➕ **Added `claude-haiku-5-5`** — tiered at 100K input tokens: ≤100K $0.10 in / $0.50 out / $0.125 5m write / $0.20 1h write / $0.01 cache read; >100K $0.50 / $2.50 / $0.625 / $1.00 / $0.05; batch half of each. Forced tool use, `xhigh` / `max` effort and compaction confirmed on [the pricing](https://platform.claude.com/docs/en/about-claude/pricing) and model pages.
+- ➕ **Added `gemini/gemini-nano-banana-2.1`** — $1.50 in / $7.50 text out / $30 per M image-output tokens, 131,072 in / 32,768 out, PDF input supported ([pricing](https://ai.google.dev/gemini-api/docs/pricing)).
+- ➕ **Added Seedream 5.0 Flash** (`volcengine/doubao-seedream-5-0-flash` + `-260915`) — ¥0.12 per image flat, stored as `output_cost_per_image` = 0.12 / 7.0 USD. Not in the gateway's band table, so the bare key is the price it bills.
+- 🔴 **`claude-sonnet-5-5` cache read $0.20 → $0.10 per M** (batch $0.10 → $0.05). We were over-billing cache hits 2×; Anthropic's pricing table says $0.10.
+- 🔴 **`claude-opus-5-5` gains `us: 1.1`** in `provider_specific_entry` — US-only inference carries Anthropic's 1.1× multiplier for Claude 4.6 and later. US-geo requests were under-billed 10%.
+- 💲 **11 added prices**, each a rule of the vendor's tier rather than a new number: OpenAI batch = 0.5× standard on `gpt-image-2.5-sunburst` / `-flare` (text, image and cached input); Gemini batch image output = 0.5× on `3-pro-image` / `3.1-flash-image`; Gemini priority audio input = 1.8× on `2.5-flash` / `2.5-flash-lite` / `3.1-flash-lite`.
+- ⏳ **Deprecation dates now carried** (all vendor-confirmed): `claude-sonnet-4-5` (+ dated) 2026-11-30; `tts-1` / `tts-1-hd` 2027-01-06; `gpt-5.1`, `gpt-5.3-codex`, `gpt-5.4-nano` 2027-04-01. Calendar updated.
+- 🛡️ **Override: `gemini/gemini-3.1-flash-image` `deprecation_date` → none.** Upstream set 2026-10-29; Google's changelog (2026-10-06) deprecates it with **no shutdown date announced**. The drift report shows this key as `null → null` because the key is now present with a null value — expected.
+- 🐛 **Name formatter: named Gemini families.** `gemini-nano-banana-2.1` rendered as `Gemini nano Banana 2.1`, because the formatter treated the first word as the version slot. Families that lead with a word are now title-cased (`Gemini Nano Banana 2.1`). None of the 176 existing names changed; regression test added.
+- ✅ `gemini/gemini-2.5-pro` gains `supports_url_context` (Google: URL context "Supported").
+- 📝 Endpoint metadata from upstream: the four Gemini image SKUs list `/v1/images/generations` and `/v1/images/edits` instead of `/v1/completions` and `/v1/batch`; `gpt-6-luna` gains `/v1/decisions`. `claude-sonnet-5-5`'s `source` now points to the pricing page.
 
 ### v1.16.45 (2026-09-30)
 **Review follow-ups to v1.16.44.** A second pass looking for faults rather than confirmation found three real defects in that release and two overclaims in its notes. Exported total stays **176**; the export changes in exactly three flags.
