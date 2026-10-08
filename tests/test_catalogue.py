@@ -77,3 +77,10 @@ def test_known_stale_trues_stay_fixed(exported_models):
         ("gpt-5.1", "supports_minimal_reasoning_effort"),
     ]:
         assert exported_models[key]["raw_data"].get(flag) is not True, f"{key} {flag}"
+
+
+def test_named_gemini_families_are_title_cased():
+    # The Gemini formatter assumed a version number first; "nano" in
+    # gemini-nano-banana-2.1 was left lowercase as if it were the version.
+    assert ModelSyncRules.format_model_name("gemini/gemini-nano-banana-2.1", "google") == "Gemini Nano Banana 2.1"
+    assert ModelSyncRules.format_model_name("gemini/gemini-3.1-flash-lite", "google") == "Gemini 3.1 Flash-Lite"

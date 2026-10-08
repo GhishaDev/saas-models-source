@@ -107,6 +107,7 @@ def _seedream_flat(cny_per_image: float) -> dict[str, Any]:
     }
 
 
+_SEEDREAM_FLAT_012 = _seedream_flat(0.12)   # 5-0-flash
 _SEEDREAM_FLAT_022 = _seedream_flat(0.22)   # 5-0 and 5-0-lite
 _SEEDREAM_FLAT_025 = _seedream_flat(0.25)   # 4-5
 _SEEDREAM_FLAT_020 = _seedream_flat(0.20)   # 4-0
@@ -946,6 +947,8 @@ class ModelSyncRules:
         "volcengine/doubao-seedream-5-0-pro-260628",
         "volcengine/doubao-seedream-5-0-lite",
         "volcengine/doubao-seedream-5-0-lite-260128",
+        "volcengine/doubao-seedream-5-0-flash",
+        "volcengine/doubao-seedream-5-0-flash-260915",
         "volcengine/doubao-seedream-5-0",
         "volcengine/doubao-seedream-5-0-260128",
         "volcengine/doubao-seedream-4-5",
@@ -1118,6 +1121,14 @@ class ModelSyncRules:
         # 0.02 input; 5-0 + 5-0-lite 0.22; 4-5 0.25; 4-0 0.20.
         "volcengine/doubao-seedream-5-0-pro-260628": _SEEDREAM_PRO,
         "volcengine/doubao-seedream-5-0-pro": _SEEDREAM_PRO,
+        # Seedream 5.0 Flash (2026-09): the cheapest 5.0 tier, ¥0.12 per output
+        # image, reference images free. NOT yet in GhishaDev/litellm-internal's
+        # price table (checked 2026-10-08), so the gateway has no static price
+        # for it: the catalogue's output_cost_per_image is what bills it, via the
+        # dashboard's deployment-level push. That is the same bare key the
+        # gateway reads for every single-price Seedream SKU, so no new contract.
+        "volcengine/doubao-seedream-5-0-flash-260915": _SEEDREAM_FLAT_012,
+        "volcengine/doubao-seedream-5-0-flash": _SEEDREAM_FLAT_012,
         "volcengine/doubao-seedream-5-0-lite-260128": _SEEDREAM_FLAT_022,
         "volcengine/doubao-seedream-5-0-lite": _SEEDREAM_FLAT_022,
         "volcengine/doubao-seedream-5-0-260128": _SEEDREAM_FLAT_022,
@@ -1469,6 +1480,14 @@ class ModelSyncRules:
     #     Upstream has since corrected it to False, so the override became
     #     redundant and was removed.
     GOOGLE_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        # Upstream invented a 2026-10-29 shutdown. Google's changelog
+        # (2026-10-06): "The gemini-3.1-flash-image model is deprecated (no
+        # shutdown date announced). Migrate to gemini-nano-banana-2.1." The
+        # deprecations page agrees: "No shutdown date announced". A false date
+        # three weeks out would push operators off a live model early.
+        "gemini/gemini-3.1-flash-image": {
+            "deprecation_date": None,
+        },
         # Both flags are wrong upstream AND were wrong in the export before —
         # identical on both sides, so the drift report could not see them.
         # Found by re-reading the capability table, not by diffing.
@@ -2027,7 +2046,7 @@ class ModelSyncRules:
     # review `python drift_report.py --pinned` before committing — every
     # capability and price change the bump brings in lands in one reviewed
     # diff instead of leaking into unrelated PRs.
-    UPSTREAM_PIN = "d098b02ed956977834c542d3995382e361d6d41c"  # BerriAI/litellm main, 2026-09-30
+    UPSTREAM_PIN = "057034d0d37ba790750f1aebe5cb298d19b66557"  # BerriAI/litellm main, 2026-10-08
     UPSTREAM_SNAPSHOT_URL = (
         "https://raw.githubusercontent.com/BerriAI/litellm/"
         f"{UPSTREAM_PIN}/model_prices_and_context_window.json"
@@ -2603,6 +2622,12 @@ class ModelSyncRules:
                 return f"Gemini Embedding {rest}".rstrip()
 
             parts = clean_key.split("-")
+            # Named families lead with a word, not a version number:
+            # gemini-nano-banana-2.1 → Gemini Nano Banana 2.1 (Google's own
+            # spelling). Treating "nano" as the version slot rendered it
+            # lowercase and uncapitalized.
+            if parts and not parts[0][:1].isdigit():
+                return "Gemini " + " ".join(w.capitalize() for w in parts)
             if len(parts) >= 2:
                 version = parts[0]  # 2.5, 1.5
                 variant = " ".join(w.capitalize() for w in parts[1:])  # Flash, Flash Lite, Pro
