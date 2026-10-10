@@ -1839,11 +1839,11 @@ class ModelSyncRules:
         "o3-deep-research",
         "o3-pro",
         "o4-mini-deep-research",
-        # Same policy, 2026-09 arrivals. Neither is on the official pricing
-        # page and neither has a model page on developers.openai.com — they
-        # entered the export on their own the first time upstream published
-        # them, which is now the THIRD time this has happened (gpt-live-1 in
-        # v1.16.30, these two here). OpenAI has no reverse-whitelist, so its
+        # Same policy, a 2026-09 arrival. Not on the official pricing page and
+        # no model page on developers.openai.com — it entered the export on
+        # its own the first time upstream published it, the THIRD time this
+        # has happened (gpt-live-1 in v1.16.30, then this). OpenAI has no
+        # reverse-whitelist, so its
         # scope is enforced only by exclusion patterns that new keys can
         # simply fail to match.
         #
@@ -1853,12 +1853,12 @@ class ModelSyncRules:
         #     gpt-5.4-cyber (2026-10-01) in favour of gpt-5.6-cyber. Its
         #     upstream prices are identical to gpt-5.6-cyber's short-context
         #     tier, but it lacks the >272k tier that entry carries.
-        #   gpt-rosalind-research — a research variant, same family as the
-        #     *-deep-research keys already excluded above.
         #
-        # Promote either one if it appears on the official pricing page.
+        # Promote it if it appears on the official pricing page.
+        # (gpt-rosalind-research was excluded here too until 2026-10-10, when
+        # it and gpt-rosalind-discovery appeared in the pricing page's
+        # Specialized models table at $5 / $0.50 / $25.)
         "gpt-5.5-cyber",
-        "gpt-rosalind-research",
         # Note: gpt-audio-* and gpt-realtime-* are excluded via EXCLUDE_PATTERNS
         # Gemini non-standard models
         "gemini/gemini-gemma-2-27b-it",
@@ -2046,7 +2046,7 @@ class ModelSyncRules:
     # review `python drift_report.py --pinned` before committing — every
     # capability and price change the bump brings in lands in one reviewed
     # diff instead of leaking into unrelated PRs.
-    UPSTREAM_PIN = "057034d0d37ba790750f1aebe5cb298d19b66557"  # BerriAI/litellm main, 2026-10-08
+    UPSTREAM_PIN = "729b02d05719715f4faeb1f81ef2728ef06c3273"  # BerriAI/litellm main, 2026-10-10
     UPSTREAM_SNAPSHOT_URL = (
         "https://raw.githubusercontent.com/BerriAI/litellm/"
         f"{UPSTREAM_PIN}/model_prices_and_context_window.json"
@@ -3167,6 +3167,15 @@ class ModelSyncRules:
         # "the same model as Kimi K2.7 Code, but with an output speed of
         # approximately 180 Tokens/s" — platform.kimi.ai chat-k27-code pricing.
         "moonshot/kimi-k2.7-code-highspeed": "moonshot/kimi-k2.7-code",
+        # An Anthropic alias and its dated snapshot are one model. Upstream
+        # sets supports_web_search from the Models API, which lists only one
+        # id of each pair, so the other side read as unsupported. Source is
+        # whichever side upstream flagged.
+        "claude-haiku-4-5": "claude-haiku-4-5-20251001",
+        "claude-sonnet-4-5": "claude-sonnet-4-5-20250929",
+        "claude-opus-4-5": "claude-opus-4-5-20251101",
+        "claude-opus-4-6-20260205": "claude-opus-4-6",
+        "claude-opus-4-7-20260416": "claude-opus-4-7",
     }
 
     # Synth/overlay pipeline, applied in order by filter_all_models and
