@@ -1,5 +1,7 @@
 """Assertions on the committed export and on the policy tables themselves."""
 
+import re
+
 from model_sync_rules import ModelSyncRules
 
 CLAUDE_OPUS_5_REQUIRED = (
@@ -84,3 +86,14 @@ def test_named_gemini_families_are_title_cased():
     # gemini-nano-banana-2.1 was left lowercase as if it were the version.
     assert ModelSyncRules.format_model_name("gemini/gemini-nano-banana-2.1", "google") == "Gemini Nano Banana 2.1"
     assert ModelSyncRules.format_model_name("gemini/gemini-3.1-flash-lite", "google") == "Gemini 3.1 Flash-Lite"
+
+
+def test_claude_aliases_share_capabilities_with_their_dated_snapshot(exported_models):
+    # One model, two ids. Upstream's Models API-sourced flags once covered
+    # only one side of five pairs; CAPABILITY_MIRRORS closes that, and this
+    # catches a new pair before it ships split.
+    caps = lambda key: {f: v for f, v in exported_models[key]["raw_data"].items() if f.startswith("supports_")}
+    for key in exported_models:
+        m = re.fullmatch(r"(claude-.+)-\d{8}", key)
+        if m and m.group(1) in exported_models:
+            assert caps(key) == caps(m.group(1)), f"{key} and {m.group(1)} disagree"
