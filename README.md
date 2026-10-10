@@ -15,7 +15,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Supported Providers
 
-- **OpenAI**: GPT-6 series (Astra, 6.1 Sol, Sol, Luna), GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
+- **OpenAI**: GPT-6 series (Astra, 6.1 Sol, Sol, Luna), GPT-Rosalind (`gpt-rosalind-discovery`, `gpt-rosalind-research` — life sciences, trusted-access only), GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5.5, Opus 5, Sonnet 5.5, Sonnet 5, Haiku 5.5) and the Fable / Mythos 5.1 pair, including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`, **Nano Banana 2.1** = `gemini-nano-banana-2.1`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash and GLM-5.3-FlashX, + vision/OCR variants), priced in USD
@@ -175,7 +175,9 @@ max` only when the matching `supports_*_reasoning_effort` flag is `true`. So:
 5. **Derived, not duplicated.** `CAPABILITY_MIRRORS` copies every `supports_*` from a
    source to a target that the vendor says is the same model: all `bigmodel/*` from their
    `zai/*` sibling, and `moonshot/kimi-k2.7-code-highspeed` from `kimi-k2.7-code`
-   (*"the same model as Kimi K2.7 Code"*). Targets hand-write no flags; a test enforces it.
+   (*"the same model as Kimi K2.7 Code"*), and five Anthropic alias / dated-snapshot pairs
+   (an alias *is* its snapshot). Targets hand-write no flags; a test enforces it, and a
+   second test fails any exported Claude alias whose flags differ from its dated snapshot.
 
 ## Installation
 
@@ -710,6 +712,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.47 (2026-10-10)
+**Upstream sync to `BerriAI/litellm@729b02d` (2026-10-10).** Exported total **180 → 182**. Every drift item was checked against the vendor before the pin was bumped.
+
+- ➕ **Added `gpt-rosalind-discovery` and `gpt-rosalind-research`** — $5 in / $0.50 cached / $25 out per M, from the pricing page's Specialized models table ("Access is limited to approved internal research through the trusted-access program"). `gpt-rosalind-research` had been excluded since 2026-09 because it was not on the pricing page; its exclusion comment said to promote it once it was, and now it is. Neither has a model page, so no context window is set (upstream sets none).
+- 💲 **`gpt-6.1-sol` gains Ultrafast prices** — $12 in / $0.60 cached / $15 cache write / $60 out, matching [the pricing page](https://developers.openai.com/api/docs/pricing) exactly; >272K is 2× in, cached and cache write, 1.5× out, the same ratio as its Standard / Flex / Priority tiers. Closes the "wait for upstream" note from v1.16.42 for this model.
+- 🧹 **`claude-sonnet-4-5` (+ dated): `*_above_200k_tokens*` prices removed** (9 fields each). Anthropic retired the 1M-context beta for Sonnet 4.5: ["Other Claude models, including Claude Sonnet 4.5 (deprecated), have a 200k-token context window"](https://platform.claude.com/docs/en/build-with-claude/context-windows). The tier is unreachable; `max_input_tokens` was already 200000 here.
+- ✅ **`supports_web_search` → true on 16 Claude ids.** Upstream added it to 11, sourced from Anthropic's Models API (`capabilities.server_tools.web_search.supported`), which the [web search tool page](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool) names as the per-model source of truth. The API lists one id per alias / snapshot pair, so upstream left the other half unflagged — `claude-haiku-4-5`, `claude-sonnet-4-5`, `claude-opus-4-5`, `claude-opus-4-6-20260205`, `claude-opus-4-7-20260416`. Five new `CAPABILITY_MIRRORS` entries fix that, plus a test that every exported alias matches its snapshot. Not added: `claude-mythos-5` / `-5-1` (no Models API evidence either way).
+- 📅 `gemini/gemini-2.5-flash-image` `deprecation_date` 2026-10-02 → 2027-03-15 (already in the v1.16.46 calendar).
 
 ### v1.16.46 (2026-10-08)
 **Upstream sync to `BerriAI/litellm@057034d` (2026-10-08).** Exported total **176 → 180**. Every drift item was checked against the vendor before the pin was bumped; the one conflict is overridden locally.
