@@ -125,3 +125,14 @@ def test_gateway_endpoints_merge_without_dropping_or_duplicating():
 def test_jev_names_follow_typesafe_docs():
     assert ModelSyncRules.format_model_name("typesafe/jev-1.13.0", "typesafe") == "Jev 1.13"
     assert ModelSyncRules.format_model_name("typesafe/jev-latest", "typesafe") == "Jev Latest"
+
+
+def test_prestaged_google_records_never_override_upstream():
+    # A pre-staged record carries the price on the day it was written. Once
+    # upstream carries the model, upstream must win, or a dated price change
+    # (Gemini 4 Argon doubles on 2026-12-01) would be pinned stale.
+    key = next(iter(ModelSyncRules.GOOGLE_PRESTAGED))
+    upstream = {"litellm_provider": "gemini", "mode": "chat", "input_cost_per_token": 4e-06}
+    merged = ModelSyncRules.apply_google_synth({key: upstream})
+    assert merged[key] == upstream
+    assert ModelSyncRules.apply_google_synth({})[key] == ModelSyncRules.GOOGLE_PRESTAGED[key]
