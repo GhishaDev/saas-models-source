@@ -17,7 +17,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 - **OpenAI**: GPT-6 series (Astra, 6.1 Sol, Sol, Luna), GPT-Rosalind (`gpt-rosalind-discovery`, `gpt-rosalind-research` — life sciences, trusted-access only), GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5.5, Opus 5, Sonnet 5.5, Sonnet 5, Haiku 5.5) and the Fable / Mythos 5.1 pair, including dated snapshots
-- **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`, **Nano Banana 2.1** = `gemini-nano-banana-2.1`
+- **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash** and **Gemini 4 Argon**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`, **Nano Banana 2.1** = `gemini-nano-banana-2.1`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash and GLM-5.3-FlashX, + vision/OCR variants), priced in USD
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (14 SKUs: GLM-5.3-FlashX, GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` — the two models the page lists, plus one legacy alias: `deepseek-flash` (DeepSeek-V4.1-Flash, **$0.30 / $1.20**, cache $0.006, vision), `deepseek-v4-flash` and `deepseek-v4.1-flash` (**aliases** of the same model, identical price) and `deepseek-v4-pro` (**$1.32 / $3.96**, cache $0.044, no vision). All 1M context / 393,216 max output. The official tariff is **USD-native** and split into peak / off-peak windows: the flat fields carry the **peak** rate, and `off_peak_pricing` (from upstream since v1.16.44) carries the half-price rates with their UTC windows
@@ -63,6 +63,7 @@ Two rules learned the hard way:
 | Date | What | Direction | Action |
 |---|---|---|---|
 | **2026-11-21** | `gpt-5.6-sol` promotional pricing, *"available **at least** through November 21, 2026"* | Price will **rise** → we would **under**-bill | Re-check. No post-promo price is published, and *"at least through"* is not a firm end — nothing can be pre-staged. |
+| **2026-12-01** | `gemini-4-argon`: *"$2.00 through November 30, 2026. $4.00 starting December 1, 2026"*. Every tier doubles: output $10 → $20, cache $0.10 → $0.20, Batch / Flex $1 → $2, Priority $3.60 → $7.20 | Price will **rise**, and we would **under**-bill | Argon comes from `GOOGLE_PRESTAGED`, which upstream always overrides. Bump the pin once upstream carries the new rate, then delete the pre-staged record. Until then, nothing here changes on its own. |
 | **2027-01-01** | `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash`: *"$0.75 through December 31, 2026. $1.50 starting January 1, 2027"* (output $3.75 → $7.50, cache $0.075 → $0.15) | Price will **rise** | Re-check **upstream**, which tracks the effective rate. Do **not** pre-load the future price — that is what made `gemini-3.6-flash` over-bill 2× (v1.16.30). |
 
 **Recurring — DeepSeek on Chinese public holidays.** DeepSeek bills the whole day off-peak
@@ -716,6 +717,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.49 (2026-10-23)
+**Added Gemini 4 Argon, and only that.** Exported total **185 → 186**. The upstream pin stays at `e5db66d`, because upstream main also carries Seedance per-second prices and two `true → false` capability flips that still need checking against the vendors.
+
+- ➕ **`gemini/gemini-4-argon`**, Google's new flagship reasoning model. Prices per M, each checked on [the pricing page](https://ai.google.dev/gemini-api/docs/pricing):
+
+  | Tier | Input | Output (incl. thinking) | Cache read |
+  |---|---|---|---|
+  | Standard | $2.00 | $10.00 | $0.10 |
+  | Batch and Flex | $1.00 | $5.00 | $0.05 |
+  | Priority | $3.60 | $18.00 | $0.18 |
+
+  Search and Maps grounding cost $14 per 1K. Capabilities match [the model page](https://ai.google.dev/gemini-api/docs/models/gemini-4-argon): text, image, video, audio and PDF in; text out; thinking at low, medium and high only (no minimal); implicit caching only. The context window is 1,048,576 tokens, and so is `max_output_tokens`, the long-decode ceiling. The default output limit is 65,536.
+- ⏳ **All of Argon's prices double on 2026-12-01.** Today's rate is stored, per the dated-price rule, and the calendar has an entry.
+- 🛡️ **New `GOOGLE_PRESTAGED` table.** It holds records that are injected **only when the pinned upstream lacks the key**, and its first entry is upstream's own Argon record, copied from main `159b5b2`. The export is byte-identical to what a regeneration against that commit produces. `GOOGLE_SYNTH_DATA` overlays upstream instead, so a price written into it would outlive the December increase once a pin bump brought Argon in. A test makes sure upstream always wins over a pre-staged record.
 
 ### v1.16.48 (2026-10-13)
 **Decisions support: TypeSafe Jev joins as a new provider and model type, and `gpt-6-luna` gains Decisions pricing.** Exported total **182 → 185**. Upstream pin → `BerriAI/litellm@e5db66d` (2026-10-13); the only upstream drift was gpt-6-luna's 8 `_decisions` fields.

@@ -1516,6 +1516,74 @@ class ModelSyncRules:
         },
     }
 
+    # ── Google pre-staged models ──────────────────────────────────────────
+    # Complete records for models Google has published but the PINNED
+    # upstream does not carry yet. Injected ONLY when the key is absent, so
+    # the moment a pin bump brings the model in, upstream's record wins and
+    # this entry is inert — delete it then. Unlike GOOGLE_SYNTH_DATA this can
+    # never pin a stale price over a newer upstream one.
+    #
+    # gemini/gemini-4-argon — copied from upstream main (159b5b2, 2026-10-21)
+    # without bumping the pin, and checked field by field on 2026-10-23:
+    #   • ai.google.dev/gemini-api/docs/pricing, all four tiers, per M:
+    #     Standard $2 / $10 / $0.10 cache, Batch and Flex $1 / $5 / $0.05,
+    #     Priority $3.60 / $18 / $0.18; Search and Maps grounding $14 / 1K.
+    #     Every one is "through November 30, 2026"; from December 1 they all
+    #     double. Today's rate is stored (see the dated-price rule above).
+    #   • ai.google.dev/gemini-api/docs/models/gemini-4-argon: inputs text,
+    #     image, video, audio and PDF; output text; function calling,
+    #     structured outputs, implicit caching only, thinking (low / medium /
+    #     high, so no minimal), URL context, search grounding. Max output is
+    #     65,536 by default and 1,048,576 with long decode; the ceiling is kept.
+    GOOGLE_PRESTAGED: dict[str, dict[str, Any]] = {
+        "gemini/gemini-4-argon": {
+            "cache_read_input_token_cost": 1e-07,
+            "cache_read_input_token_cost_batches": 5e-08,
+            "cache_read_input_token_cost_flex": 5e-08,
+            "cache_read_input_token_cost_priority": 1.8e-07,
+            "google_maps_grounding_cost_per_query": 0.014,
+            "input_cost_per_token": 2e-06,
+            "input_cost_per_token_batches": 1e-06,
+            "input_cost_per_token_flex": 1e-06,
+            "input_cost_per_token_priority": 3.6e-06,
+            "litellm_provider": "gemini",
+            "max_input_tokens": 1048576,
+            "max_output_tokens": 1048576,
+            "max_tokens": 1048576,
+            "mode": "chat",
+            "output_cost_per_reasoning_token": 1e-05,
+            "output_cost_per_token": 1e-05,
+            "output_cost_per_token_batches": 5e-06,
+            "output_cost_per_token_flex": 5e-06,
+            "output_cost_per_token_priority": 1.8e-05,
+            "prompt_cache_min_tokens": 4096.0,
+            "rpm": 2000.0,
+            "search_context_cost_per_query": {"search_context_size_low": 0.014, "search_context_size_medium": 0.014, "search_context_size_high": 0.014},
+            "source": "https://ai.google.dev/gemini-api/docs/pricing",
+            "supported_endpoints": ["/v1/chat/completions", "/v1/completions"],
+            "supported_modalities": ["text", "image", "audio", "video"],
+            "supported_output_modalities": ["text"],
+            "supports_audio_input": True,
+            "supports_audio_output": False,
+            "supports_function_calling": True,
+            "supports_minimal_reasoning_effort": False,
+            "supports_native_streaming": True,
+            "supports_parallel_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_system_messages": True,
+            "supports_tool_choice": True,
+            "supports_url_context": True,
+            "supports_video_input": True,
+            "supports_vision": True,
+            "supports_web_search": True,
+            "tpm": 800000.0,
+            "web_search_billing_unit": "per_query",
+        },
+    }
+
     # ── OpenAI overlays ───────────────────────────────────────────────────
     # Source: developers.openai.com/api/docs/pricing and the per-model pages.
     # Merged on top of upstream via {**existing, **synth}. Every entry below
@@ -2833,12 +2901,17 @@ class ModelSyncRules:
         an absent one is injected wholesale. Remove an entry once upstream
         carries the same model.
 
+        GOOGLE_PRESTAGED records are injected only when the key is absent;
+        a present upstream key always wins over them.
+
         Does not mutate the input.
         """
         merged: dict[str, Any] = dict(models)
         for key, synth in cls.GOOGLE_SYNTH_DATA.items():
             existing = merged.get(key)
             merged[key] = dict(synth) if existing is None else {**existing, **synth}
+        for key, record in cls.GOOGLE_PRESTAGED.items():
+            merged.setdefault(key, dict(record))
         return merged
 
     @classmethod
