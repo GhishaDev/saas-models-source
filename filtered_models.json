@@ -3197,13 +3197,17 @@
       "supports_json_output": false,
       "raw_data": {
         "cache_creation_input_token_cost": 1.25e-07,
+        "cache_creation_input_token_cost_decisions": 1e-07,
         "cache_creation_input_token_cost_above_272k_tokens": 2.5e-07,
+        "cache_creation_input_token_cost_above_272k_tokens_decisions": 2e-07,
         "cache_creation_input_token_cost_above_272k_tokens_flex": 1.25e-07,
         "cache_creation_input_token_cost_above_272k_tokens_priority": 5e-07,
         "cache_creation_input_token_cost_flex": 6.25e-08,
         "cache_creation_input_token_cost_priority": 2.5e-07,
         "cache_read_input_token_cost": 1e-08,
+        "cache_read_input_token_cost_decisions": 1e-07,
         "cache_read_input_token_cost_above_272k_tokens": 2e-08,
+        "cache_read_input_token_cost_above_272k_tokens_decisions": 2e-07,
         "cache_read_input_token_cost_above_272k_tokens_flex": 1e-08,
         "cache_read_input_token_cost_above_272k_tokens_priority": 4e-08,
         "cache_read_input_token_cost_batches": 5e-09,
@@ -3213,7 +3217,9 @@
         "cache_read_input_token_cost_flex": 5e-09,
         "cache_read_input_token_cost_priority": 2e-08,
         "input_cost_per_token": 1e-07,
+        "input_cost_per_token_decisions": 1e-07,
         "input_cost_per_token_above_272k_tokens": 2e-07,
+        "input_cost_per_token_above_272k_tokens_decisions": 2e-07,
         "input_cost_per_token_above_272k_tokens_flex": 1e-07,
         "input_cost_per_token_above_272k_tokens_priority": 4e-07,
         "input_cost_per_token_batches": 5e-08,
@@ -3226,7 +3232,9 @@
         "max_tokens": 128000,
         "mode": "chat",
         "output_cost_per_token": 5e-07,
+        "output_cost_per_token_decisions": 0.0,
         "output_cost_per_token_above_272k_tokens": 7.5e-07,
+        "output_cost_per_token_above_272k_tokens_decisions": 0.0,
         "output_cost_per_token_above_272k_tokens_flex": 3.75e-07,
         "output_cost_per_token_above_272k_tokens_priority": 1.5e-06,
         "output_cost_per_token_batches": 2.5e-07,
@@ -3245,7 +3253,8 @@
           "/v1/chat/completions",
           "/v1/batch",
           "/v1/responses",
-          "/v1/decisions"
+          "/v1/decisions",
+          "/v1/systemone"
         ],
         "supported_modalities": [
           "text",
@@ -5682,6 +5691,84 @@
         "mode": "chat",
         "output_cost_per_token": 2.5e-05,
         "source": "https://developers.openai.com/api/docs/pricing"
+      }
+    },
+    "typesafe/jev-1.13.0": {
+      "model_key": "typesafe/jev-1.13.0",
+      "provider": "typesafe",
+      "type": "decision",
+      "friendly_name": "Jev 1.13",
+      "is_default_available": true,
+      "input_cost_per_token": 4.2e-08,
+      "output_cost_per_token": 0.0,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "input_cost_per_token": 4.2e-08,
+        "litellm_provider": "typesafe",
+        "mode": "evaluation",
+        "output_cost_per_token": 0.0,
+        "source": "https://docs.typesafe.ai/models",
+        "supported_endpoints": [
+          "/v1/decisions",
+          "/v1/systemone"
+        ]
+      }
+    },
+    "typesafe/jev-latest": {
+      "model_key": "typesafe/jev-latest",
+      "provider": "typesafe",
+      "type": "decision",
+      "friendly_name": "Jev Latest",
+      "is_default_available": true,
+      "input_cost_per_token": 4.2e-08,
+      "output_cost_per_token": 0.0,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "input_cost_per_token": 4.2e-08,
+        "litellm_provider": "typesafe",
+        "mode": "evaluation",
+        "output_cost_per_token": 0.0,
+        "source": "https://docs.typesafe.ai/models",
+        "supported_endpoints": [
+          "/v1/decisions",
+          "/v1/systemone"
+        ]
+      }
+    },
+    "typesafe/jev-preview": {
+      "model_key": "typesafe/jev-preview",
+      "provider": "typesafe",
+      "type": "decision",
+      "friendly_name": "Jev Preview",
+      "is_default_available": true,
+      "input_cost_per_token": 4.2e-08,
+      "output_cost_per_token": 0.0,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "input_cost_per_token": 4.2e-08,
+        "litellm_provider": "typesafe",
+        "mode": "evaluation",
+        "output_cost_per_token": 0.0,
+        "source": "https://docs.typesafe.ai/models",
+        "supported_endpoints": [
+          "/v1/decisions",
+          "/v1/systemone"
+        ]
       }
     },
     "gpt-6.1-sol": {
