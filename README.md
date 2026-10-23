@@ -6,7 +6,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Features
 
-- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, Moonshot (Kimi), DashScope (阿里云百炼 / Alibaba Cloud Model Studio — Qwen), Volcengine (ByteDance Ark domestic — Doubao Seedance video), BytePlus (ByteDance Ark overseas — Dreamina Seedance video), and two aggregator mirrors: new-api and ecloud_aicc
+- **Multi-Provider Support**: Filters models from OpenAI, Anthropic, Google, Z.AI (GLM international), Bigmodel (智谱开放平台, GLM domestic), DeepSeek, Moonshot (Kimi), DashScope (阿里云百炼 / Alibaba Cloud Model Studio — Qwen), Volcengine (ByteDance Ark domestic — Doubao Seedance video), BytePlus (ByteDance Ark overseas — Dreamina Seedance video), TypeSafe (Jev decision models), and two aggregator mirrors: new-api and ecloud_aicc
 - **Multi-Modal Support**: Chat (language), embedding, image generation, video generation, and audio (speech / transcription) models
 - **Smart Filtering Rules**: Comprehensive exclusion rules for deprecated, preview, and versioned models
 - **Mode-Aware Price Validation**: Validates pricing using mode-specific fields (per-token, per-image-token, per-image)
@@ -27,6 +27,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **BytePlus (ByteDance Ark overseas, Dreamina Seedance video)**: Whitelist-curated Dreamina Seedance 2.0 + 2.5 video SKUs from [docs.byteplus.com/en/docs/ModelArk/1544106](https://docs.byteplus.com/en/docs/ModelArk/1544106) (8 entries: 2.0 standard / Fast / Mini + 2.5, each × {dated + alias}). BytePlus is the overseas sibling of Volcengine — same Ark platform, same YYMMDD version stamps — but a different brand and a **USD-native tariff**, so these are independent SKUs, *not* mirrors of `volcengine/*`. List prices in USD/M tokens (no-video / with-video): 2.5 — 480P/720P **10.70 / 6.40**, 1080P **11.70 / 7.00**, 4K **6.08 / 3.57** *estimated*; 2.0 — 480P/720P **7.00 / 4.30**, 1080P **7.70 / 4.70**, 4K **4.00 / 2.40**; 2.0 Fast — **5.60 / 3.30**; 2.0 Mini — **3.50 / 2.10**. Same `output_cost_per_token[_<res>][_with_input_video]` field family as Volcengine, but **no FX conversion is applied**
 - **new-api (aggregator gateway)**: Reverse-whitelist mirror provider. Every `new-api/<sku>` is a full copy of an already-populated `<vendor>/<sku>` record with only `litellm_provider` re-labelled. Seedance is the first family mirrored (8 SKUs from `volcengine/doubao-seedance-*`); extending to more vendors is a two-line change (whitelist entry + `NEWAPI_MIRROR_SOURCES` mapping)
 - **ecloud_aicc (aggregator gateway)**: Second mirror provider — same mechanic as new-api, distinct namespace so deployments routing through the ecloud_aicc gateway can address SKUs by their aggregator-side name. Currently mirrors the same 8 Seedance SKUs from `volcengine/doubao-seedance-*`
+- **TypeSafe (decision models)**: `typesafe/jev-1.13.0` and its documented aliases `jev-latest` / `jev-preview`, reverse-whitelisted by `TYPESAFE_ALLOWED_KEYS`. Jev returns typed answers (a probability, a choice or a score), not text; $0.042 per M input tokens, output free ([docs.typesafe.ai/models](https://docs.typesafe.ai/models)). Exported as type **`decision`**.
 
 ## Supported Model Types
 
@@ -37,6 +38,9 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
 | `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `byteplus/dreamina-seedance-2-5`, `new-api/doubao-seedance-2-0-fast`, `ecloud_aicc/doubao-seedance-2-0-mini` |
 | `audio` | `audio_speech`, `audio_transcription` | `gpt-4o-mini-tts` / `tts-1` / `tts-1-hd` (TTS), `gpt-4o-mini-transcribe` / `whisper-1` (ASR) |
+| `decision` | `evaluation` | `typesafe/jev-1.13.0`, `typesafe/jev-latest`, `typesafe/jev-preview` |
+
+**Decisions routes.** `gpt-6-luna` stays type `language` because it is also a chat model; its Decisions capability shows up as `/v1/decisions` and `/v1/systemone` in `supported_endpoints`. Our gateway serves both routes with one handler and picks the request format from the body (`input` = OpenAI, `state` = System One), so every decision model is listed on both, whichever one its vendor hosts. `GATEWAY_ENDPOINTS` adds them to upstream's list instead of replacing it.
 
 ## Price and Lifecycle Calendar
 
@@ -712,6 +716,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.48 (2026-10-13)
+**Decisions support: TypeSafe Jev joins as a new provider and model type, and `gpt-6-luna` gains Decisions pricing.** Exported total **182 → 185**. Upstream pin → `BerriAI/litellm@e5db66d` (2026-10-13); the only upstream drift was gpt-6-luna's 8 `_decisions` fields.
+
+- ➕ **New provider `typesafe`**, with `typesafe/jev-1.13.0`, `jev-latest` and `jev-preview` (both aliases point to 1.13.0 today). $0.042 per M input tokens, output free, matching [docs.typesafe.ai/models](https://docs.typesafe.ai/models). Display names follow the docs: `Jev 1.13`, `Jev Latest`, `Jev Preview`. The 64k request limit is not stored, because the docs give "64k" and no exact token count.
+- 🆕 **New model type `decision`** (`mode: evaluation`). Chosen over reusing `language` because decision models return no text. ⚠️ **The dashboard must accept `type: "decision"` before it imports this export.**
+- 💲 **`gpt-6-luna` Decisions pricing** from upstream: `*_decisions` fields at $0.10 per M input (cached input charged at the same rate, cache writes too), output $0, and 2× above 272K. This matches OpenAI's [Decisions guide](https://developers.openai.com/api/docs/guides/decisions): "input costs $0.10 per 1M tokens … no cache-read, cache-write, or output-token charges", with long-context multipliers applied. LiteLLM upstream bills from these fields since `7dc7f10`. Our fork does not read them yet; it gets the same result by rewriting Decisions usage to input-only at luna's chat input rate, which only works while both rates are $0.10.
+- 🔌 **`/v1/decisions` and `/v1/systemone` on all four decision models** through the new `GATEWAY_ENDPOINTS` overlay (`apply_gateway_endpoints`). It adds to upstream's list rather than replacing it, so an endpoint upstream adds later still comes through.
+- 🐛 **Two filters fixed so decision models get through.** The zero-price check required a non-zero output price for every mode except embedding, which dropped Jev (output is free). `evaluation` is now treated as input-only too. The global `-latest` / `-preview` exclusion also caught Jev's documented aliases; a `^typesafe/` include pattern now leaves scope to the whitelist, the same approach Seedream uses.
 
 ### v1.16.47 (2026-10-10)
 **Upstream sync to `BerriAI/litellm@729b02d` (2026-10-10).** Exported total **180 → 182**. Every drift item was checked against the vendor before the pin was bumped.

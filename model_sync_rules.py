@@ -146,6 +146,7 @@ class ModelSyncRules:
         "byteplus",
         "new-api",
         "ecloud_aicc",
+        "typesafe",
     ]
 
     # Provider name mapping (lowercase for DB consistency)
@@ -162,7 +163,19 @@ class ModelSyncRules:
         "byteplus": "byteplus",
         "new-api": "new-api",
         "ecloud_aicc": "ecloud_aicc",
+        "typesafe": "typesafe",
     }
+
+    # TypeSafe whitelist — Jev, the "System One" decision model, served on
+    # POST /v1/systemone. Source: docs.typesafe.ai/models — "Jev 1.13
+    # jev-1.13.0, $42 / $0.042 per Btok / Mtok … Charged per input token.
+    # Output tokens are free." jev-latest and jev-preview are aliases that
+    # both point to jev-1.13.0 today. Upstream's prices match the page.
+    TYPESAFE_ALLOWED_KEYS = frozenset({
+        "typesafe/jev-1.13.0",
+        "typesafe/jev-latest",
+        "typesafe/jev-preview",
+    })
 
     # zai/glm whitelist — only these keys are allowed through provider filter.
     # Includes models present on the LiteLLM source today, plus pre-staged SKUs
@@ -1612,6 +1625,9 @@ class ModelSyncRules:
         # gpt-4o-realtime-preview-2024-12-17 — see INCLUDE_PATTERNS) silently
         # drops out of the export as unsupported_mode.
         "realtime",
+        # Decision models (TypeSafe Jev): no generated text, only typed
+        # answers — probabilities, a choice, or a score.
+        "evaluation",
     ]
 
     # Mode to model type mapping
@@ -1631,6 +1647,10 @@ class ModelSyncRules:
         # "language" also preserves the downstream contract: these SKUs
         # exported as type "language" while upstream still called them "chat".
         "realtime": "language",
+        # A new type, by decision (2026-10-13): decision models are not
+        # language models to the user, so they get their own type. The
+        # dashboard must accept "decision" before this export reaches it.
+        "evaluation": "decision",
     }
 
     # Provider-specific exclusion rules
@@ -1708,6 +1728,12 @@ class ModelSyncRules:
             "patterns": [],
             "custom_check": lambda key: key.lower() not in ModelSyncRules.DEEPSEEK_ALLOWED_KEYS,
             "description": "Allow only whitelisted deepseek/* keys (see DEEPSEEK_ALLOWED_KEYS)",
+        },
+        "typesafe": {
+            # Reverse-whitelist: only TYPESAFE_ALLOWED_KEYS pass through.
+            "patterns": [],
+            "custom_check": lambda key: key.lower() not in ModelSyncRules.TYPESAFE_ALLOWED_KEYS,
+            "description": "Allow only whitelisted typesafe/* keys (see TYPESAFE_ALLOWED_KEYS)",
         },
         "moonshot": {
             # Reverse-whitelist: only MOONSHOT_ALLOWED_KEYS pass through.
@@ -1973,6 +1999,9 @@ class ModelSyncRules:
     INCLUDE_PATTERNS: list[re.Pattern] = [
         re.compile(r"^gpt-.*-chat-latest$", re.IGNORECASE),  # Allow gpt-*-chat-latest despite -latest rule
         re.compile(r"^gemini/gemini-[3-9].*-preview$", re.IGNORECASE),  # Allow Gemini 3.x+ preview models
+        # TypeSafe's jev-latest / jev-preview are documented aliases, not
+        # stale snapshots; TYPESAFE_ALLOWED_KEYS alone decides scope.
+        re.compile(r"^typesafe/", re.IGNORECASE),
         # OpenAI audio / realtime allow-list (exact match). Needed to
         # bypass -preview- / date_pattern / ^gpt-realtime global excludes
         # on the dated realtime preview and the gpt-realtime-* keys.
@@ -2046,7 +2075,7 @@ class ModelSyncRules:
     # review `python drift_report.py --pinned` before committing — every
     # capability and price change the bump brings in lands in one reviewed
     # diff instead of leaking into unrelated PRs.
-    UPSTREAM_PIN = "729b02d05719715f4faeb1f81ef2728ef06c3273"  # BerriAI/litellm main, 2026-10-10
+    UPSTREAM_PIN = "e5db66df92cc1955978c6254ba2719869e9e72ac"  # BerriAI/litellm main, 2026-10-13
     UPSTREAM_SNAPSHOT_URL = (
         "https://raw.githubusercontent.com/BerriAI/litellm/"
         f"{UPSTREAM_PIN}/model_prices_and_context_window.json"
@@ -2338,8 +2367,9 @@ class ModelSyncRules:
         if input_cost is None or input_cost == 0:
             return True
 
-        # Embedding models only have input cost, skip output cost check
-        if mode != "embedding":
+        # Input-only billing: embeddings, and decision models (TypeSafe Jev:
+        # "Output tokens are free"), so a zero output price is correct there.
+        if mode not in ("embedding", "evaluation"):
             if output_cost is None or output_cost == 0:
                 return True
 
@@ -2605,6 +2635,12 @@ class ModelSyncRules:
                     parts.append(p.capitalize())
             return "Kimi " + " ".join(parts)
 
+        # TypeSafe: typesafe/jev-1.13.0 → Jev 1.13 (the docs' own name; a
+        #   zero patch is dropped), typesafe/jev-latest → Jev Latest.
+        if provider == "typesafe" or key.startswith("typesafe/"):
+            suffix = re.sub(r"^typesafe/(jev-)?", "", key, flags=re.IGNORECASE)
+            return "Jev " + (re.sub(r"\.0$", "", suffix) if suffix[:1].isdigit() else suffix.capitalize())
+
         # Google: gemini-2.5-flash → Gemini 2.5 Flash
         # gemini/gemini-2.5-flash → Gemini 2.5 Flash
         if provider == "google" or key.startswith("gemini"):
@@ -2827,6 +2863,24 @@ class ModelSyncRules:
             if source is None:
                 continue
             merged[alias_key] = dict(source)
+        return merged
+
+    @classmethod
+    def apply_gateway_endpoints(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Merge GATEWAY_ENDPOINTS into each model's supported_endpoints,
+        keeping upstream's order and appending only what is missing. A model
+        absent from ``models`` is skipped.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, extra in cls.GATEWAY_ENDPOINTS.items():
+            entry = merged.get(key)
+            if entry is None:
+                continue
+            current = list(entry.get("supported_endpoints") or [])
+            merged[key] = {**entry, "supported_endpoints": current + [e for e in extra if e not in current]}
         return merged
 
     @classmethod
@@ -3161,6 +3215,22 @@ class ModelSyncRules:
     # supports_* flag on the target with the source's, so a model the vendor
     # says is "the same model" cannot drift from it. Targets must not carry
     # supports_* of their own (tests/test_policy.py enforces it).
+    # Routes our gateway (litellm-internal) serves for a model beyond the ones
+    # upstream lists, merged into supported_endpoints by
+    # apply_gateway_endpoints. Merged, not replaced, so an endpoint upstream
+    # adds later still comes through.
+    #
+    # The gateway's /v1/decisions and /v1/systemone are one handler: the body
+    # picks the format ("input" = OpenAI, "state" = System One) and an
+    # intermediate representation translates it for whichever provider the
+    # model belongs to. So each decision model is reachable on both routes,
+    # whatever its vendor natively hosts (OpenAI: /v1/decisions; TypeSafe:
+    # /v1/systemone).
+    _DECISION_ENDPOINTS = ("/v1/decisions", "/v1/systemone")
+    GATEWAY_ENDPOINTS: dict[str, tuple[str, ...]] = dict.fromkeys(
+        ["gpt-6-luna", *sorted(TYPESAFE_ALLOWED_KEYS)], _DECISION_ENDPOINTS
+    )
+
     CAPABILITY_MIRRORS: dict[str, str] = {
         # bigmodel/* is the domestic gateway for the same GLM models as zai/*.
         **{key: "zai/" + key.split("/", 1)[1] for key in BIGMODEL_SYNTH_DATA},
@@ -3307,6 +3377,7 @@ ModelSyncRules.SYNTH_PIPELINE = (
     ModelSyncRules.__dict__["apply_dashscope_synth"],
     ModelSyncRules.__dict__["apply_byteplus_synth"],
     ModelSyncRules.__dict__["apply_anthropic_synth"],
+    ModelSyncRules.__dict__["apply_gateway_endpoints"],  # after all vendor synths
     ModelSyncRules.__dict__["apply_capability_mirrors"],  # after all vendor synths
     ModelSyncRules.__dict__["apply_newapi_synth"],
     ModelSyncRules.__dict__["apply_ecloud_aicc_synth"],

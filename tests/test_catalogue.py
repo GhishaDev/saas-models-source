@@ -97,3 +97,31 @@ def test_claude_aliases_share_capabilities_with_their_dated_snapshot(exported_mo
         m = re.fullmatch(r"(claude-.+)-\d{8}", key)
         if m and m.group(1) in exported_models:
             assert caps(key) == caps(m.group(1)), f"{key} and {m.group(1)} disagree"
+
+
+def test_decision_models_export_as_decision_type_on_both_routes(exported_models):
+    for key in ModelSyncRules.TYPESAFE_ALLOWED_KEYS:
+        entry = exported_models[key]
+        assert entry["type"] == "decision", key
+        # Billed per input token only; a zero output price must not drop it.
+        assert entry["raw_data"]["input_cost_per_token"] > 0
+        assert entry["raw_data"]["output_cost_per_token"] == 0
+    for key in ModelSyncRules.GATEWAY_ENDPOINTS:
+        endpoints = exported_models[key]["raw_data"]["supported_endpoints"]
+        assert {"/v1/decisions", "/v1/systemone"} <= set(endpoints), key
+
+
+def test_gateway_endpoints_merge_without_dropping_or_duplicating():
+    models = {
+        "gpt-6-luna": {"supported_endpoints": ["/v1/chat/completions", "/v1/decisions"]},
+        "typesafe/jev-latest": {"mode": "evaluation"},
+    }
+    merged = ModelSyncRules.apply_gateway_endpoints(models)
+    assert merged["gpt-6-luna"]["supported_endpoints"] == ["/v1/chat/completions", "/v1/decisions", "/v1/systemone"]
+    assert merged["typesafe/jev-latest"]["supported_endpoints"] == ["/v1/decisions", "/v1/systemone"]
+    assert "supported_endpoints" not in models["typesafe/jev-latest"], "input was mutated"
+
+
+def test_jev_names_follow_typesafe_docs():
+    assert ModelSyncRules.format_model_name("typesafe/jev-1.13.0", "typesafe") == "Jev 1.13"
+    assert ModelSyncRules.format_model_name("typesafe/jev-latest", "typesafe") == "Jev Latest"
