@@ -1978,6 +1978,22 @@ class ModelSyncRules:
         "gpt-5.1-chat-latest",
         "gpt-5.2-chat-latest",
         "gpt-5.3-chat-latest",
+        # Second batch, retired from the export 2026-10-26. Same page,
+        # "2026-04-22: Legacy GPT model snapshots": "Access to these models
+        # was shut down on October 23, 2026."
+        #
+        #   key            shutdown      replacement
+        #   gpt-4.1-nano   2026-10-23    gpt-5.6-luna
+        #   gpt-image-1    2026-10-23    gpt-image-2.5-sunburst / -flare
+        #   o3-mini        2026-10-23    gpt-5.6-sol
+        #   o4-mini        2026-10-23    gpt-5.6-terra
+        #
+        # Exact keys on purpose: gpt-image-1-mini is NOT in that batch (its
+        # shutdown is 2026-12-01) and must not be caught by a prefix.
+        "gpt-4.1-nano",
+        "gpt-image-1",
+        "o3-mini",
+        "o4-mini",
         # OpenAI responses-mode variants outside the approved whitelist.
         # (gpt-5.3-codex is the sanctioned responses SKU; the wider codex /
         # pro / deep-research families are intentionally kept out — same

@@ -15,7 +15,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Supported Providers
 
-- **OpenAI**: GPT-6 series (Astra, 6.1 Sol, Sol, Luna), GPT-Rosalind (`gpt-rosalind-discovery`, `gpt-rosalind-research` — life sciences, trusted-access only), GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), o3/o4 series, text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
+- **OpenAI**: GPT-6 series (Astra, 6.1 Sol, Sol, Luna), GPT-Rosalind (`gpt-rosalind-discovery`, `gpt-rosalind-research` — life sciences, trusted-access only), GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), `o3` (`o3-mini` / `o4-mini` shut down 2026-10-23 and excluded), text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1-mini`; `gpt-image-1` shut down 2026-10-23 and excluded), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5.5, Opus 5, Sonnet 5.5, Sonnet 5, Haiku 5.5) and the Fable / Mythos 5.1 pair, including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash** and **Gemini 4 Argon**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`, **Nano Banana 2.1** = `gemini-nano-banana-2.1`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash and GLM-5.3-FlashX, + vision/OCR variants), priced in USD
@@ -86,7 +86,6 @@ OpenAI is explicit: its tables say **"Shutdown date"** and the page defines it a
 
 | Date | Models we still carry | Replacement |
 |---|---|---|
-| **2026-10-23** | `gpt-4.1-nano`, `gpt-image-1`, `o3-mini`, `o4-mini` | `gpt-5.6-luna` / `gpt-image-2` / `gpt-5.6-sol` / `gpt-5.6-terra` |
 | **2026-11-30** | `claude-sonnet-4-5` + dated snapshot — Anthropic: Deprecated 2026-09-30 | `claude-sonnet-5-5` |
 | **2026-12-01** | `gpt-image-1.5`, `gpt-image-1-mini` | `gpt-image-2` |
 | **End of Dec 2026** (no exact date) | Kimi K2 series: `moonshot/kimi-k2.7-code`, `kimi-k2.7-code-highspeed`, `kimi-k2.6`. Kimi: *"starting October 31, 2026, K2 series models will no longer be available to newly registered users … We plan to retire all K2 series models by the end of December 2026"*. New Kimi accounts we register after 10-31 cannot call them | `kimi-k3.1-pro` (Kimi's migration link) |
@@ -718,6 +717,19 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.51 (2026-10-26)
+**Removed four OpenAI models that shut down on 2026-10-23.** Exported total **188 → 184**. Source: [OpenAI deprecations](https://developers.openai.com/api/docs/deprecations), "2026-04-22: Legacy GPT model snapshots": *"Access to these models was shut down on October 23, 2026."*
+
+| Removed | OpenAI's substitute |
+|---|---|
+| `gpt-4.1-nano` | `gpt-5.6-luna` |
+| `gpt-image-1` | `gpt-image-2.5-sunburst` or `gpt-image-2.5-flare` |
+| `o3-mini` | `gpt-5.6-sol` |
+| `o4-mini` | `gpt-5.6-terra` |
+
+- They are excluded by **exact key** in `EXCLUDE_MODEL_KEYS`, next to the earlier `*-chat-latest` shutdowns. `gpt-image-1-mini` is **not** in this batch (it shuts down 2026-12-01) and stays.
+- Their row is gone from the shutdown calendar. Any deployment still pointing at these four keys is already failing upstream and should move to a substitute.
 
 ### v1.16.50 (2026-10-26)
 **Kimi K3.1 Pro, and K3 cache writes are now priced.** Exported total **186 → 188**. The upstream pin is unchanged (upstream has neither change). Source: [platform.kimi.ai/docs/pricing/chat](https://platform.kimi.ai/docs/pricing/chat), read 2026-10-26.
