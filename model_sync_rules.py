@@ -216,6 +216,7 @@ class ModelSyncRules:
         "flashx": "FlashX",
         "airx": "AirX",
         "ocr": "OCR",
+        "asr": "ASR",  # GLM-ASR-2512
     }
 
     # Authoritative z.ai data overlay. Source: docs.z.ai (pricing, overview,
@@ -456,6 +457,7 @@ class ModelSyncRules:
         "bigmodel/glm-5v-turbo",
         "bigmodel/glm-4.6v",
         "bigmodel/glm-4.6v-flashx",
+        "bigmodel/glm-asr-2512",
     })
 
     # Bigmodel SKU metadata. Neither prices nor capability flags are stored
@@ -560,7 +562,38 @@ class ModelSyncRules:
             "max_input_tokens": 64000,
             "max_output_tokens": 32000,
         },
+        # ── Speech recognition (bigmodel-only) ──────────────────────────
+        # GLM-ASR-2512. docs.bigmodel.cn/cn/guide/start/pricing: "输入：16
+        # 元/百万 Tokens（约 0.0002 元/秒）；输出：不计费". CNY at the 7.0
+        # policy rate. Its own price, not mirrored: z.ai's "$0.03 / MTok
+        # (≈ $0.0024/minute)" contradicts itself by ~75x, so there is no
+        # trustworthy zai/ sibling and none is carried.
+        #
+        # Measured 2026-10-26 on open.bigmodel.cn (four clips, 0.5-26.6 s):
+        # usage.prompt_tokens ≈ 62 per request + 12.5 per second of audio.
+        # The vendor's "≈ ¥0.0002/s" is only the per-second slope.
+        #   • input_cost_per_token — the real tariff. Used whenever the
+        #     gateway sees usage.prompt_tokens (sync: top-level usage;
+        #     stream: the transcript.text.done event).
+        #   • input_cost_per_second — fallback when the gateway gets no
+        #     usage, so a request is never billed $0. It omits the ~62-token
+        #     fixed part, so it under-bills (≈14% on a 30 s clip, more on
+        #     shorter ones); the gateway must keep usage for exact billing.
+        # Audio input only: wav / mp3, ≤ 25 MB, ≤ 30 s per request.
+        "bigmodel/glm-asr-2512": {
+            "litellm_provider": "bigmodel",
+            "mode": "audio_transcription",
+            "input_cost_per_token": 2.2857142857142856e-06,
+            "output_cost_per_token": 0.0,
+            "input_cost_per_second": 2.857142857142857e-05,
+            "source": "https://docs.bigmodel.cn/cn/guide/start/pricing",
+            "supported_endpoints": ["/v1/audio/transcriptions"],
+        },
     }
+
+    # bigmodel SKUs with no zai/ counterpart: priced on their own and left
+    # out of the zai -> bigmodel capability mirror.
+    _BIGMODEL_ONLY_KEYS = frozenset({"bigmodel/glm-asr-2512"})
 
     # Price fields mirrored from zai/<sku> onto bigmodel/<sku>.
     # Only these three propagate; everything else is bigmodel-owned metadata.
@@ -3383,7 +3416,7 @@ class ModelSyncRules:
 
     CAPABILITY_MIRRORS: dict[str, str] = {
         # bigmodel/* is the domestic gateway for the same GLM models as zai/*.
-        **{key: "zai/" + key.split("/", 1)[1] for key in BIGMODEL_SYNTH_DATA},
+        **{key: "zai/" + key.split("/", 1)[1] for key in sorted(BIGMODEL_SYNTH_DATA.keys() - _BIGMODEL_ONLY_KEYS)},
         # "the same model as Kimi K2.7 Code, but with an output speed of
         # approximately 180 Tokens/s" — platform.kimi.ai chat-k27-code pricing.
         "moonshot/kimi-k2.7-code-highspeed": "moonshot/kimi-k2.7-code",
