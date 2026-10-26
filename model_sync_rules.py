@@ -656,6 +656,8 @@ class ModelSyncRules:
     # upstream carries it complete and correct, so it is whitelisted only.
     MOONSHOT_ALLOWED_KEYS = frozenset({
         "moonshot/kimi-k3",
+        "moonshot/kimi-k3.1-pro",
+        "moonshot/kimi-k3.1-pro-highspeed",
         "moonshot/kimi-k2.7-code",
         "moonshot/kimi-k2.7-code-highspeed",
         "moonshot/kimi-k2.6",
@@ -674,11 +676,16 @@ class ModelSyncRules:
     # in the OpenAI o-series / Azure / Vertex transformations — never for
     # moonshot — so they were forwarded with no effect.
     #
-    # ⚠️ KNOWN GAP, not addressed here: platform.kimi.ai now bills kimi-k3
-    # cache WRITES — $3.00 (5-min TTL) and $6.00 (1-hour TTL) per M — and
-    # neither upstream nor this file carries cache_creation_input_token_cost.
-    # Whether that under-bills depends on how Kimi reports write tokens in
-    # `usage`; to be investigated separately (seen 2026-09-30).
+    # K3-series cache WRITES are billed per TTL ("5m writes" / "1h writes"
+    # columns, platform.kimi.ai/docs/pricing/chat). They are stored as
+    # cache_creation_input_token_cost (5m) and ..._above_1hr (1h), the fields
+    # LiteLLM's calculate_cache_writing_cost reads. Upstream carries neither.
+    # Caveat: on Chat Completions Kimi reports writes in
+    # usage.prompt_tokens_details.cache_write_tokens (docs/guide/
+    # context-caching), which the gateway does not parse yet, so writes are
+    # billed as ordinary input. That happens to be exact for 5m writes (the
+    # 5m price equals the input price on every K3 model) and half the price
+    # for 1h writes. The fields are right; the gateway is the gap.
     MOONSHOT_SYNTH_DATA: dict[str, dict[str, Any]] = {
         "moonshot/kimi-k3": {
             "input_cost_per_token_cache_hit": 3e-07,
@@ -688,6 +695,60 @@ class ModelSyncRules:
             "supports_prompt_caching": True,
             # CAPABILITY_OVERRIDES: `max` is K3's documented DEFAULT effort.
             "supports_max_reasoning_effort": True,
+            "cache_creation_input_token_cost": 3e-06,  # 5m writes $3.00
+            "cache_creation_input_token_cost_above_1hr": 6e-06,  # 1h writes $6.00
+        },
+        # Kimi K3.1 Pro — "a post-trained version of Kimi K3", 1M context
+        # (docs/guide/kimi-k3-1-pro-quickstart, seen 2026-10-26). Absent
+        # upstream, so a complete record. $2.00 in / $10.00 out, cached $0.20,
+        # writes $2.00 (5m) / $4.00 (1h). The quickstart documents: thinking
+        # always on, reasoning_effort low / high / max (default max), image and
+        # video input, json_schema structured output, tool_choice, automatic
+        # TTL caching; max_completion_tokens defaults to 131072 and "can be
+        # set up to 1048576". Web search is "not recommended for production"
+        # and is not flagged.
+        "moonshot/kimi-k3.1-pro": {
+            "litellm_provider": "moonshot",
+            "mode": "chat",
+            "input_cost_per_token": 2e-06,
+            "output_cost_per_token": 1e-05,
+            "cache_read_input_token_cost": 2e-07,
+            "input_cost_per_token_cache_hit": 2e-07,
+            "cache_creation_input_token_cost": 2e-06,
+            "cache_creation_input_token_cost_above_1hr": 4e-06,
+            "max_input_tokens": 1048576,
+            "max_output_tokens": 1048576,
+            "max_tokens": 1048576,
+            "reasoning_effort_levels": ["low", "high", "max"],
+            "source": "https://platform.kimi.ai/docs/pricing/chat",
+            "supported_endpoints": ["/v1/chat/completions"],
+            "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_reasoning": True,
+            "supports_max_reasoning_effort": True,
+            "supports_response_schema": True,
+            "supports_vision": True,
+            "supports_video_input": True,
+            "supports_prompt_caching": True,
+        },
+        # Kimi K3.1 Pro Highspeed — "2-3x the speed of K3.1 Pro". $4.00 in /
+        # $20.00 out, writes $4.00 / $8.00, but cached input stays $0.20, the
+        # same as K3.1 Pro (not double). Flags come from CAPABILITY_MIRRORS.
+        "moonshot/kimi-k3.1-pro-highspeed": {
+            "litellm_provider": "moonshot",
+            "mode": "chat",
+            "input_cost_per_token": 4e-06,
+            "output_cost_per_token": 2e-05,
+            "cache_read_input_token_cost": 2e-07,
+            "input_cost_per_token_cache_hit": 2e-07,
+            "cache_creation_input_token_cost": 4e-06,
+            "cache_creation_input_token_cost_above_1hr": 8e-06,
+            "max_input_tokens": 1048576,
+            "max_output_tokens": 1048576,
+            "max_tokens": 1048576,
+            "reasoning_effort_levels": ["low", "high", "max"],
+            "source": "https://platform.kimi.ai/docs/pricing/chat",
+            "supported_endpoints": ["/v1/chat/completions"],
         },
         "moonshot/kimi-k2.7-code": {
             "input_cost_per_token_cache_hit": 1.9e-07,
@@ -3310,6 +3371,9 @@ class ModelSyncRules:
         # "the same model as Kimi K2.7 Code, but with an output speed of
         # approximately 180 Tokens/s" — platform.kimi.ai chat-k27-code pricing.
         "moonshot/kimi-k2.7-code-highspeed": "moonshot/kimi-k2.7-code",
+        # "Kimi K3.1 Pro Highspeed, which delivers 2-3x the speed of K3.1 Pro"
+        # — platform.kimi.ai kimi-k3-1-pro-quickstart.
+        "moonshot/kimi-k3.1-pro-highspeed": "moonshot/kimi-k3.1-pro",
         # An Anthropic alias and its dated snapshot are one model. Upstream
         # sets supports_web_search from the Models API, which lists only one
         # id of each pair, so the other side read as unsupported. Source is
