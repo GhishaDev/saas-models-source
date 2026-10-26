@@ -2,6 +2,8 @@
 
 import re
 
+import pytest
+
 from model_sync_rules import ModelSyncRules
 
 CLAUDE_OPUS_5_REQUIRED = (
@@ -136,3 +138,15 @@ def test_prestaged_google_records_never_override_upstream():
     merged = ModelSyncRules.apply_google_synth({key: upstream})
     assert merged[key] == upstream
     assert ModelSyncRules.apply_google_synth({})[key] == ModelSyncRules.GOOGLE_PRESTAGED[key]
+
+
+def test_glm_asr_2512_bills_per_token_with_a_per_second_fallback(exported_models):
+    entry = exported_models["bigmodel/glm-asr-2512"]
+    raw = entry["raw_data"]
+    assert entry["type"] == "audio" and entry["friendly_name"] == "GLM-ASR-2512"
+    # 16 CNY per M input tokens at 7.0; output free; ~0.0002 CNY/s fallback.
+    assert raw["input_cost_per_token"] == pytest.approx(16 / 7.0 / 1e6)
+    assert raw["output_cost_per_token"] == 0.0
+    assert raw["input_cost_per_second"] == pytest.approx(0.0002 / 7.0)
+    # No zai/ sibling exists, so it must not be a capability-mirror target.
+    assert "bigmodel/glm-asr-2512" not in ModelSyncRules.CAPABILITY_MIRRORS

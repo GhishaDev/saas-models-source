@@ -19,7 +19,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5.5, Opus 5, Sonnet 5.5, Sonnet 5, Haiku 5.5) and the Fable / Mythos 5.1 pair, including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash** and **Gemini 4 Argon**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`, **Nano Banana 2.1** = `gemini-nano-banana-2.1`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash and GLM-5.3-FlashX, + vision/OCR variants), priced in USD
-- **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (14 SKUs: GLM-5.3-FlashX, GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V)
+- **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (14 SKUs: GLM-5.3-FlashX, GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V). One exception: **GLM-ASR-2512** (`bigmodel/glm-asr-2512`, speech recognition) is bigmodel-only and priced from the bigmodel.cn CNY tariff, because z.ai's published price for it is self-contradictory
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` — the two models the page lists, plus one legacy alias: `deepseek-flash` (DeepSeek-V4.1-Flash, **$0.30 / $1.20**, cache $0.006, vision), `deepseek-v4-flash` and `deepseek-v4.1-flash` (**aliases** of the same model, identical price) and `deepseek-v4-pro` (**$1.32 / $3.96**, cache $0.044, no vision). All 1M context / 393,216 max output. The official tariff is **USD-native** and split into peak / off-peak windows: the flat fields carry the **peak** rate, and `off_peak_pricing` (from upstream since v1.16.44) carries the half-price rates with their UTC windows
 - **Moonshot (Kimi)**: Whitelist-curated SKUs from `platform.kimi.ai/docs/pricing/chat` (6 SKUs). **K3 series** (1M context, cache writes billed per TTL): Kimi K3.1 Pro — $2 / $10 per M, cache-hit $0.20, writes $2 (5m) / $4 (1h); Kimi K3.1 Pro HighSpeed — $4 / $20, cache-hit $0.20, writes $4 / $8; Kimi K3 — $3 / $15, cache-hit $0.30, writes $3 / $6. **K2 series** (256K, retiring end of December 2026): Kimi K2.7 Code — $0.95 / $4.00, cache-hit $0.19; Kimi K2.7 Code HighSpeed — $1.90 / $8.00, cache-hit $0.38; Kimi K2.6 — $0.95 / $4.00, cache-hit $0.16. K3 and K2.7 Code come from upstream with small overlays. K3.1 Pro, K3.1 Pro HighSpeed and K2.7 Code HighSpeed are pre-staged via `MOONSHOT_SYNTH_DATA`, and each HighSpeed variant takes its capability flags from its base model through `CAPABILITY_MIRRORS`. K2.6 comes straight from upstream
 - **DashScope (阿里云百炼 / Alibaba Cloud Model Studio, Qwen)**: Whitelist-curated `dashscope/*` SKUs (6 SKUs — the Qwen **3.8** and **3.7** generations, all ~1M context). Prices are the **effective (post-discount)** ones from [qwencloud.com/pricing/api](https://www.qwencloud.com/pricing/api); `qwen3.7-plus` / `qwen3.7-flash` are **tiered by request input size**. *DashScope* is the API/SDK identifier (`dashscope.aliyuncs.com`, `DASHSCOPE_API_KEY`) for the service branded 百炼 / Model Studio — LiteLLM names the provider after the technical id, and using the same namespace means an upstream key of the same name merges instead of colliding. **Unrelated to ModelScope (魔搭)**, which is Alibaba's open-weights community hub. Prices are the **International USD** tariff (the domestic 百炼 CNY book is separate and deliberately not mixed in)
@@ -37,7 +37,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 | `embedding` | `embedding` | `text-embedding-3-large`, `gemini/gemini-embedding-2` |
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
 | `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `byteplus/dreamina-seedance-2-5`, `new-api/doubao-seedance-2-0-fast`, `ecloud_aicc/doubao-seedance-2-0-mini` |
-| `audio` | `audio_speech`, `audio_transcription` | `gpt-4o-mini-tts` / `tts-1` / `tts-1-hd` (TTS), `gpt-4o-mini-transcribe` / `whisper-1` (ASR) |
+| `audio` | `audio_speech`, `audio_transcription` | `gpt-4o-mini-tts` / `tts-1` / `tts-1-hd` (TTS), `gpt-4o-mini-transcribe` / `whisper-1` / `bigmodel/glm-asr-2512` (ASR) |
 | `decision` | `evaluation` | `typesafe/jev-1.13.0`, `typesafe/jev-latest`, `typesafe/jev-preview` |
 
 **Decisions routes.** `gpt-6-luna` stays type `language` because it is also a chat model; its Decisions capability shows up as `/v1/decisions` and `/v1/systemone` in `supported_endpoints`. Our gateway serves both routes with one handler and picks the request format from the body (`input` = OpenAI, `state` = System One), so every decision model is listed on both, whichever one its vendor hosts. `GATEWAY_ENDPOINTS` adds them to upstream's list instead of replacing it.
@@ -717,6 +717,25 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.52 (2026-10-26)
+**Added Zhipu speech recognition: `bigmodel/glm-asr-2512`.** Exported total **184 → 185**. The pin is unchanged, since upstream does not carry it. The older `glm-asr` (¥0.06/min, returns `segments` and no `usage`) was deliberately left out.
+
+- 💲 **Price, from [docs.bigmodel.cn pricing](https://docs.bigmodel.cn/cn/guide/start/pricing).** The page says *"输入：16 元/百万 Tokens（约 0.0002 元/秒）；输出：不计费"*. Converted at the 7.0 policy rate, that gives:
+
+  | Field | Value | Role |
+  |---|---|---|
+  | `input_cost_per_token` | $2.2857e-06 | The real tariff |
+  | `output_cost_per_token` | 0 | Output is free |
+  | `input_cost_per_second` | $2.857e-05 | Fallback when the gateway sees no usage, so a request is never billed $0 |
+
+- 🔬 **Measured on 2026-10-26 against open.bigmodel.cn:**
+  - Sync responses carry a top-level `usage` with `prompt_tokens` and `completion_tokens`, even though the API reference's response schema omits it.
+  - Streaming responses put `usage` on the final `transcript.text.done` event.
+  - `prompt_tokens` ≈ **62 per request + 12.5 per second** of audio, across four clips from 0.5 to 26.6 s. The vendor's "≈ ¥0.0002/s" covers only the per-second part, so the per-second fallback under-bills: by about 14% on a 30 s clip, and by more on shorter ones.
+- ⚠️ **Gateway gap.** `litellm-internal`'s transcription response keeps only OpenAI-shaped usage and drops Zhipu's `prompt_tokens`. Measured on the gateway, it bills $0.000209 against Zhipu's $0.000350 (40% under) with the fallback present, and **$0** without it. Exact billing needs the gateway to keep this usage.
+- 🚫 **No `zai/` key.** z.ai lists "$0.03 / MTok (≈ $0.0024/minute)", and those two figures disagree with each other by about 75×.
+- The model is a bigmodel-only SKU (`_BIGMODEL_ONLY_KEYS`), so it is excluded from the zai → bigmodel capability mirror. `ASR` was added to the GLM name overrides, giving the display name `GLM-ASR-2512`. Limits: wav/mp3, ≤ 25 MB, ≤ 30 s per request.
 
 ### v1.16.51 (2026-10-26)
 **Removed four OpenAI models that shut down on 2026-10-23.** Exported total **188 → 184**. Source: [OpenAI deprecations](https://developers.openai.com/api/docs/deprecations), "2026-04-22: Legacy GPT model snapshots": *"Access to these models was shut down on October 23, 2026."*

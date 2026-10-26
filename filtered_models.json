@@ -6649,6 +6649,32 @@
         "supports_prompt_caching": true
       }
     },
+    "bigmodel/glm-asr-2512": {
+      "model_key": "bigmodel/glm-asr-2512",
+      "provider": "bigmodel",
+      "type": "audio",
+      "friendly_name": "GLM-ASR-2512",
+      "is_default_available": true,
+      "input_cost_per_token": 2.2857142857142856e-06,
+      "output_cost_per_token": 0.0,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "bigmodel",
+        "mode": "audio_transcription",
+        "input_cost_per_token": 2.2857142857142856e-06,
+        "output_cost_per_token": 0.0,
+        "input_cost_per_second": 2.857142857142857e-05,
+        "source": "https://docs.bigmodel.cn/cn/guide/start/pricing",
+        "supported_endpoints": [
+          "/v1/audio/transcriptions"
+        ]
+      }
+    },
     "deepseek/deepseek-v4.1-flash": {
       "model_key": "deepseek/deepseek-v4.1-flash",
       "provider": "deepseek",
