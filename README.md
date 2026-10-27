@@ -15,7 +15,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 ## Supported Providers
 
-- **OpenAI**: GPT-6 series (Astra, 6.1 Sol, Sol, Luna), GPT-Rosalind (`gpt-rosalind-discovery`, `gpt-rosalind-research` — life sciences, trusted-access only), GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), `o3` (`o3-mini` / `o4-mini` shut down 2026-10-23 and excluded), text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1-mini`; `gpt-image-1` shut down 2026-10-23 and excluded), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
+- **OpenAI**: GPT-6 series (Astra, 6.1 Sol, 6.1 Terra, Sol, Luna), GPT-Rosalind (`gpt-rosalind-discovery`, `gpt-rosalind-research` — life sciences, trusted-access only), GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), `o3` (`o3-mini` / `o4-mini` shut down 2026-10-23 and excluded), text-embedding models, `gpt-image-*` series (`gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1-mini`; `gpt-image-1` shut down 2026-10-23 and excluded), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5.5, Opus 5, Sonnet 5.5, Sonnet 5, Haiku 5.5) and the Fable / Mythos 5.1 pair, including dated snapshots
 - **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash** and **Gemini 4 Argon**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`, **Nano Banana 2.1** = `gemini-nano-banana-2.1`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash and GLM-5.3-FlashX, + vision/OCR variants), priced in USD. Also **GLM-ASR-2512** (`zai/glm-asr-2512`, speech recognition, $3.00 / M input tokens, output free)
@@ -63,7 +63,7 @@ Two rules learned the hard way:
 | Date | What | Direction | Action |
 |---|---|---|---|
 | **2026-11-21** | `gpt-5.6-sol` promotional pricing, *"available **at least** through November 21, 2026"* | Price will **rise** → we would **under**-bill | Re-check. No post-promo price is published, and *"at least through"* is not a firm end — nothing can be pre-staged. |
-| **2026-12-01** | `gemini-4-argon`: *"$2.00 through November 30, 2026. $4.00 starting December 1, 2026"*. Every tier doubles: output $10 → $20, cache $0.10 → $0.20, Batch / Flex $1 → $2, Priority $3.60 → $7.20 | Price will **rise**, and we would **under**-bill | Argon comes from `GOOGLE_PRESTAGED`, which upstream always overrides. Bump the pin once upstream carries the new rate, then delete the pre-staged record. Until then, nothing here changes on its own. |
+| **2026-12-01** | `gemini-4-argon`: *"$2.00 through November 30, 2026. $4.00 starting December 1, 2026"*. Every tier doubles: output $10 → $20, cache $0.10 → $0.20, Batch / Flex $1 → $2, Priority $3.60 → $7.20 | Price will **rise**, and we would **under**-bill | Argon comes from `PRESTAGED`, which upstream always overrides. Bump the pin once upstream carries the new rate, then delete the pre-staged record. Until then, nothing here changes on its own. |
 | **2027-01-01** | `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash`: *"$0.75 through December 31, 2026. $1.50 starting January 1, 2027"* (output $3.75 → $7.50, cache $0.075 → $0.15) | Price will **rise** | Re-check **upstream**, which tracks the effective rate. Do **not** pre-load the future price — that is what made `gemini-3.6-flash` over-bill 2× (v1.16.30). |
 
 **Recurring — DeepSeek on Chinese public holidays.** DeepSeek bills the whole day off-peak
@@ -717,6 +717,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.54 (2026-10-27)
+**Added `gpt-6.1-terra`, and made the pre-staged table provider-agnostic.** Exported total **186 → 187**. The pin stays at `e5db66d`, so upstream's other unreviewed changes stay out.
+
+- ➕ **`gpt-6.1-terra`**, OpenAI's "fast, efficient model for visual reasoning, precise computer use, and clear, natural writing". Checked on [its model page](https://developers.openai.com/api/docs/models/gpt-6.1-terra) and [the pricing page](https://developers.openai.com/api/docs/pricing). Prices per M:
+
+  | Tier | Input | Cached | Cache write | Output |
+  |---|---|---|---|---|
+  | Standard | $1.00 | $0.05 | $1.25 (30-min retention), $2.50 (12-hour, `..._above_12hr`) | $5.00 |
+  | Batch and Flex | $0.50 | $0.025 | $0.625 | $2.50 |
+  | Fast (upstream's `_priority`) | $2.00 | $0.10 | $2.50 | $10.00 |
+
+  Prompts over 272K tokens bill 2× input and cache and 1.5× output, and regional processing adds 10%. The model supports reasoning effort `none` / `low` / `medium` / `high` / `xhigh` / `max`, takes text and image input, and does function calling, structured outputs, web search, tool search and computer use. `max_input_tokens` is the **1,050,000** context window, set in `OPENAI_SYNTH_DATA`; upstream stores 922,000. The export is identical to a regeneration against upstream main `c905cd0`.
+- ♻️ **`GOOGLE_PRESTAGED` → `PRESTAGED`.** It now runs as its own first pipeline step, `apply_prestaged`, and holds Argon and Terra. Records are injected only when the pinned upstream lacks the key, and the provider overlays apply on top. Argon's export is unchanged.
 
 ### v1.16.53 (2026-10-26)
 **`zai/glm-asr-2512` added; both GLM-ASR-2512 keys now use z.ai pricing.** Exported total **185 → 186**.
