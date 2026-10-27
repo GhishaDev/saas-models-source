@@ -1619,12 +1619,14 @@ class ModelSyncRules:
         },
     }
 
-    # ── Google pre-staged models ──────────────────────────────────────────
-    # Complete records for models Google has published but the PINNED
-    # upstream does not carry yet. Injected ONLY when the key is absent, so
-    # the moment a pin bump brings the model in, upstream's record wins and
-    # this entry is inert — delete it then. Unlike GOOGLE_SYNTH_DATA this can
-    # never pin a stale price over a newer upstream one.
+    # ── Pre-staged models (any provider) ──────────────────────────────────
+    # Complete records for models a vendor has published but the PINNED
+    # upstream does not carry yet, each copied from a newer upstream commit
+    # and checked against the vendor. apply_prestaged injects a record ONLY
+    # when the key is absent, so the moment a pin bump brings the model in,
+    # upstream's record wins and this entry is inert — delete it then. Unlike
+    # the *_SYNTH_DATA overlays this can never pin a stale price over a newer
+    # upstream one. Overlays still apply on top (they run after this step).
     #
     # gemini/gemini-4-argon — copied from upstream main (159b5b2, 2026-10-21)
     # without bumping the pin, and checked field by field on 2026-10-23:
@@ -1638,7 +1640,19 @@ class ModelSyncRules:
     #     structured outputs, implicit caching only, thinking (low / medium /
     #     high, so no minimal), URL context, search grounding. Max output is
     #     65,536 by default and 1,048,576 with long decode; the ceiling is kept.
-    GOOGLE_PRESTAGED: dict[str, dict[str, Any]] = {
+    #
+    # gpt-6.1-terra — copied from upstream main (c905cd0, 2026-10-27) without
+    # bumping the pin, and checked on 2026-10-27 against
+    # developers.openai.com/api/docs/models/gpt-6.1-terra and the pricing
+    # page: $1.00 in / $0.05 cached / $5.00 out; cache writes $1.25 for
+    # 30-minute retention and $2.50 for 12-hour (..._above_12hr); >272K is
+    # 2x input and cache, 1.5x output; Batch and Flex 50% off; Fast 2x
+    # (upstream's *_priority); regional processing +10%. Effort none / low /
+    # medium / high / xhigh / max; text and image in; function calling,
+    # structured outputs, web search, tool search, computer use. Upstream
+    # stores max_input_tokens 922,000; OPENAI_SYNTH_DATA overlays the
+    # 1,050,000 context window like the rest of the GPT-6 family.
+    PRESTAGED: dict[str, dict[str, Any]] = {
         "gemini/gemini-4-argon": {
             "cache_read_input_token_cost": 1e-07,
             "cache_read_input_token_cost_batches": 5e-08,
@@ -1684,6 +1698,77 @@ class ModelSyncRules:
             "supports_web_search": True,
             "tpm": 800000.0,
             "web_search_billing_unit": "per_query",
+        },
+        "gpt-6.1-terra": {
+            "cache_creation_input_token_cost": 1.25e-06,
+            "cache_creation_input_token_cost_above_12hr": 2.5e-06,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens": 5e-06,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens_batches": 2.5e-06,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens_flex": 2.5e-06,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens_priority": 1e-05,
+            "cache_creation_input_token_cost_above_12hr_batches": 1.25e-06,
+            "cache_creation_input_token_cost_above_12hr_flex": 1.25e-06,
+            "cache_creation_input_token_cost_above_12hr_priority": 5e-06,
+            "cache_creation_input_token_cost_above_272k_tokens": 2.5e-06,
+            "cache_creation_input_token_cost_above_272k_tokens_batches": 1.25e-06,
+            "cache_creation_input_token_cost_above_272k_tokens_flex": 1.25e-06,
+            "cache_creation_input_token_cost_above_272k_tokens_priority": 5e-06,
+            "cache_creation_input_token_cost_batches": 6.25e-07,
+            "cache_creation_input_token_cost_flex": 6.25e-07,
+            "cache_creation_input_token_cost_priority": 2.5e-06,
+            "cache_read_input_token_cost": 5e-08,
+            "cache_read_input_token_cost_above_272k_tokens": 1e-07,
+            "cache_read_input_token_cost_above_272k_tokens_batches": 5e-08,
+            "cache_read_input_token_cost_above_272k_tokens_flex": 5e-08,
+            "cache_read_input_token_cost_above_272k_tokens_priority": 2e-07,
+            "cache_read_input_token_cost_batches": 2.5e-08,
+            "cache_read_input_token_cost_flex": 2.5e-08,
+            "cache_read_input_token_cost_priority": 1e-07,
+            "input_cost_per_token": 1e-06,
+            "input_cost_per_token_above_272k_tokens": 2e-06,
+            "input_cost_per_token_above_272k_tokens_batches": 1e-06,
+            "input_cost_per_token_above_272k_tokens_flex": 1e-06,
+            "input_cost_per_token_above_272k_tokens_priority": 4e-06,
+            "input_cost_per_token_batches": 5e-07,
+            "input_cost_per_token_flex": 5e-07,
+            "input_cost_per_token_priority": 2e-06,
+            "litellm_provider": "openai",
+            "max_input_tokens": 922000,
+            "max_output_tokens": 128000,
+            "mode": "chat",
+            "output_cost_per_token": 5e-06,
+            "output_cost_per_token_above_272k_tokens": 7.5e-06,
+            "output_cost_per_token_above_272k_tokens_batches": 3.75e-06,
+            "output_cost_per_token_above_272k_tokens_flex": 3.75e-06,
+            "output_cost_per_token_above_272k_tokens_priority": 1.5e-05,
+            "output_cost_per_token_batches": 2.5e-06,
+            "output_cost_per_token_flex": 2.5e-06,
+            "output_cost_per_token_priority": 1e-05,
+            "regional_processing_uplift_multiplier_eu": 1.1,
+            "regional_processing_uplift_multiplier_us": 1.1,
+            "search_context_cost_per_query": {"search_context_size_high": 0.01, "search_context_size_low": 0.01, "search_context_size_medium": 0.01},
+            "source": "https://developers.openai.com/api/docs/pricing",
+            "supported_endpoints": ["/v1/chat/completions", "/v1/batch", "/v1/responses"],
+            "supported_modalities": ["text", "image"],
+            "supported_output_modalities": ["text"],
+            "supports_computer_use": True,
+            "supports_function_calling": True,
+            "supports_max_reasoning_effort": True,
+            "supports_minimal_reasoning_effort": False,
+            "supports_native_streaming": True,
+            "supports_none_reasoning_effort": True,
+            "supports_parallel_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_cache_breakpoint": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_system_messages": True,
+            "supports_tool_choice": True,
+            "supports_tool_search": True,
+            "supports_vision": True,
+            "supports_web_search": True,
+            "supports_xhigh_reasoning_effort": True,
         },
     }
 
@@ -1742,6 +1827,7 @@ class ModelSyncRules:
         # a real $15/M after OpenAI cut the 5.6 Sol tariff.
         "gpt-6-astra": {"max_input_tokens": 1050000},
         "gpt-6.1-sol": {"max_input_tokens": 1050000},  # supersedes gpt-6-sol; cached input halved ($0.10)
+        "gpt-6.1-terra": {"max_input_tokens": 1050000},  # pre-staged in PRESTAGED
         "gpt-6-sol": {"max_input_tokens": 1050000},
         "gpt-6-luna": {"max_input_tokens": 1050000},
         "gpt-5.6": {"max_input_tokens": 1050000},
@@ -3012,6 +3098,19 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_prestaged(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Inject each PRESTAGED record whose key upstream does not carry. A
+        present upstream key always wins; the record is then inert.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, record in cls.PRESTAGED.items():
+            merged.setdefault(key, dict(record))
+        return merged
+
+    @classmethod
     def apply_google_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
         """
         Inject Google / Gemini SKUs newly published on ai.google.dev but not
@@ -3020,17 +3119,12 @@ class ModelSyncRules:
         an absent one is injected wholesale. Remove an entry once upstream
         carries the same model.
 
-        GOOGLE_PRESTAGED records are injected only when the key is absent;
-        a present upstream key always wins over them.
-
         Does not mutate the input.
         """
         merged: dict[str, Any] = dict(models)
         for key, synth in cls.GOOGLE_SYNTH_DATA.items():
             existing = merged.get(key)
             merged[key] = dict(synth) if existing is None else {**existing, **synth}
-        for key, record in cls.GOOGLE_PRESTAGED.items():
-            merged.setdefault(key, dict(record))
         return merged
 
     @classmethod
@@ -3562,6 +3656,7 @@ def filter_model(model_key: str, model_data: dict[str, Any]) -> dict[str, Any] |
 # Inside-out order of the former nested expression, with apply_deepseek_alias
 # inserted after the vendor synths that could populate its source.
 ModelSyncRules.SYNTH_PIPELINE = (
+    ModelSyncRules.__dict__["apply_prestaged"],  # first: overlays apply on top
     ModelSyncRules.__dict__["apply_openai_synth"],
     ModelSyncRules.__dict__["apply_moonshot_synth"],
     ModelSyncRules.__dict__["apply_google_synth"],

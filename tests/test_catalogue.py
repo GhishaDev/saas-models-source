@@ -129,15 +129,20 @@ def test_jev_names_follow_typesafe_docs():
     assert ModelSyncRules.format_model_name("typesafe/jev-latest", "typesafe") == "Jev Latest"
 
 
-def test_prestaged_google_records_never_override_upstream():
+def test_prestaged_records_never_override_upstream():
     # A pre-staged record carries the price on the day it was written. Once
     # upstream carries the model, upstream must win, or a dated price change
     # (Gemini 4 Argon doubles on 2026-12-01) would be pinned stale.
-    key = next(iter(ModelSyncRules.GOOGLE_PRESTAGED))
-    upstream = {"litellm_provider": "gemini", "mode": "chat", "input_cost_per_token": 4e-06}
-    merged = ModelSyncRules.apply_google_synth({key: upstream})
-    assert merged[key] == upstream
-    assert ModelSyncRules.apply_google_synth({})[key] == ModelSyncRules.GOOGLE_PRESTAGED[key]
+    for key, record in ModelSyncRules.PRESTAGED.items():
+        upstream = {"litellm_provider": record["litellm_provider"], "mode": "chat", "input_cost_per_token": 9e-06}
+        assert ModelSyncRules.apply_prestaged({key: upstream})[key] == upstream
+        assert ModelSyncRules.apply_prestaged({})[key] == record
+
+
+def test_gpt_6_1_terra_carries_the_context_window_not_max_input(exported_models):
+    raw = exported_models["gpt-6.1-terra"]["raw_data"]
+    assert raw["max_input_tokens"] == 1050000
+    assert raw["cache_creation_input_token_cost_above_12hr"] == pytest.approx(2.5e-06)
 
 
 def test_glm_asr_2512_bills_per_token_with_a_per_second_fallback(exported_models):
