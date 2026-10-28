@@ -158,15 +158,14 @@ def test_glm_asr_2512_bills_per_token_with_a_per_second_fallback(exported_models
         assert raw["input_cost_per_second"] == pytest.approx(0.0024 / 60), key
 
 
-def test_bigmodel_embeddings_are_priced_from_bigmodel_cn(exported_models):
-    # z.ai sells no embedding model, so these carry bigmodel.cn's own CNY
-    # tariff (0.5 / M, Batch 0.25, at 7.0) instead of a zai mirror.
-    for key, dims in (("bigmodel/embedding-3", 2048), ("bigmodel/embedding-2", 1024)):
-        entry = exported_models[key]
-        raw = entry["raw_data"]
-        assert entry["type"] == "embedding", key
-        assert entry["friendly_name"] == key.split("/")[1].capitalize(), key
-        assert raw["input_cost_per_token"] == pytest.approx(0.5 / 7.0 / 1e6), key
-        assert raw["input_cost_per_token_batches"] == pytest.approx(0.25 / 7.0 / 1e6), key
-        assert raw["output_vector_size"] == dims, key
-        assert key not in ModelSyncRules.CAPABILITY_MIRRORS, key
+def test_glm_embeddings_share_one_price_on_zai_and_bigmodel(exported_models):
+    # zai holds bigmodel.cn's tariff (0.5 CNY / M, Batch 0.25, at 7.0) and
+    # bigmodel mirrors it, so the two gateways bill the same.
+    for name, dims in (("embedding-3", 2048), ("embedding-2", 1024)):
+        for key in ("zai/" + name, "bigmodel/" + name):
+            entry = exported_models[key]
+            raw = entry["raw_data"]
+            assert entry["type"] == "embedding" and entry["friendly_name"] == name.capitalize(), key
+            assert raw["input_cost_per_token"] == pytest.approx(0.5 / 7.0 / 1e6), key
+            assert raw["input_cost_per_token_batches"] == pytest.approx(0.25 / 7.0 / 1e6), key
+            assert raw["output_vector_size"] == dims, key

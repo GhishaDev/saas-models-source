@@ -182,8 +182,10 @@ class ModelSyncRules:
     # that exist on z.ai's official pricing page but are not yet synced upstream.
     # Pre-staged keys activate automatically once LiteLLM publishes them.
     ZAI_ALLOWED_KEYS = frozenset({
-        # Pre-staged speech recognition (see ZAI_SYNTH_DATA)
+        # Pre-staged speech recognition and embeddings (see ZAI_SYNTH_DATA)
         "zai/glm-asr-2512",
+        "zai/embedding-3",
+        "zai/embedding-2",
         # Currently on LiteLLM source
         "zai/glm-5",
         "zai/glm-4.7",
@@ -453,6 +455,37 @@ class ModelSyncRules:
             "source": "https://docs.z.ai/guides/overview/pricing",
             "supported_endpoints": ["/v1/audio/transcriptions"],
         },
+        #
+        # ── Text embeddings ─────────────────────────────────────────────
+        # ⚠️ z.ai publishes neither an embeddings API nor a price: none on
+        # docs.z.ai pricing, and docs.z.ai/llms.txt lists no Embeddings
+        # endpoint (checked 2026-10-28). Added by decision (2026-10-28) at
+        # bigmodel.cn's tariff so the two gateways stay aligned: "0.5 元 /
+        # 百万 Tokens", Batch API 0.25, at 7.0 CNY/USD. Whether api.z.ai
+        # serves these models is unverified — no z.ai key was available.
+        #   embedding-3: 256-2048 dimensions (default 2048), ≤ 3072 tokens per
+        #     input string, ≤ 64 strings per request. embedding-2: 1024.
+        # "8K" context gives no exact token count; max_input_tokens unset.
+        "zai/embedding-3": {
+            "litellm_provider": "zai",
+            "mode": "embedding",
+            "input_cost_per_token": 7.142857142857143e-08,
+            "input_cost_per_token_batches": 3.5714285714285715e-08,
+            "output_cost_per_token": 0.0,
+            "output_vector_size": 2048,
+            "source": "https://docs.bigmodel.cn/cn/guide/models/embedding/embedding-3",
+            "supported_endpoints": ["/v1/embeddings"],
+        },
+        "zai/embedding-2": {
+            "litellm_provider": "zai",
+            "mode": "embedding",
+            "input_cost_per_token": 7.142857142857143e-08,
+            "input_cost_per_token_batches": 3.5714285714285715e-08,
+            "output_cost_per_token": 0.0,
+            "output_vector_size": 1024,
+            "source": "https://docs.bigmodel.cn/cn/guide/models/embedding/embedding-2",
+            "supported_endpoints": ["/v1/embeddings"],
+        },
     }
 
     # ── Bigmodel (智谱开放平台 / bigmodel.cn) ──────────────────────────────
@@ -603,22 +636,13 @@ class ModelSyncRules:
             "source": "https://docs.bigmodel.cn/cn/guide/start/pricing",
             "supported_endpoints": ["/v1/audio/transcriptions"],
         },
-        # ── Text embeddings (bigmodel-only) ─────────────────────────────
-        # z.ai sells no embedding model (none on docs.z.ai pricing), so there
-        # is no zai/ sibling to mirror and these carry their own price: the
-        # bigmodel.cn tariff, "0.5 元 / 百万 Tokens", Batch API 0.25, at the
-        # 7.0 CNY/USD policy rate. Responses carry OpenAI-shaped usage
-        # (prompt_tokens, completion_tokens 0) per the model page's example.
-        #   embedding-3: 8K context, 256-2048 dimensions (default 2048), at
-        #     most 3072 tokens per input string and 64 strings per request.
-        #   embedding-2: 8K context, 1024 dimensions.
-        # "8K" gives no exact token count, so max_input_tokens is not set.
+        # ── Text embeddings ─────────────────────────────────────────────
+        # Prices (input / batch / output) are mirrored from zai/embedding-*,
+        # like every other bigmodel SKU. They equal bigmodel.cn's own tariff
+        # (0.5 CNY / M, Batch 0.25), which is where the zai records got them.
         "bigmodel/embedding-3": {
             "litellm_provider": "bigmodel",
             "mode": "embedding",
-            "input_cost_per_token": 7.142857142857143e-08,
-            "input_cost_per_token_batches": 3.5714285714285715e-08,
-            "output_cost_per_token": 0.0,
             "output_vector_size": 2048,
             "source": "https://docs.bigmodel.cn/cn/guide/models/embedding/embedding-3",
             "supported_endpoints": ["/v1/embeddings"],
@@ -626,18 +650,12 @@ class ModelSyncRules:
         "bigmodel/embedding-2": {
             "litellm_provider": "bigmodel",
             "mode": "embedding",
-            "input_cost_per_token": 7.142857142857143e-08,
-            "input_cost_per_token_batches": 3.5714285714285715e-08,
-            "output_cost_per_token": 0.0,
             "output_vector_size": 1024,
             "source": "https://docs.bigmodel.cn/cn/guide/models/embedding/embedding-2",
             "supported_endpoints": ["/v1/embeddings"],
         },
     }
 
-    # bigmodel SKUs with no zai/ counterpart (z.ai does not sell them): priced
-    # on their own and left out of the zai -> bigmodel capability mirror.
-    _BIGMODEL_ONLY_KEYS = frozenset({"bigmodel/embedding-3", "bigmodel/embedding-2"})
 
     # Price fields mirrored from zai/<sku> onto bigmodel/<sku>.
     # Only these propagate; everything else is bigmodel-owned metadata.
@@ -646,6 +664,7 @@ class ModelSyncRules:
         "output_cost_per_token",
         "cache_read_input_token_cost",
         "input_cost_per_second",  # glm-asr-2512's no-usage fallback
+        "input_cost_per_token_batches",  # embedding-3 / -2 Batch API price
     )
 
     # ── DeepSeek (api.deepseek.com) ───────────────────────────────────────
@@ -3557,7 +3576,7 @@ class ModelSyncRules:
 
     CAPABILITY_MIRRORS: dict[str, str] = {
         # bigmodel/* is the domestic gateway for the same GLM models as zai/*.
-        **{key: "zai/" + key.split("/", 1)[1] for key in sorted(BIGMODEL_SYNTH_DATA.keys() - _BIGMODEL_ONLY_KEYS)},
+        **{key: "zai/" + key.split("/", 1)[1] for key in BIGMODEL_SYNTH_DATA},
         # "the same model as Kimi K2.7 Code, but with an output speed of
         # approximately 180 Tokens/s" — platform.kimi.ai chat-k27-code pricing.
         "moonshot/kimi-k2.7-code-highspeed": "moonshot/kimi-k2.7-code",
