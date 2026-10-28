@@ -156,3 +156,17 @@ def test_glm_asr_2512_bills_per_token_with_a_per_second_fallback(exported_models
         assert raw["input_cost_per_token"] == pytest.approx(3e-06), key
         assert raw["output_cost_per_token"] == 0.0, key
         assert raw["input_cost_per_second"] == pytest.approx(0.0024 / 60), key
+
+
+def test_bigmodel_embeddings_are_priced_from_bigmodel_cn(exported_models):
+    # z.ai sells no embedding model, so these carry bigmodel.cn's own CNY
+    # tariff (0.5 / M, Batch 0.25, at 7.0) instead of a zai mirror.
+    for key, dims in (("bigmodel/embedding-3", 2048), ("bigmodel/embedding-2", 1024)):
+        entry = exported_models[key]
+        raw = entry["raw_data"]
+        assert entry["type"] == "embedding", key
+        assert entry["friendly_name"] == key.split("/")[1].capitalize(), key
+        assert raw["input_cost_per_token"] == pytest.approx(0.5 / 7.0 / 1e6), key
+        assert raw["input_cost_per_token_batches"] == pytest.approx(0.25 / 7.0 / 1e6), key
+        assert raw["output_vector_size"] == dims, key
+        assert key not in ModelSyncRules.CAPABILITY_MIRRORS, key

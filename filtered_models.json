@@ -6800,6 +6800,60 @@
         "input_cost_per_second": 4e-05
       }
     },
+    "bigmodel/embedding-3": {
+      "model_key": "bigmodel/embedding-3",
+      "provider": "bigmodel",
+      "type": "embedding",
+      "friendly_name": "Embedding-3",
+      "is_default_available": true,
+      "input_cost_per_token": 7.142857142857142e-08,
+      "output_cost_per_token": 0.0,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "bigmodel",
+        "mode": "embedding",
+        "input_cost_per_token": 7.142857142857142e-08,
+        "input_cost_per_token_batches": 3.571428571428571e-08,
+        "output_cost_per_token": 0.0,
+        "output_vector_size": 2048,
+        "source": "https://docs.bigmodel.cn/cn/guide/models/embedding/embedding-3",
+        "supported_endpoints": [
+          "/v1/embeddings"
+        ]
+      }
+    },
+    "bigmodel/embedding-2": {
+      "model_key": "bigmodel/embedding-2",
+      "provider": "bigmodel",
+      "type": "embedding",
+      "friendly_name": "Embedding-2",
+      "is_default_available": true,
+      "input_cost_per_token": 7.142857142857142e-08,
+      "output_cost_per_token": 0.0,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": null,
+      "max_output_tokens": null,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "bigmodel",
+        "mode": "embedding",
+        "input_cost_per_token": 7.142857142857142e-08,
+        "input_cost_per_token_batches": 3.571428571428571e-08,
+        "output_cost_per_token": 0.0,
+        "output_vector_size": 1024,
+        "source": "https://docs.bigmodel.cn/cn/guide/models/embedding/embedding-2",
+        "supported_endpoints": [
+          "/v1/embeddings"
+        ]
+      }
+    },
     "deepseek/deepseek-v4.1-flash": {
       "model_key": "deepseek/deepseek-v4.1-flash",
       "provider": "deepseek",
