@@ -486,6 +486,8 @@ class ModelSyncRules:
         "bigmodel/glm-4.6v",
         "bigmodel/glm-4.6v-flashx",
         "bigmodel/glm-asr-2512",
+        "bigmodel/embedding-3",
+        "bigmodel/embedding-2",
     })
 
     # Bigmodel SKU metadata. Neither prices nor capability flags are stored
@@ -601,7 +603,41 @@ class ModelSyncRules:
             "source": "https://docs.bigmodel.cn/cn/guide/start/pricing",
             "supported_endpoints": ["/v1/audio/transcriptions"],
         },
+        # ── Text embeddings (bigmodel-only) ─────────────────────────────
+        # z.ai sells no embedding model (none on docs.z.ai pricing), so there
+        # is no zai/ sibling to mirror and these carry their own price: the
+        # bigmodel.cn tariff, "0.5 元 / 百万 Tokens", Batch API 0.25, at the
+        # 7.0 CNY/USD policy rate. Responses carry OpenAI-shaped usage
+        # (prompt_tokens, completion_tokens 0) per the model page's example.
+        #   embedding-3: 8K context, 256-2048 dimensions (default 2048), at
+        #     most 3072 tokens per input string and 64 strings per request.
+        #   embedding-2: 8K context, 1024 dimensions.
+        # "8K" gives no exact token count, so max_input_tokens is not set.
+        "bigmodel/embedding-3": {
+            "litellm_provider": "bigmodel",
+            "mode": "embedding",
+            "input_cost_per_token": 7.142857142857143e-08,
+            "input_cost_per_token_batches": 3.5714285714285715e-08,
+            "output_cost_per_token": 0.0,
+            "output_vector_size": 2048,
+            "source": "https://docs.bigmodel.cn/cn/guide/models/embedding/embedding-3",
+            "supported_endpoints": ["/v1/embeddings"],
+        },
+        "bigmodel/embedding-2": {
+            "litellm_provider": "bigmodel",
+            "mode": "embedding",
+            "input_cost_per_token": 7.142857142857143e-08,
+            "input_cost_per_token_batches": 3.5714285714285715e-08,
+            "output_cost_per_token": 0.0,
+            "output_vector_size": 1024,
+            "source": "https://docs.bigmodel.cn/cn/guide/models/embedding/embedding-2",
+            "supported_endpoints": ["/v1/embeddings"],
+        },
     }
+
+    # bigmodel SKUs with no zai/ counterpart (z.ai does not sell them): priced
+    # on their own and left out of the zai -> bigmodel capability mirror.
+    _BIGMODEL_ONLY_KEYS = frozenset({"bigmodel/embedding-3", "bigmodel/embedding-2"})
 
     # Price fields mirrored from zai/<sku> onto bigmodel/<sku>.
     # Only these propagate; everything else is bigmodel-owned metadata.
@@ -2789,9 +2825,11 @@ class ModelSyncRules:
             overrides = cls.ZAI_NAME_SEGMENT_OVERRIDES
             # str.title() uppercases each letter-run head, naturally producing
             # 32B / 128K / 4.5V; overrides patch branded suffixes (FlashX, AirX, OCR).
-            return "GLM-" + "-".join(
-                overrides.get(p.lower(), p.title()) for p in suffix.split("-")
-            )
+            name = "-".join(overrides.get(p.lower(), p.title()) for p in suffix.split("-"))
+            # Only glm-* keys are GLM models; bigmodel/embedding-3 is
+            # "Embedding-3" in Zhipu's own docs, not "GLM-Embedding-3".
+            is_glm = re.match(r"^(zai|bigmodel)/glm-", key, re.IGNORECASE)
+            return "GLM-" + name if is_glm else name
 
         # Volcengine / new-api / ecloud_aicc Doubao families:
         #   volcengine/doubao-seedance-2-0-260128       → Doubao-Seedance 2.0
@@ -3519,7 +3557,7 @@ class ModelSyncRules:
 
     CAPABILITY_MIRRORS: dict[str, str] = {
         # bigmodel/* is the domestic gateway for the same GLM models as zai/*.
-        **{key: "zai/" + key.split("/", 1)[1] for key in BIGMODEL_SYNTH_DATA},
+        **{key: "zai/" + key.split("/", 1)[1] for key in sorted(BIGMODEL_SYNTH_DATA.keys() - _BIGMODEL_ONLY_KEYS)},
         # "the same model as Kimi K2.7 Code, but with an output speed of
         # approximately 180 Tokens/s" — platform.kimi.ai chat-k27-code pricing.
         "moonshot/kimi-k2.7-code-highspeed": "moonshot/kimi-k2.7-code",
