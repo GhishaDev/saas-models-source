@@ -167,12 +167,15 @@ class ModelSyncRules:
     }
 
     # TypeSafe whitelist — Jev, the "System One" decision model, served on
-    # POST /v1/systemone. Source: docs.typesafe.ai/models — "Jev 1.13
-    # jev-1.13.0, $42 / $0.042 per Btok / Mtok … Charged per input token.
-    # Output tokens are free." jev-latest and jev-preview are aliases that
-    # both point to jev-1.13.0 today. Upstream's prices match the page.
+    # POST /v1/systemone. Source: docs.typesafe.ai/models — "$42 / $0.042
+    # per Btok / Mtok … You pay per input token. Output tokens are free."
+    # Jev 1.14 (jev-1.14.0, 2026-10-14) is the newest release; 1.13 is still
+    # listed as current. jev-latest and jev-preview are aliases that both
+    # point to jev-1.14.0 today ("There is no preview build available right
+    # now"). Upstream's prices match the page.
     TYPESAFE_ALLOWED_KEYS = frozenset({
         "typesafe/jev-1.13.0",
+        "typesafe/jev-1.14.0",
         "typesafe/jev-latest",
         "typesafe/jev-preview",
     })
@@ -329,8 +332,6 @@ class ModelSyncRules:
             "input_cost_per_token": 1.2e-06,
             "output_cost_per_token": 4.0e-06,
             "cache_read_input_token_cost": 0.24e-06,
-            "supports_function_calling": True,
-            "supports_vision": True,
         },
         "zai/glm-4.6v": {
             # glm-4.6v guide: "native Function Calling"; overview: "Thinking
@@ -787,17 +788,16 @@ class ModelSyncRules:
         "moonshot/kimi-k3": {
             "input_cost_per_token_cache_hit": 3e-07,
             "supported_endpoints": ["/v1/chat/completions"],
-            # CAPABILITY_OVERRIDES: upstream leaves it undefined; Kimi documents
-            # automatic prefix caching with a published cached-input price.
-            "supports_prompt_caching": True,
             # CAPABILITY_OVERRIDES: `max` is K3's documented DEFAULT effort.
             "supports_max_reasoning_effort": True,
             "cache_creation_input_token_cost": 3e-06,  # 5m writes $3.00
             "cache_creation_input_token_cost_above_1hr": 6e-06,  # 1h writes $6.00
         },
         # Kimi K3.1 Pro — "a post-trained version of Kimi K3", 1M context
-        # (docs/guide/kimi-k3-1-pro-quickstart, seen 2026-10-26). Absent
-        # upstream, so a complete record. $2.00 in / $10.00 out, cached $0.20,
+        # (docs/guide/kimi-k3-1-pro-quickstart, seen 2026-10-26). Upstream has
+        # carried it since the fcef9cd pin with the same prices and context, so
+        # the record below only re-asserts them; of its supports_* flags, only
+        # the three upstream lacks remain. $2.00 in / $10.00 out, cached $0.20,
         # writes $2.00 (5m) / $4.00 (1h). The quickstart documents: thinking
         # always on, reasoning_effort low / high / max (default max), image and
         # video input, json_schema structured output, tool_choice, automatic
@@ -819,14 +819,10 @@ class ModelSyncRules:
             "reasoning_effort_levels": ["low", "high", "max"],
             "source": "https://platform.kimi.ai/docs/pricing/chat",
             "supported_endpoints": ["/v1/chat/completions"],
-            "supports_function_calling": True,
+            # CAPABILITY_OVERRIDES: upstream leaves these three undefined.
             "supports_tool_choice": True,
-            "supports_reasoning": True,
             "supports_max_reasoning_effort": True,
-            "supports_response_schema": True,
-            "supports_vision": True,
             "supports_video_input": True,
-            "supports_prompt_caching": True,
         },
         # Kimi K3.1 Pro Highspeed — "2-3x the speed of K3.1 Pro". $4.00 in /
         # $20.00 out, writes $4.00 / $8.00, but cached input stays $0.20, the
@@ -2403,7 +2399,7 @@ class ModelSyncRules:
     # review `python drift_report.py --pinned` before committing — every
     # capability and price change the bump brings in lands in one reviewed
     # diff instead of leaking into unrelated PRs.
-    UPSTREAM_PIN = "e5db66df92cc1955978c6254ba2719869e9e72ac"  # BerriAI/litellm main, 2026-10-13
+    UPSTREAM_PIN = "fcef9cd0a3aa69580a87293f724d8afb11de8858"  # BerriAI/litellm main, 2026-11-03
     UPSTREAM_SNAPSHOT_URL = (
         "https://raw.githubusercontent.com/BerriAI/litellm/"
         f"{UPSTREAM_PIN}/model_prices_and_context_window.json"
@@ -3488,10 +3484,10 @@ class ModelSyncRules:
         "https://docs.z.ai/guides/overview/pricing publishes a cached-input price for every "
         "GLM-4.5-family SKU. Upstream leaves it undefined."
     )
-    _SRC_KIMI_K3_CACHE = (
-        "https://platform.kimi.ai/docs/pricing/chat-k3 (2026-09-30): 'The Kimi API "
-        "automatically caches repeated request prefixes', with a published Cached Input "
-        "Price. Upstream leaves it undefined."
+    _SRC_KIMI_K31_PRO = (
+        "https://platform.kimi.ai/docs/guide/kimi-k3-1-pro-quickstart (2026-10-26) documents "
+        "tool_choice, reasoning_effort low / high / max (default max) and video input. "
+        "Upstream leaves all three undefined."
     )
 
     _SRC_GPT_IMAGE_NO_PDF = (
@@ -3550,7 +3546,13 @@ class ModelSyncRules:
             ],
             _SRC_ZAI_45_CACHE,
         ),
-        ("moonshot/kimi-k3", "supports_prompt_caching"): _SRC_KIMI_K3_CACHE,
+        **dict.fromkeys(
+            [
+                ("moonshot/kimi-k3.1-pro", f)
+                for f in ("supports_tool_choice", "supports_max_reasoning_effort", "supports_video_input")
+            ],
+            _SRC_KIMI_K31_PRO,
+        ),
     }
 
     # ── Capability mirrors ───────────────────────────────────────────────
