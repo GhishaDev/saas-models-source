@@ -62,6 +62,7 @@ Two rules learned the hard way:
 
 | Date | What | Direction | Action |
 |---|---|---|---|
+| **2026-12-01** | `gemini-2.5-pro` → routed to `gemini-3.8-flash`, *"billed at Gemini 3.8 Flash rates"*; `gemini-2.5-flash` → routed to `gemini-3.5-flash-lite`, *"billed at Gemini 3.5 Flash-Lite rates"* (deprecations page) | Price will **fall** → we would **over**-bill | On or after the day, verify, then add both to `GOOGLE_ROUTED_PRICE_SOURCES`. Not before: a routed price written today is wrong until then. |
 | **2026-12-31** | `gpt-6-astra-law` promotional pricing, *"available at least through December 31, 2026"* ($10 / $1 cached / $50) | Price will probably **rise** → we would **under**-bill | Re-check. Same shape as `gpt-5.6-sol`: no post-promo price is published. |
 | **2026-11-21** | `gpt-5.6-sol` promotional pricing, *"available **at least** through November 21, 2026"* | Price will **rise** → we would **under**-bill | Re-check. No post-promo price is published, and *"at least through"* is not a firm end — nothing can be pre-staged. |
 | **2026-12-01** | `gemini-4-argon`: *"$2.00 through November 30, 2026. $4.00 starting December 1, 2026"*. Every tier doubles: output $10 → $20, cache $0.10 → $0.20, Batch / Flex $1 → $2, Priority $3.60 → $7.20 | Price will **rise**, and we would **under**-bill | Argon comes from `PRESTAGED`, which upstream always overrides. Bump the pin once upstream carries the new rate, then delete the pre-staged record. Until then, nothing here changes on its own. |
@@ -333,6 +334,7 @@ is not a vendor audit.
 - ❌ Exclude: Gemini 1.x and 2.0–2.4 series
 - ❌ Exclude: Gemma models, deprecated versions
 - ❌ Exclude: `imagen-*`, `flash-exp-image` (legacy/experimental image models)
+- 🔀 **Routed models are priced at their target.** `gemini-3.5-flash` and `gemini-3.7-flash` are deprecated, but Google keeps the endpoints and *"automatically routes API requests"* to `gemini-3.6-flash` / `gemini-3.8-flash`. `GOOGLE_ROUTED_PRICE_SOURCES` maps each source to its target, and `apply_google_routed_prices` replaces every price field (any name containing `cost`) with the target's. Google states no billing rule for these two; for every other routed model it bills the target (*"billed at Gemini 3.8 Flash rates"*). Add a row there when Google routes another model, on the day the routing takes effect.
 - ❌ Exclude (special-purpose / non-conversational, via `EXCLUDE_MODEL_KEYS`): `gemini/gemini-3.1-pro-preview-customtools`, `gemini/gemini-3.1-flash-live-preview`, `gemini/gemini-3.1-flash-tts-preview`, `gemini/gemini-3.5-live-translate-preview`, `gemini/gemini-3.5-transcribe`, `gemini/gemini-3.5-transcribe-live`. The Google scope is Gemini 2.5+ **chat**, Gemini Embedding, and `gemini-*-image*` — audio is not in it. These keys only reach the filter because the `^gemini/gemini-[3-9].*-preview$` include pattern (written to admit 3.x *chat* previews) is broader than its intent, so keeping them out is a scope decision rather than a data problem. Remove an entry here if the product scope widens to Gemini speech. The 2026-09 transcribe pair carries **no** `-preview` suffix, so nothing else keeps it out — without an explicit entry it enters the export on the next regeneration.
 - ⏸️ **Deferred, not rejected:** `gemini/gemini-omni-1.1-flash`. ai.google.dev calls it *"our next-generation video generation and editing model"*, but upstream classifies it as `mode: chat` carrying only the $1.50 in / $9.00 out **text** rates. The published tariff has a second output tier — **$17.50 per M for video output** (5,792 tokens per second of 720p, ~$0.10/s) — which that shape cannot express, so importing it as chat would under-bill video output by roughly half. Admit it once the mode and the video output tier are modelled
 
@@ -448,7 +450,7 @@ is not a vendor audit.
   - **No overlay.** LiteLLM upstream now carries every field of the official table verbatim — prices, `max_input_tokens` `1000000`, `max_output_tokens` `393216`, `supports_vision`. `DEEPSEEK_SYNTH_DATA` / `apply_deepseek_synth` were retired in v1.16.23; see the changelog for why keeping them was actively mis-billing
   - ✅ **Currency: USD, native.** The official page is denominated in USD, so nothing goes through `_cny_per_m_to_usd_per_token`. DeepSeek's own implied FX (6.818) is *not* our `7.0` policy rate — deriving USD from the CNY book under-bills by ~2.7%
   - **Peak and off-peak are both carried** (since v1.16.44). The flat fields hold the **peak** rate — the ceiling, for any consumer that ignores time of day — and `off_peak_pricing` holds the half-price rates with UTC windows: Mon–Fri `00:00–01:00`, `04:00–06:00`, `10:00–24:00`, plus all of Sat–Sun. Matches the vendor: peak is `01:00–04:00` / `06:00–10:00` UTC, Mon–Fri.
-  - ⚠️ **Chinese public holidays are not modelled.** Since 2026-09-30 DeepSeek bills them off-peak "in full"; the windows know weekdays, not holidays, so holiday weekday traffic in the peak windows is billed at peak — **over**-billed 2×, never under-billed. See the calendar. Peak USD/M — V4-Flash and V4-Flash-Vision-Exp `$0.44` in (cache-miss) / `$0.014` in (cache-hit) / `$1.32` out; V4-Pro `$1.32` / `$0.044` / `$3.96`. Cache writes are free
+  - ⚠️ **Chinese public holidays are not modelled.** Since 2026-09-30 DeepSeek bills them off-peak "in full"; the windows know weekdays, not holidays, so holiday weekday traffic in the peak windows is billed at peak — **over**-billed 2×, never under-billed. See the calendar. Peak USD/M — V4-Flash and V4-Flash-Vision-Exp `$0.30` in (cache-miss) / `$0.006` in (cache-hit) / `$1.20` out; V4-Pro `$1.32` / `$0.044` / `$3.96`. Cache writes are free
   - ✅ **`deepseek-v4-flash` is a legacy alias, not a third model.** DeepSeek folded the Flash line into **V4.1-Flash** (vision built in) and renamed the SKU to plain `deepseek-flash`, but the old name still **resolves**: *"still accepted… served by the DeepSeek-V4.1-Flash model and billed at the Flash price."* It is carried so existing callers keep working. Upstream holds it **byte-identical** to `deepseek-flash`, so it tracks the V4.1 price automatically and cannot drift from the canonical entry — in the export the two records differ only in `model_key` and `friendly_name`
   - ⚠️ Its friendly name renders **`DeepSeek-V4-Flash`** while the model behind it is **V4.1-Flash**. The name derives from the key, and the key is the legacy one. Prefer `deepseek-flash` for anything new
   - ❌ `deepseek-v4-flash-vision-exp` stays **out** (retired v1.16.33). It names an experimental vision variant that no longer exists as a distinct model, and V4.1-Flash has vision natively — so unlike `deepseek-v4-flash` the key is actively misleading rather than merely redundant
@@ -720,6 +722,27 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.58 (2026-11-03)
+**Price fixes left over from the 2026-11-02 audit.** The exported total stays at **194**. The pin is unchanged at `fcef9cd`.
+
+- 🔴 **`gemini-3.1-flash-image` `output_cost_per_image` $0.045 → $0.067.** $0.045 is the 0.5K price; the pricing page gives *"$0.067 per 1K image"*. Every other Gemini image entry stores the 1K price, and 1K images were under-billed by about 33%. The per-token image price ($60 per M) was already right.
+- 🔀 **`gemini-3.5-flash` now carries `gemini-3.6-flash`'s prices**: $1.50 / $9.00 / $0.15 → $0.75 / $3.75 / $0.075, with every tier halved accordingly. Its separate audio-input price is dropped, because 3.6 Flash publishes none. Google retired the model on 2026-10-08 and routes its requests to 3.6 Flash, so we were over-billing about 2×. `gemini-3.7-flash` gets the same rule against `gemini-3.8-flash`; their prices were already identical. This uses the new `GOOGLE_ROUTED_PRICE_SOURCES` and `apply_google_routed_prices`. Both keys stay, because Google keeps the endpoints.
+- 🔧 **`gpt-4o-mini-tts` `output_cost_per_token` $10 → $12.** OpenAI publishes only text input $0.60 and audio output $12 for this model. Every output token is audio, so the generic rate now equals the audio one.
+- 🔧 **Web search on `gpt-4.1`, `gpt-4.1-mini`, `gpt-4o-mini`: $25 → $10 per 1k calls.** $25 is the old *"Web search preview (non-reasoning models)"* rate; the current tool is *"$10.00 / 1k calls"* on all models. ⚠️ Not modelled: on the two mini models, the current tool also bills *"a fixed block of 8,000 input tokens per call"*.
+- ➕ **Batch image output** (`output_cost_per_image_token_batches`): $15 per M for `gpt-image-2`, `gpt-image-2.5-sunburst` and `gpt-image-2.5-flare`, $16 for `gpt-image-1.5`, $4 for `gpt-image-1-mini`. Batch cached image input ($1, or $0.13 on 1-mini) has no upstream field name, so it is not stored and bills at the standard cached rate.
+- ➕ **Kimi Batch API prices** from [platform.kimi.ai/docs/pricing/batch](https://platform.kimi.ai/docs/pricing/batch), which bills 60% of standard. The table was read with a headless browser, because it loads dynamically.
+
+  | Model | Input | Output | Cached | 5m write |
+  |---|---|---|---|---|
+  | `kimi-k3.1-pro` | $1.20 | $6.00 | $0.12 | $1.20 |
+  | `kimi-k3` | $1.80 | $9.00 | $0.18 | $1.80 |
+  | `kimi-k2.7-code` | $0.57 | $2.40 | $0.114 | — |
+  | `kimi-k2.6` | $0.57 | $2.40 | $0.10 | — |
+
+  `kimi-k2.6`'s cached rate is the published $0.10, not 60% of $0.16. Batch 1h writes have no upstream field name, so they bill at the standard 1h rate. The highspeed variants do not support Batch.
+- 📝 README: DeepSeek V4-Flash peak prices in the provider section corrected to $0.30 / $0.006 / $1.20. The export was already right.
+- 📅 Calendar: on 2026-12-01 `gemini-2.5-pro` and `gemini-2.5-flash` start routing to `gemini-3.8-flash` / `gemini-3.5-flash-lite` and bill at their rates. Add them to `GOOGLE_ROUTED_PRICE_SOURCES` on the day, not before.
 
 ### v1.16.57 (2026-11-03)
 **Upstream pin `e5db66d` → `fcef9cd` (2026-11-03), and `typesafe/jev-1.14.0` added.** Exported total **191 → 194**.
