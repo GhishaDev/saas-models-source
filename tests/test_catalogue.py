@@ -124,6 +124,29 @@ def test_gateway_endpoints_merge_without_dropping_or_duplicating():
     assert "supported_endpoints" not in models["typesafe/jev-latest"], "input was mutated"
 
 
+def test_routed_gemini_models_carry_exactly_their_targets_prices():
+    models = {
+        "gemini/gemini-3.5-flash": {
+            "mode": "chat",
+            "input_cost_per_token": 1.5e-06,
+            "input_cost_per_audio_token": 1.5e-06,
+        },
+        "gemini/gemini-3.6-flash": {"mode": "chat", "input_cost_per_token": 7.5e-07},
+    }
+    merged = ModelSyncRules.apply_google_routed_prices(models)
+    # The source's own tier the target lacks must not linger at the old rate.
+    assert merged["gemini/gemini-3.5-flash"] == {"mode": "chat", "input_cost_per_token": 7.5e-07}
+    assert models["gemini/gemini-3.5-flash"]["input_cost_per_token"] == 1.5e-06, "input was mutated"
+
+
+def test_routed_gemini_models_match_their_targets_in_the_export(exported_models):
+    def prices(key):
+        return {k: v for k, v in exported_models[key]["raw_data"].items() if "cost" in k}
+
+    for source, target in ModelSyncRules.GOOGLE_ROUTED_PRICE_SOURCES.items():
+        assert prices(source) == prices(target), source
+
+
 def test_jev_names_follow_typesafe_docs():
     assert ModelSyncRules.format_model_name("typesafe/jev-1.13.0", "typesafe") == "Jev 1.13"
     assert ModelSyncRules.format_model_name("typesafe/jev-latest", "typesafe") == "Jev Latest"

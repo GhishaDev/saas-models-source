@@ -792,6 +792,13 @@ class ModelSyncRules:
             "supports_max_reasoning_effort": True,
             "cache_creation_input_token_cost": 3e-06,  # 5m writes $3.00
             "cache_creation_input_token_cost_above_1hr": 6e-06,  # 1h writes $6.00
+            # Batch API: 60% of standard, per platform.kimi.ai/docs/pricing/batch
+            # (2026-11-03). The 1h batch write has no upstream field name, so it
+            # is not stored; batch 1h writes fall back to the standard 1h rate.
+            "input_cost_per_token_batches": 1.8e-06,
+            "output_cost_per_token_batches": 9e-06,
+            "cache_read_input_token_cost_batches": 1.8e-07,
+            "cache_creation_input_token_cost_batches": 1.8e-06,
         },
         # Kimi K3.1 Pro — "a post-trained version of Kimi K3", 1M context
         # (docs/guide/kimi-k3-1-pro-quickstart, seen 2026-10-26). Upstream has
@@ -813,6 +820,13 @@ class ModelSyncRules:
             "input_cost_per_token_cache_hit": 2e-07,
             "cache_creation_input_token_cost": 2e-06,
             "cache_creation_input_token_cost_above_1hr": 4e-06,
+            # Batch API: 60% of standard, per platform.kimi.ai/docs/pricing/batch
+            # (2026-11-03). The 1h batch write has no upstream field name, so it
+            # is not stored; batch 1h writes fall back to the standard 1h rate.
+            "input_cost_per_token_batches": 1.2e-06,
+            "output_cost_per_token_batches": 6e-06,
+            "cache_read_input_token_cost_batches": 1.2e-07,
+            "cache_creation_input_token_cost_batches": 1.2e-06,
             "max_input_tokens": 1048576,
             "max_output_tokens": 1048576,
             "max_tokens": 1048576,
@@ -847,6 +861,18 @@ class ModelSyncRules:
             "input_cost_per_token_cache_hit": 1.9e-07,
             "source": "https://platform.kimi.ai/docs/pricing/chat-k2.7-code",
             "supported_endpoints": ["/v1/chat/completions"],
+            # Batch API (platform.kimi.ai/docs/pricing/batch, 2026-11-03).
+            # K2 models take no cache writes.
+            "input_cost_per_token_batches": 5.7e-07,
+            "output_cost_per_token_batches": 2.4e-06,
+            "cache_read_input_token_cost_batches": 1.14e-07,
+        },
+        # Batch API only. The batch table lists cached input at $0.10, not
+        # 60% of the standard $0.16 ($0.096); the published figure is stored.
+        "moonshot/kimi-k2.6": {
+            "input_cost_per_token_batches": 5.7e-07,
+            "output_cost_per_token_batches": 2.4e-06,
+            "cache_read_input_token_cost_batches": 1e-07,
         },
         # Kimi K2.7 Code HighSpeed — "the same model as Kimi K2.7 Code, but
         # with an output speed of approximately 180 Tokens/s" (vendor). $1.90
@@ -1654,6 +1680,9 @@ class ModelSyncRules:
         # three weeks out would push operators off a live model early.
         "gemini/gemini-3.1-flash-image": {
             "deprecation_date": None,
+            # Upstream's $0.045 is the 0.5K price. Every other Gemini image
+            # entry stores the 1K price here: "$0.067 per 1K image".
+            "output_cost_per_image": 0.067,
         },
         # Both flags are wrong upstream AND were wrong in the export before —
         # identical on both sides, so the drift report could not see them.
@@ -1668,6 +1697,19 @@ class ModelSyncRules:
         "gemini/gemini-3.1-flash-lite-image": {
             "supports_minimal_reasoning_effort": True,
         },
+    }
+
+    # Deprecated Gemini endpoints that Google keeps serving by routing them to
+    # a newer model (changelog and deprecations page, 2026-10-08): "API
+    # requests to gemini-3.5-flash are automatically routed to
+    # gemini-3.6-flash", likewise 3.7 -> 3.8; "the endpoint is not shutting
+    # down". The pricing page no longer lists either source. Google states no
+    # billing rule for these two, but for every other routed model it bills
+    # the target ("billed at Gemini 3.8 Flash rates"), so each source carries
+    # its target's price fields. apply_google_routed_prices copies them.
+    GOOGLE_ROUTED_PRICE_SOURCES: dict[str, str] = {
+        "gemini/gemini-3.5-flash": "gemini/gemini-3.6-flash",
+        "gemini/gemini-3.7-flash": "gemini/gemini-3.8-flash",
     }
 
     # ── Pre-staged models (any provider) ──────────────────────────────────
@@ -1902,20 +1944,49 @@ class ModelSyncRules:
         # flare: speed). Identical tariff, which the model pages state
         # outright: "Token rates match GPT Image 2." Upstream now carries both
         # with every price; only the modality metadata it lacks is added.
+        #
+        # Batch image output (pricing page, Batch tier, 2026-11-03): $15 for
+        # GPT Image 2 / 2.5, $16 for 1.5, $4 for 1-mini; upstream lacks it.
+        # Batch cached image input ($1, 1-mini $0.13) has no upstream field
+        # name, so it is not stored and bills at the standard cached rate.
         "gpt-image-2.5-sunburst": {
             "supported_modalities": ["text", "image"],
             "supported_output_modalities": ["image"],
             "supports_pdf_input": False,  # CAPABILITY_OVERRIDES: "text, image" only
+            "output_cost_per_image_token_batches": 1.5e-05,
         },
         "gpt-image-2.5-flare": {
             "supported_modalities": ["text", "image"],
             "supported_output_modalities": ["image"],
             "supports_pdf_input": False,  # CAPABILITY_OVERRIDES: "text, image" only
+            "output_cost_per_image_token_batches": 1.5e-05,
         },
         # Upstream marks these two PDF-capable; their model pages say "Input
         # modalities: text, image". See _SRC_GPT_IMAGE_NO_PDF.
-        "gpt-image-2": {"supports_pdf_input": False},
-        "gpt-image-1.5": {"supports_pdf_input": False},
+        "gpt-image-2": {"supports_pdf_input": False, "output_cost_per_image_token_batches": 1.5e-05},
+        "gpt-image-1.5": {"supports_pdf_input": False, "output_cost_per_image_token_batches": 1.6e-05},
+        "gpt-image-1-mini": {"output_cost_per_image_token_batches": 4e-06},
+        # gpt-4o-mini-tts: the pricing page lists only text input $0.60 and
+        # audio output $12 per M. Upstream adds a $10 output_cost_per_token
+        # that OpenAI does not publish. Every output token of this model is
+        # audio, so the generic output rate is pinned to the audio one and an
+        # output count without the audio breakdown still bills at $12.
+        "gpt-4o-mini-tts": {"output_cost_per_token": 1.2e-05},
+        # Web search: "$10.00 / 1k calls" for the current tool on all models.
+        # Upstream stores $25 / 1k, the rate of "Web search preview
+        # (non-reasoning models)". Not modelled: on gpt-4o-mini and
+        # gpt-4.1-mini the current tool also bills "a fixed block of 8,000
+        # input tokens per call".
+        **dict.fromkeys(
+            ("gpt-4.1", "gpt-4.1-mini", "gpt-4o-mini"),
+            {
+                "search_context_cost_per_query": {
+                    "search_context_size_low": 0.01,
+                    "search_context_size_medium": 0.01,
+                    "search_context_size_high": 0.01,
+                },
+            },
+        ),
     }
 
     # Supported model modes
@@ -3181,6 +3252,28 @@ class ModelSyncRules:
         return merged
 
     @classmethod
+    def apply_google_routed_prices(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Replace every price field of a routed Gemini model with its target's.
+
+        A field is a price field when its name contains ``cost``. The source's
+        own price fields are dropped first, so a tier the target lacks cannot
+        linger at the old rate. Non-price fields are kept. A missing source or
+        target leaves the entry untouched.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for source_key, target_key in cls.GOOGLE_ROUTED_PRICE_SOURCES.items():
+            source, target = merged.get(source_key), merged.get(target_key)
+            if source is None or target is None:
+                continue
+            kept = {k: v for k, v in source.items() if "cost" not in k}
+            prices = {k: v for k, v in target.items() if "cost" in k}
+            merged[source_key] = {**kept, **prices}
+        return merged
+
+    @classmethod
     def apply_deepseek_alias(cls, models: dict[str, Any]) -> dict[str, Any]:
         """
         Mirror canonical deepseek/* entries onto project alias keys.
@@ -3719,6 +3812,7 @@ ModelSyncRules.SYNTH_PIPELINE = (
     ModelSyncRules.__dict__["apply_openai_synth"],
     ModelSyncRules.__dict__["apply_moonshot_synth"],
     ModelSyncRules.__dict__["apply_google_synth"],
+    ModelSyncRules.__dict__["apply_google_routed_prices"],  # after google synth
     ModelSyncRules.__dict__["apply_zai_synth"],
     ModelSyncRules.__dict__["apply_bigmodel_synth"],
     ModelSyncRules.__dict__["apply_deepseek_alias"],
