@@ -207,6 +207,7 @@ class ModelSyncRules:
         # Pre-staged: on docs.z.ai but missing from LiteLLM source
         # (verified against the pinned snapshot, 2026-09-30)
         "zai/glm-5.3-flashx",
+        "zai/glm-5.3-flashx-legal",
         "zai/glm-5-turbo",
         "zai/glm-4.7-flashx",
         "zai/glm-5v-turbo",
@@ -281,6 +282,28 @@ class ModelSyncRules:
             # max_reasoning_effort: "GLM-5.2 and above" includes 5.3-FlashX.
             # low_reasoning_effort is NOT set — the thinking guide names only
             # "GLM-5.3 and GLM-5.3-FLASH" for `low`.
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "input_cost_per_token": 3.7e-07,
+            "output_cost_per_token": 1.25e-06,
+            "cache_read_input_token_cost": 7.5e-08,
+            "supports_reasoning": True,
+            "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_prompt_caching": True,
+            "supports_vision": True,
+            "supports_max_reasoning_effort": True,
+        },
+        "zai/glm-5.3-flashx-legal": {
+            # Legal-domain post-train of GLM-5.3-FlashX, listed in the
+            # glm-5.3-flash guide's model codes (2026-11-06). Same price as
+            # FlashX on docs.z.ai pricing: $0.37 in / $0.075 cached / $1.25
+            # out per M; no access restriction or beta label there. The guide
+            # gives no Legal-specific specs, so context and flags follow the
+            # page-wide GLM-5.3-Flash family specs, as for FlashX (1M context,
+            # 128K output, thinking always on, video / image / file input).
             "litellm_provider": "zai",
             "mode": "chat",
             "max_input_tokens": 1000000,
@@ -500,15 +523,17 @@ class ModelSyncRules:
 
     # Reverse-whitelist for bigmodel/glm-* SKUs. Only models with a sibling
     # zai/* entry providing input/output/cache prices are included.
-    # Excluded (no public API pricing on bigmodel.cn, only private-instance
-    # GPU-day rates): glm-4.6, glm-4.5, glm-4.5-x, glm-4.5-airx,
-    # glm-4-32b-0414-128k, glm-ocr. glm-4.5-flash / glm-4.6v-flash are
+    # Excluded (no public API price on bigmodel.cn's pricing page, checked
+    # 2026-11-06): glm-4.6, glm-4.5, glm-4.5-x, glm-4.5-airx,
+    # glm-4-32b-0414-128k. (bigmodel.cn's "GLM-4-AirX" is a different, older
+    # 8K model, not glm-4.5-airx.) glm-4.5-flash / glm-4.6v-flash are
     # free-tier and filtered separately via the Zero Price rule.
     BIGMODEL_ALLOWED_KEYS = frozenset({
         "bigmodel/glm-5.2",
         "bigmodel/glm-5.3",
         "bigmodel/glm-5.3-flash",
         "bigmodel/glm-5.3-flashx",
+        "bigmodel/glm-5.3-flashx-legal",
         "bigmodel/glm-5",
         "bigmodel/glm-4.7",
         "bigmodel/glm-4.5v",
@@ -520,6 +545,7 @@ class ModelSyncRules:
         "bigmodel/glm-4.6v",
         "bigmodel/glm-4.6v-flashx",
         "bigmodel/glm-asr-2512",
+        "bigmodel/glm-ocr",
         "bigmodel/embedding-3",
         "bigmodel/embedding-2",
     })
@@ -554,6 +580,14 @@ class ModelSyncRules:
             # Domestic bigmodel quotes CNY (2 / 7 / 0.57 元 per M), but this
             # catalogue mirrors the z.ai USD book for bigmodel/*, as it has
             # since v1.9.0.
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+        },
+        "bigmodel/glm-5.3-flashx-legal": {
+            # bigmodel.cn lists it at 2 / 7 / 0.57 CNY per M, the same as
+            # FlashX; prices mirror zai/ as for every bigmodel SKU.
             "litellm_provider": "bigmodel",
             "mode": "chat",
             "max_input_tokens": 1000000,
@@ -636,6 +670,16 @@ class ModelSyncRules:
             "mode": "audio_transcription",
             "source": "https://docs.bigmodel.cn/cn/guide/start/pricing",
             "supported_endpoints": ["/v1/audio/transcriptions"],
+        },
+        # ── Layout parsing ─────────────────────────────────────────────
+        # GLM-OCR. bigmodel.cn now lists a public API price (0.2 / 0.2 CNY
+        # per M, no cache, "32K" context; checked 2026-11-06), which is what
+        # kept it out before. Prices mirror zai/glm-ocr ($0.03 / $0.03). The
+        # context is left unset like the zai record: "32K" is not an exact
+        # token count.
+        "bigmodel/glm-ocr": {
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
         },
         # ── Text embeddings ─────────────────────────────────────────────
         # Prices (input / batch / output) are mirrored from zai/embedding-*,
@@ -915,6 +959,12 @@ class ModelSyncRules:
         "dashscope/qwen3.8-flash",
         "dashscope/qwen3.8-max",
         "dashscope/qwen3.8-2.4t-a95b",
+        # Omni (text / image / audio / video in, text out), single-tier:
+        # $0.15 in / $0.47 out / $0.016 implicit cache, one rate for every
+        # input modality (qwencloud.com/pricing/api, 2026-11-06). Upstream
+        # carries it at exactly those prices; admitted by decision on
+        # 2026-11-06, widening the scope beyond flagship text models.
+        "dashscope/qwen3.8-omni-flash",
         # Qwen 3.7 generation. qwen3.7-plus and qwen3.7-flash are TIERED by
         # request input size; see the tiered_pricing note in
         # DASHSCOPE_SYNTH_DATA for how that is represented.
@@ -1753,6 +1803,39 @@ class ModelSyncRules:
     # is "Not supported" on both model pages and the Batch table has no 2.6
     # rows, so unlike 2.5 neither carries *_batches prices.
     PRESTAGED: dict[str, dict[str, Any]] = {
+        # gpt-6-cyber — copied from upstream main (5085022, 2026-11-06) and
+        # checked against developers.openai.com/api/docs/models/gpt-6-cyber
+        # and the pricing page's Cyber table: $20 in / $2 cached / $100 out,
+        # cache writes $25 (30-minute) / $50 (12-hour). The long-context
+        # columns are "-" and there is no Batch / Flex / Fast row, so none is
+        # stored. Needs "Daybreak Red access and approval", like
+        # gpt-5.6-cyber. OPENAI_SYNTH_DATA overlays the 1,050,000 context
+        # window; the model page gives "Maximum input is 922,000".
+        "gpt-6-cyber": {
+            "cache_creation_input_token_cost": 2.5e-05,
+            "cache_creation_input_token_cost_above_12hr": 5e-05,
+            "cache_read_input_token_cost": 2e-06,
+            "input_cost_per_token": 2e-05,
+            "litellm_provider": "openai",
+            "max_input_tokens": 922000,
+            "max_output_tokens": 128000,
+            "mode": "chat",
+            "output_cost_per_token": 0.0001,
+            "source": "https://developers.openai.com/api/docs/models/gpt-6-cyber",
+            "supported_endpoints": ["/v1/chat/completions", "/v1/responses"],
+            "supported_modalities": ["text", "image"],
+            "supported_output_modalities": ["text"],
+            "supports_computer_use": True,
+            "supports_function_calling": True,
+            "supports_native_streaming": True,
+            "supports_pdf_input": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_tool_search": True,
+            "supports_vision": True,
+            "supports_web_search": True,
+        },
         "gpt-image-2.6-sunburst": {
             "cache_read_input_image_token_cost": 2e-06,
             "cache_read_input_token_cost": 1.25e-06,
@@ -1952,6 +2035,7 @@ class ModelSyncRules:
         "gpt-6-astra": {"max_input_tokens": 1050000},
         "gpt-6.1-sol": {"max_input_tokens": 1050000},  # supersedes gpt-6-sol; cached input halved ($0.10)
         "gpt-6.1-terra": {"max_input_tokens": 1050000},  # pre-staged in PRESTAGED
+        "gpt-6-cyber": {"max_input_tokens": 1050000},  # pre-staged in PRESTAGED
         "gpt-6-sol": {"max_input_tokens": 1050000},
         "gpt-6-luna": {"max_input_tokens": 1050000},
         "gpt-5.6": {"max_input_tokens": 1050000},
@@ -2245,9 +2329,10 @@ class ModelSyncRules:
         # promote them if the scope ever widened. It has — they are now in
         # the INCLUDE_PATTERNS allow-list alongside the realtime SKUs.
         #
-        # gpt-4o-transcribe-diarize stays out: unlike the other three it is
-        # absent from the pricing page's Transcription table, so there is no
-        # authoritative rate to carry.
+        # gpt-4o-transcribe-diarize stays out by decision (2026-11-06). It is
+        # now on the pricing page's Transcription table ($2.50 / $10,
+        # ~$0.006/min), so the old "no authoritative rate" reason no longer
+        # holds; it shuts down 2027-02-26 with gpt-4o-transcribe.
         "gpt-4o-transcribe-diarize",
         # SHUT DOWN by OpenAI — retired from the export 2026-09-14. Calls to
         # these fail; they are not merely superseded. Verified against
@@ -2459,9 +2544,10 @@ class ModelSyncRules:
         re.compile(r"^gpt-4o$", re.IGNORECASE),
         re.compile(r"^gpt-4o-mini$", re.IGNORECASE),
         # Current realtime generation. gpt-realtime-2 / -1.5 / -mini are
-        # deliberately NOT here: they are superseded snapshots that the
-        # pricing page no longer lists (upstream prices gpt-realtime-2
-        # identically to 2.1, which is the tell).
+        # deliberately NOT here: they are superseded by 2.1. The pricing page
+        # lists 2 and 1.5 again (checked 2026-11-06) and -mini shuts down
+        # 2027-01-20; keeping 2 and 1.5 out is a decision, not a missing rate.
+        # gpt-audio-1.5 stays behind "^gpt-audio" by the same decision.
         re.compile(r"^gpt-realtime-2\.1$", re.IGNORECASE),
         re.compile(r"^gpt-realtime-2\.1-mini$", re.IGNORECASE),
         re.compile(r"^gpt-realtime-translate$", re.IGNORECASE),
