@@ -1745,7 +1745,38 @@ class ModelSyncRules:
     # structured outputs, web search, tool search, computer use. Upstream
     # stores max_input_tokens 922,000; OPENAI_SYNTH_DATA overlays the
     # 1,050,000 context window like the rest of the GPT-6 family.
+    #
+    # gpt-image-2.6-sunburst / -flare — copied from upstream main (5085022,
+    # 2026-11-06) without bumping the pin, and checked on 2026-11-06 against
+    # both model pages and the pricing page: image $8 in / $2 cached / $30
+    # out, text $5 in / $1.25 cached, the same tariff as GPT Image 2.5. Batch
+    # is "Not supported" on both model pages and the Batch table has no 2.6
+    # rows, so unlike 2.5 neither carries *_batches prices.
     PRESTAGED: dict[str, dict[str, Any]] = {
+        "gpt-image-2.6-sunburst": {
+            "cache_read_input_image_token_cost": 2e-06,
+            "cache_read_input_token_cost": 1.25e-06,
+            "input_cost_per_image_token": 8e-06,
+            "input_cost_per_token": 5e-06,
+            "litellm_provider": "openai",
+            "mode": "image_generation",
+            "output_cost_per_image_token": 3e-05,
+            "source": "https://developers.openai.com/api/docs/pricing",
+            "supported_endpoints": ["/v1/images/generations", "/v1/images/edits"],
+            "supports_vision": True,
+        },
+        "gpt-image-2.6-flare": {
+            "cache_read_input_image_token_cost": 2e-06,
+            "cache_read_input_token_cost": 1.25e-06,
+            "input_cost_per_image_token": 8e-06,
+            "input_cost_per_token": 5e-06,
+            "litellm_provider": "openai",
+            "mode": "image_generation",
+            "output_cost_per_image_token": 3e-05,
+            "source": "https://developers.openai.com/api/docs/pricing",
+            "supported_endpoints": ["/v1/images/generations", "/v1/images/edits"],
+            "supports_vision": True,
+        },
         "gemini/gemini-4-argon": {
             "cache_read_input_token_cost": 1e-07,
             "cache_read_input_token_cost_batches": 5e-08,
@@ -1966,6 +1997,19 @@ class ModelSyncRules:
         "gpt-image-2": {"supports_pdf_input": False, "output_cost_per_image_token_batches": 1.5e-05},
         "gpt-image-1.5": {"supports_pdf_input": False, "output_cost_per_image_token_batches": 1.6e-05},
         "gpt-image-1-mini": {"output_cost_per_image_token_batches": 4e-06},
+        # GPT Image 2.6 (pre-staged in PRESTAGED): "Input modalities: text,
+        # image". Upstream sets supports_pdf_input=true, as it did for 2.5.
+        # Absent at the pin, so no allowlist entry yet; add both pairs to
+        # CAPABILITY_OVERRIDES (_SRC_GPT_IMAGE_NO_PDF) when the pin brings
+        # them in.
+        **dict.fromkeys(
+            ("gpt-image-2.6-sunburst", "gpt-image-2.6-flare"),
+            {
+                "supported_modalities": ["text", "image"],
+                "supported_output_modalities": ["image"],
+                "supports_pdf_input": False,
+            },
+        ),
         # gpt-4o-mini-tts: the pricing page lists only text input $0.60 and
         # audio output $12 per M. Upstream adds a $10 output_cost_per_token
         # that OpenAI does not publish. Every output token of this model is
