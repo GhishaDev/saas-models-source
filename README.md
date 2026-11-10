@@ -315,8 +315,8 @@ is not a vendor audit.
 - ✅ Friendly name follows OpenAI's own house style: size suffixes `mini` / `nano` stay **lowercase** (`GPT-5 mini`, `GPT-5.4 nano`, `GPT-4o mini`); `GPT-4o` keeps the lowercase branded `o`; the o-series is shown as its lowercase id (`o3`, `o3-mini`, `o4-mini`); `text-embedding-3-*` is shown as the lowercase id; `gpt-5.3-codex` → `GPT-5.3-Codex` (hyphenated); dated realtime preview drops the snapshot (`gpt-4o-realtime-preview-2024-12-17` → `GPT-4o Realtime`); `GPT Realtime` uses a spaced form; segment overrides upcase `TTS` / `ASR`
 
 #### Anthropic
-- ✅ Include: Claude 4.5+ variants (Haiku, Sonnet, Opus), plus Claude 5 (Sonnet, Opus), plus special-name flagships (`claude-fable-5`, `claude-fable-5-1`, `claude-mythos-5`, `claude-mythos-5-1`)
-- ⚠️ **The 5.1 pair has a different cache ratio.** `claude-fable-5-1` / `claude-mythos-5-1` bill cache reads at **0.025x** base input ($0.25 against $10), not the usual 0.1x that `claude-fable-5` / `claude-mythos-5` pay ($1). The pricing-page footnote states it explicitly: *"0.1x base input price (0.025x on Claude Fable 5.1 and Claude Mythos 5.1)"*. Do not assume one ratio across the family
+- ✅ Include: Claude 4.5+ variants (Haiku, Sonnet, Opus), plus Claude 5 (Sonnet, Opus), plus special-name flagships (`claude-fable-5`, `claude-fable-5-1`, `claude-fable-5-2`, `claude-mythos-5`, `claude-mythos-5-1`, `claude-mythos-5-2`)
+- ⚠️ **The 5.1 and 5.2 pairs have a different cache ratio** (5.2: $0.20 against $8). `claude-fable-5-1` / `claude-mythos-5-1` bill cache reads at **0.025x** base input ($0.25 against $10), not the usual 0.1x that `claude-fable-5` / `claude-mythos-5` pay ($1). The pricing-page footnote states it explicitly: *"0.1x base input price (0.025x on Claude Fable 5.1 and Claude Mythos 5.1)"*. Do not assume one ratio across the family
 - ✅ Mythos SKUs (Project Glasswing, limited availability) were pre-staged via `ANTHROPIC_SYNTH_DATA` until upstream began carrying `claude-mythos-5` and `claude-mythos-5-1`; both now come from upstream, like their Fable twins (v1.16.44)
 - ✅ Include: Dated snapshots ≥ 4.5 (e.g. `claude-sonnet-4-5-20250929`)
 - ✅ **Introductory-price overlay** via `ANTHROPIC_SYNTH_DATA` / `apply_anthropic_synth`: when Anthropic runs a time-boxed intro price, LiteLLM upstream tracks the post-window standard tariff — we overlay the currently-effective numbers so the catalogue matches what customers actually get billed today
@@ -722,6 +722,19 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.61 (2026-11-10)
+**Added Claude Fable 5.2 and Claude Mythos 5.2.** Exported total **201 → 203**. The pin stays at `fcef9cd`.
+
+| Key | Input / output | Cache writes 5m / 1h | Cache hits | Batch | Fast mode |
+|---|---|---|---|---|---|
+| `claude-fable-5-2` | $8 / $40 | $10 / $16 | $0.20 (0.025x) | $4 / $20 | $16 / $80 |
+| `claude-mythos-5-2` | same | same | same | same | same |
+
+- Both are pre-staged in `PRESTAGED` and checked against [platform.claude.com pricing](https://platform.claude.com/docs/en/about-claude/pricing). They are cheaper than the 5.1 pair ($10 / $50).
+- `claude-fable-5-2` is copied verbatim from upstream main `9e80943`.
+- `claude-mythos-5-2` (limited availability): upstream carries only Bedrock keys for it. The record is Fable 5.2's without `supports_web_search`, because upstream's own `claude-mythos-5-1` / `claude-fable-5-1` differ in exactly that flag. Fast mode is kept, since the pricing page says Mythos 5.2 has it on the Claude API. This is an inference; replace it with upstream's record when the pin brings `claude-mythos-5-2` in, and delete both `PRESTAGED` entries then.
+- Sweep on 2026-11-10: no other provider has a new model. Upstream main's new `*-latest` aliases (`claude-opus-latest`, `gpt-sol-latest`, …) stay out under the `-latest` rule.
 
 ### v1.16.60 (2026-11-06)
 **New models from an all-provider sweep.** Exported total **196 → 201**. The pin stays at `fcef9cd`.
