@@ -112,6 +112,48 @@ _SEEDREAM_FLAT_022 = _seedream_flat(0.22)   # 5-0 and 5-0-lite
 _SEEDREAM_FLAT_025 = _seedream_flat(0.25)   # 4-5
 _SEEDREAM_FLAT_020 = _seedream_flat(0.20)   # 4-0
 
+# BytePlus (overseas) Seedream. Independent USD-native SKUs, NOT the domestic
+# CNY prices converted: the list prices are BytePlus's own (pricing page
+# docs.byteplus.com/en/docs/ModelArk/1544106, 2026-11-11). Same key contract
+# as the Volcengine templates above, so a gateway BytePlus image calculator
+# can read them unchanged. NOTE: litellm-internal has no BytePlus image
+# handler yet (only byteplus/videos), so these entries cannot route or bill
+# until it does; they are added by decision (2026-11-11).
+_BYTEPLUS_SEEDREAM_SOURCE = "https://docs.byteplus.com/en/docs/ModelArk/1544106"
+
+_BYTEPLUS_SEEDREAM_PRO: dict[str, Any] = {
+    "litellm_provider": "byteplus",
+    "mode": "image_generation",
+    "source": _BYTEPLUS_SEEDREAM_SOURCE,
+    "supported_endpoints": _SEEDREAM_ENDPOINTS,
+    # "First image: Free / From the second image: $0.003" — marginal rate.
+    "input_cost_per_image": 0.003,
+    "output_cost_per_image": 0.045,  # fallback = the <=1.5K single-image band
+    "output_cost_per_image_1_5k_and_below": 0.045,
+    "output_cost_per_image_above_1_5k": 0.09,
+    "output_cost_per_image_layer_decomposition_1_5k_and_below": 0.0225,
+    "output_cost_per_image_layer_decomposition_above_1_5k": 0.045,
+    "supports_vision": True,
+}
+
+
+def _byteplus_seedream_flat(usd_per_image: float) -> dict[str, Any]:
+    """A single-price BytePlus Seedream SKU: input images free, no bands."""
+    return {
+        "litellm_provider": "byteplus",
+        "mode": "image_generation",
+        "source": _BYTEPLUS_SEEDREAM_SOURCE,
+        "supported_endpoints": _SEEDREAM_ENDPOINTS,
+        "output_cost_per_image": usd_per_image,
+        "supports_vision": True,
+    }
+
+
+_BYTEPLUS_SEEDREAM_FLASH = _byteplus_seedream_flat(0.018)  # dola-seedream-5-0-flash
+_BYTEPLUS_SEEDREAM_LITE = _byteplus_seedream_flat(0.035)   # seedream-5-0-lite
+_BYTEPLUS_SEEDREAM_4_5 = _byteplus_seedream_flat(0.04)     # seedream-4-5
+_BYTEPLUS_SEEDREAM_4_0 = _byteplus_seedream_flat(0.03)     # seedream-4-0
+
 
 def _usd_per_m_to_usd_per_token(usd_per_m: float, sig: int = 4) -> float:
     """Convert USD per million tokens → USD per token, rounded to ``sig`` sig figs.
@@ -1409,6 +1451,20 @@ class ModelSyncRules:
         "byteplus/dreamina-seedance-2-0",
         "byteplus/dreamina-seedance-2-0-fast",
         "byteplus/dreamina-seedance-2-0-mini",
+        # Seedream images (added 2026-11-11). Pro and Flash carry the "dola-"
+        # prefix on both the pricing page and the Model list; the rest do not.
+        # seedream-5-0-260128 is on the Model list but has no price, so it is
+        # left out rather than priced by analogy.
+        "byteplus/dola-seedream-5-0-pro-260628",
+        "byteplus/dola-seedream-5-0-pro",
+        "byteplus/dola-seedream-5-0-flash-260915",
+        "byteplus/dola-seedream-5-0-flash",
+        "byteplus/seedream-5-0-lite-260128",
+        "byteplus/seedream-5-0-lite",
+        "byteplus/seedream-4-5-251128",
+        "byteplus/seedream-4-5",
+        "byteplus/seedream-4-0-250828",
+        "byteplus/seedream-4-0",
     })
 
     # BytePlus Dreamina Seedance pre-stage. Upstream BerriAI/litellm/main
@@ -1561,6 +1617,19 @@ class ModelSyncRules:
             "output_cost_per_token": _usd_per_m_to_usd_per_token(3.50),
             "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(2.10),
         },
+        # ── Seedream images (per image, USD list price) ──────────────────
+        # Templates and source notes beside the Volcengine ones at the top
+        # of the module. Each dated ID and its alias share one object.
+        "byteplus/dola-seedream-5-0-pro-260628": _BYTEPLUS_SEEDREAM_PRO,
+        "byteplus/dola-seedream-5-0-pro": _BYTEPLUS_SEEDREAM_PRO,
+        "byteplus/dola-seedream-5-0-flash-260915": _BYTEPLUS_SEEDREAM_FLASH,
+        "byteplus/dola-seedream-5-0-flash": _BYTEPLUS_SEEDREAM_FLASH,
+        "byteplus/seedream-5-0-lite-260128": _BYTEPLUS_SEEDREAM_LITE,
+        "byteplus/seedream-5-0-lite": _BYTEPLUS_SEEDREAM_LITE,
+        "byteplus/seedream-4-5-251128": _BYTEPLUS_SEEDREAM_4_5,
+        "byteplus/seedream-4-5": _BYTEPLUS_SEEDREAM_4_5,
+        "byteplus/seedream-4-0-250828": _BYTEPLUS_SEEDREAM_4_0,
+        "byteplus/seedream-4-0": _BYTEPLUS_SEEDREAM_4_0,
     }
 
     # ── new-api (aggregator gateway) ──────────────────────────────────────
@@ -2362,7 +2431,7 @@ class ModelSyncRules:
             # any other byteplus/* key upstream may carry stays filtered out.
             "patterns": [],
             "custom_check": lambda key: key.lower() not in ModelSyncRules.BYTEPLUS_ALLOWED_KEYS,
-            "description": "Allow only whitelisted byteplus/dreamina-seedance-* keys (see BYTEPLUS_ALLOWED_KEYS)",
+            "description": "Allow only whitelisted byteplus/* Seedance and Seedream keys (see BYTEPLUS_ALLOWED_KEYS)",
         },
         "new-api": {
             # Reverse-whitelist: only NEWAPI_ALLOWED_KEYS pass through.
@@ -3194,11 +3263,21 @@ class ModelSyncRules:
         # docs.byteplus.com writes it, whereas Volcengine writes the
         # hyphenated "Doubao-Seedance". Per-vendor official naming, as of
         # v1.16.2; do not "normalise" the two to match each other.
-        if provider == "byteplus" or key.startswith("byteplus/"):
-            suffix = re.sub(
-                r"^byteplus/dreamina-seedance-", "", key, flags=re.IGNORECASE
-            )
-            suffix = re.sub(r"-\d{6}$", "", suffix)  # drop -YYMMDD
+        #
+        # BytePlus Seedream images follow the ID's own brand prefix, as
+        # docs.byteplus.com does ("Dola Seedream 5.0 Pro"):
+        #   byteplus/dola-seedream-5-0-pro-260628  → Dola Seedream 5.0 Pro
+        #   byteplus/seedream-4-5-251128           → Seedream 4.5
+        # A byteplus key matching neither family falls through to the generic
+        # formatter, the same guard as the Volcengine branch above.
+        bp = re.match(
+            r"^byteplus/(dreamina-seedance|dola-seedream|seedream)-(.+)$",
+            key,
+            flags=re.IGNORECASE,
+        )
+        if bp and (provider == "byteplus" or key.startswith("byteplus/")):
+            brand = " ".join(p.capitalize() for p in bp.group(1).split("-"))
+            suffix = re.sub(r"-\d{6}$", "", bp.group(2))  # drop -YYMMDD
             parts = suffix.split("-")
             version = f"{parts[0]}.{parts[1]}" if len(parts) >= 2 else suffix
             variant = (
@@ -3206,7 +3285,7 @@ class ModelSyncRules:
                 if len(parts) > 2
                 else ""
             )
-            return f"Dreamina Seedance {version} {variant}".rstrip()
+            return f"{brand} {version} {variant}".rstrip()
 
         # DashScope (Alibaba Model Studio):
         #   dashscope/qwen3.8-flash → Qwen3.8-Flash

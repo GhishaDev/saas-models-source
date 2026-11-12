@@ -147,6 +147,20 @@ def test_routed_gemini_models_match_their_targets_in_the_export(exported_models)
         assert prices(source) == prices(target), source
 
 
+def test_byteplus_names_follow_each_id_brand():
+    fmt = ModelSyncRules.format_model_name
+    assert fmt("byteplus/dreamina-seedance-2-0-fast-260128", "byteplus") == "Dreamina Seedance 2.0 Fast"
+    assert fmt("byteplus/dola-seedream-5-0-pro-260628", "byteplus") == "Dola Seedream 5.0 Pro"
+    assert fmt("byteplus/seedream-4-5", "byteplus") == "Seedream 4.5"
+
+
+def test_byteplus_seedream_aliases_share_their_dated_price(exported_models):
+    for key in ModelSyncRules.BYTEPLUS_ALLOWED_KEYS:
+        dated = re.match(r"^(byteplus/(?:dola-)?seedream-.+)-\d{6}$", key)
+        if dated:
+            assert exported_models[key]["raw_data"] == exported_models[dated.group(1)]["raw_data"], key
+
+
 def test_jev_names_follow_typesafe_docs():
     assert ModelSyncRules.format_model_name("typesafe/jev-1.13.0", "typesafe") == "Jev 1.13"
     assert ModelSyncRules.format_model_name("typesafe/jev-latest", "typesafe") == "Jev Latest"
