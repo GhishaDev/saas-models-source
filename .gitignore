@@ -4,3 +4,6 @@ diagnose_v1_models.sh
 upstream_pinned.json
 drift-report.md
 .pytest_cache/
+
+# Local-only agent notes (may name private projects)
+CLAUDE.local.md

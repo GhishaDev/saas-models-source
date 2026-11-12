@@ -7,7 +7,7 @@ filtered_models.json.
 Categories (per model, per field):
 
 * stale-true    — committed ``supports_*`` is true, regeneration is not.
-                  The dangerous one: the dashboard forwards true flags to
+                  The dangerous one: consumers forward true flags to
                   LiteLLM, and a flag the vendor does not honour becomes a 400.
 * missing-true  — regeneration is true, committed is not. The feature is
                   silently disabled downstream.
@@ -17,7 +17,7 @@ Categories (per model, per field):
 * price-added   — a price field the committed export does not have yet.
 * other-changed — any other difference, in raw_data or in the export's own
                   top-level fields (type, friendly_name, context limits...).
-                  The dashboard reads those too — `type` decides modelType —
+                  Consumers read those too — `type` decides the model type —
                   so a regeneration-consistency check must see them.
 
 "Price" means any field that changes what a request is billed: every *cost*

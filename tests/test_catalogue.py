@@ -197,7 +197,7 @@ def test_glm_asr_2512_bills_per_token_with_a_per_second_fallback(exported_models
 
 def test_glm_embeddings_share_one_price_on_zai_and_bigmodel(exported_models):
     # zai holds bigmodel.cn's tariff (0.5 CNY / M, Batch 0.25, at 7.0) and
-    # bigmodel mirrors it, so the two gateways bill the same.
+    # bigmodel mirrors it, so the two namespaces bill the same.
     for name, dims in (("embedding-3", 2048), ("embedding-2", 1024)):
         for key in ("zai/" + name, "bigmodel/" + name):
             entry = exported_models[key]

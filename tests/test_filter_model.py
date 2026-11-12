@@ -1,6 +1,6 @@
 """filter_model must hand capability flags to the export untouched.
 
-The dashboard reads supports_* from raw_data, so any coercion, dropping or
+Consumers read supports_* from raw_data, so any coercion, dropping or
 renaming there silently changes what gets forwarded to LiteLLM.
 """
 
