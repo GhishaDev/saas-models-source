@@ -13,9 +13,9 @@ import re
 from typing import Any, Callable
 
 
-# CNY→USD FX policy (fixed, not live): 1 USD = 7.0 CNY. Mirrors the
-# internal LiteLLM fork's VOLCENGINE_FX_POLICY.md. Change both sides
-# together if the policy rate is repegged. Applies to the one remaining
+# CNY→USD FX policy (fixed, not live): 1 USD = 7.0 CNY. Downstream billing
+# uses the same fixed rate; change both together if the policy rate is
+# repegged. Applies to the one remaining
 # CNY-quoted vendor tariff in this file: Volcengine Seedance.
 #
 # Only route a vendor through here when it publishes CNY *and no USD book*.
@@ -51,10 +51,9 @@ def _cny_per_image_to_usd_per_image(cny_per_image: float) -> float:
     (元/张) rather than per token, so they need their own converter.
 
     Unlike the per-token helpers this one does NOT round. These values are
-    compared field-by-field against the internal LiteLLM fork's own price
-    table (GhishaDev/litellm-internal), which stores the unrounded quotient,
-    and that table is the side that actually bills. A 4-sig-fig copy here
-    would differ from the gateway in the 5th digit and turn every future
+    compared field-by-field against the downstream billing price table,
+    which stores the unrounded quotient. A 4-sig-fig copy here would differ
+    from it in the 5th digit and turn every future
     reconciliation into a "is 0.08571 the same number as 0.085714…?"
     argument. Exact division makes the two tables byte-comparable.
     """
@@ -66,9 +65,8 @@ def _cny_per_image_to_usd_per_image(cny_per_image: float) -> float:
 # 4 distinct tariffs, and hand-copying them 11 times is exactly how an alias
 # and its dated twin drift apart.
 #
-# Key names mirror GhishaDev/litellm-internal, because the meaning of each key
-# is defined by the gateway code that reads it
-# (litellm/llms/volcengine/image_generation/cost_calculator.py).
+# Key names follow the per-image Seedream cost calculator that reads them
+# downstream; the meaning of each key is defined by that reader.
 _SEEDREAM_ENDPOINTS = ["/v1/images/generations", "/v1/images/edits"]
 _SEEDREAM_SOURCE = "https://www.volcengine.com/docs/82379/1544106?lang=zh"
 
@@ -79,8 +77,8 @@ _SEEDREAM_PRO: dict[str, Any] = {
     "supported_endpoints": _SEEDREAM_ENDPOINTS,
     # Marginal rate: the first reference image is free, ¥0.02 from the 2nd.
     "input_cost_per_image": _cny_per_image_to_usd_per_image(0.02),
-    # Fallback band, read only when no banded key matches. The gateway's own
-    # table puts the <=1.5K single-image price here; this must agree with it.
+    # Fallback band, read only when no banded key matches. The downstream
+    # price table puts the <=1.5K single-image price here; keep them equal.
     "output_cost_per_image": _cny_per_image_to_usd_per_image(0.30),
     "output_cost_per_image_1_5k_and_below": _cny_per_image_to_usd_per_image(0.30),
     "output_cost_per_image_above_1_5k": _cny_per_image_to_usd_per_image(0.60),
@@ -94,8 +92,8 @@ def _seedream_flat(cny_per_image: float) -> dict[str, Any]:
     """A single-price Seedream SKU: one output rate, no bands, no input fee.
 
     These SKUs do not bill reference images, so they carry NO
-    input_cost_per_image key at all — a 0.0 would be pushed to the gateway as
-    a deployment-level override of a field the gateway does not define.
+    input_cost_per_image key at all — a 0.0 would be forwarded downstream as
+    an override of a field the cost calculator does not define.
     """
     return {
         "litellm_provider": "volcengine",
@@ -115,10 +113,8 @@ _SEEDREAM_FLAT_020 = _seedream_flat(0.20)   # 4-0
 # BytePlus (overseas) Seedream. Independent USD-native SKUs, NOT the domestic
 # CNY prices converted: the list prices are BytePlus's own (pricing page
 # docs.byteplus.com/en/docs/ModelArk/1544106, 2026-11-11). Same key contract
-# as the Volcengine templates above, so a gateway BytePlus image calculator
-# can read them unchanged. NOTE: litellm-internal has no BytePlus image
-# handler yet (only byteplus/videos), so these entries cannot route or bill
-# until it does; they are added by decision (2026-11-11).
+# as the Volcengine templates above, so a BytePlus image cost calculator can
+# read them unchanged. Added by decision (2026-11-11).
 _BYTEPLUS_SEEDREAM_SOURCE = "https://docs.byteplus.com/en/docs/ModelArk/1544106"
 
 _BYTEPLUS_SEEDREAM_PRO: dict[str, Any] = {
@@ -450,7 +446,7 @@ class ModelSyncRules:
         # context, function calling). Their placeholder supports_vision=False
         # and supports_json_mode=False were dropped rather than allowlisted:
         # upstream leaves both undefined, and false/absent are equivalent to
-        # every reader (the dashboard forwards only true).
+        # every reader (downstream consumers act only on true).
         "zai/glm-5.3-flash": {
             # 1M context is one million, not 1024². docs.z.ai says "context
             # lengths of up to one million tokens"; upstream stores 1048576,
@@ -505,11 +501,11 @@ class ModelSyncRules:
         # 16 CNY / MTok ($2.29). "$0.03" is read as a dropped digit and $3.00
         # stored — an inference, by decision (2026-10-26); confirm with z.ai.
         # Storing $0.03 would under-bill ~99%.
-        #   • input_cost_per_token — billed when the gateway sees
+        #   • input_cost_per_token — billed when the response carries
         #     usage.prompt_tokens (sync: top-level usage; stream: the
         #     transcript.text.done event).
         #   • input_cost_per_second — z.ai's own $0.0024/minute, the
-        #     fallback when no usage reaches the gateway, so a request is
+        #     fallback when no usage is reported, so a request is
         #     never billed $0. It omits the ~62-token fixed part per request.
         # Audio input only: wav / mp3, ≤ 25 MB, ≤ 30 s per request.
         "zai/glm-asr-2512": {
@@ -526,7 +522,7 @@ class ModelSyncRules:
         # ⚠️ z.ai publishes neither an embeddings API nor a price: none on
         # docs.z.ai pricing, and docs.z.ai/llms.txt lists no Embeddings
         # endpoint (checked 2026-10-28). Added by decision (2026-10-28) at
-        # bigmodel.cn's tariff so the two gateways stay aligned: "0.5 元 /
+        # bigmodel.cn's tariff so the two namespaces stay aligned: "0.5 元 /
         # 百万 Tokens", Batch API 0.25, at 7.0 CNY/USD. Whether api.z.ai
         # serves these models is unverified — no z.ai key was available.
         #   embedding-3: 256-2048 dimensions (default 2048), ≤ 3072 tokens per
@@ -557,7 +553,7 @@ class ModelSyncRules:
     # ── Bigmodel (智谱开放平台 / bigmodel.cn) ──────────────────────────────
     # China-domestic counterpart to z.ai international. Same GLM models,
     # exposed under a distinct provider namespace so downstream consumers can
-    # pick the gateway they actually call.
+    # pick the endpoint they actually call.
     #
     # Pricing policy: bigmodel/* mirrors z.ai international (USD) verbatim.
     # bigmodel.cn's domestic RMB tariff is intentionally NOT reflected here.
@@ -812,7 +808,7 @@ class ModelSyncRules:
     # (openrouter/deepseek/deepseek-v4.1-flash,
     # fireworks_ai/.../deepseek-v4p1-flash).
     #
-    # It is carried as a PROJECT alias by request, for gateways that expose
+    # It is carried as a PROJECT alias by request, for proxies that expose
     # the version-style name to their own callers. A request sent straight
     # to api.deepseek.com under this name is expected to fail; route it to
     # deepseek-flash.
@@ -856,9 +852,9 @@ class ModelSyncRules:
     # context and the core capability flags of kimi-k3 / kimi-k2.7-code. Also
     # dropped: supports_system_messages / _native_streaming /
     # _parallel_function_calling. Upstream never set them, they are not in
-    # the catalogue's minimum flag set, and the LiteLLM fork reads them only
-    # in the OpenAI o-series / Azure / Vertex transformations — never for
-    # moonshot — so they were forwarded with no effect.
+    # the catalogue's minimum flag set, and LiteLLM reads them only in the
+    # OpenAI o-series / Azure / Vertex transformations — never for moonshot —
+    # so they were forwarded with no effect.
     #
     # K3-series cache WRITES are billed per TTL ("5m writes" / "1h writes"
     # columns, platform.kimi.ai/docs/pricing/chat). They are stored as
@@ -866,10 +862,10 @@ class ModelSyncRules:
     # LiteLLM's calculate_cache_writing_cost reads. Upstream carries neither.
     # Caveat: on Chat Completions Kimi reports writes in
     # usage.prompt_tokens_details.cache_write_tokens (docs/guide/
-    # context-caching), which the gateway does not parse yet, so writes are
-    # billed as ordinary input. That happens to be exact for 5m writes (the
-    # 5m price equals the input price on every K3 model) and half the price
-    # for 1h writes. The fields are right; the gateway is the gap.
+    # context-caching), which LiteLLM's usage parsing may not read, in which
+    # case writes are billed as ordinary input. That happens to be exact for
+    # 5m writes (the 5m price equals the input price on every K3 model) and
+    # half the price for 1h writes. The fields are right either way.
     MOONSHOT_SYNTH_DATA: dict[str, dict[str, Any]] = {
         "moonshot/kimi-k3": {
             "input_cost_per_token_cache_hit": 3e-07,
@@ -1224,10 +1220,9 @@ class ModelSyncRules:
         "volcengine/doubao-seedance-2-5",
         "volcengine/doubao-seedance-2-5-260628",
         # Seedream image models — the NON-video volcengine SKUs (scope was
-        # Seedance video only until 2026-09-17). All 11 keys the internal
-        # LiteLLM fork supports, so an operator sees every one of them in the
-        # Add Model dropdown with its price pre-filled instead of having to
-        # type a model id by hand.
+        # Seedance video only until 2026-09-17). Every dated ID and alias is
+        # listed, so a consumer can pick any of them with its price filled in
+        # instead of typing a model id by hand.
         "volcengine/doubao-seedream-5-0-pro",
         "volcengine/doubao-seedream-5-0-pro-260628",
         "volcengine/doubao-seedream-5-0-lite",
@@ -1251,13 +1246,10 @@ class ModelSyncRules:
     # these keys, the overlay merges on top with no shape change.
     #
     # Currency: USD/token. Volcengine officially bills per million
-    # OUTPUT tokens in CNY (tiered by resolution and v2v); our internal
-    # LiteLLM fork stores the USD/token equivalent at a fixed
-    # 1 USD = 7.0 CNY policy rate (see
-    # litellm/proxy/spend_tracking/VOLCENGINE_FX_POLICY.md in the fork
-    # repo). The values below mirror that policy so saas-models-source
-    # and the LiteLLM billing manager always agree on the per-token
-    # USD figure they show / charge.
+    # OUTPUT tokens in CNY (tiered by resolution and v2v); this catalogue
+    # stores the USD/token equivalent at a fixed 1 USD = 7.0 CNY policy rate
+    # (_CNY_USD_FX_RATE), so the figure shown and the figure charged
+    # downstream agree.
     VOLCENGINE_SYNTH_DATA: dict[str, dict[str, Any]] = {
         # Seedance 2.0 (standard) — all three resolution tiers active.
         # Price arg is the source CNY per million tokens; the helper
@@ -1369,24 +1361,22 @@ class ModelSyncRules:
         # from every other volcengine SKU here, hence
         # _cny_per_image_to_usd_per_image rather than the per-token helper.
         # Same 7.0 policy FX, but EXACT division with no rounding: these
-        # values are reconciled field-by-field against the internal LiteLLM
-        # fork's own table, which stores the unrounded quotient and is the
-        # side that actually bills.
+        # values are reconciled field-by-field against the downstream billing
+        # table, which stores the unrounded quotient.
         #
         # Source: the 图片生成模型 table on
-        # volcengine.com/docs/82379/1544106?lang=zh (read 2026-09-17), with
-        # key NAMES taken from GhishaDev/litellm-internal because the meaning
-        # of each key is defined by the gateway code that reads it
-        # (litellm/llms/volcengine/image_generation/cost_calculator.py).
+        # volcengine.com/docs/82379/1544106?lang=zh (read 2026-09-17). Key
+        # NAMES follow the downstream Seedream cost calculator, because the
+        # meaning of each key is defined by the code that reads it.
         #
         # ⚠️ output_cost_per_image IS THE FALLBACK, NOT THE HEADLINE PRICE.
-        # The gateway reads it only when no banded key matches. For the
-        # single-price SKUs (4-0, 4-5, 5-0, 5-0-lite) that makes it the one
-        # and only price; for 5-0-pro the gateway's own table puts the
-        # ≤1.5K band there. An earlier version of this file put the >1.5K
-        # band in it under a locally-invented name — the gateway saw one
-        # unrecognised flat override plus three keys it had never heard of,
-        # took the branch that discards its own band table, and billed
+        # The cost calculator reads it only when no banded key matches. For
+        # the single-price SKUs (4-0, 4-5, 5-0, 5-0-lite) that makes it the
+        # one and only price; for 5-0-pro the ≤1.5K band goes there. An
+        # earlier version of this file put the >1.5K band in it under a
+        # locally-invented name — the calculator saw one unrecognised flat
+        # override plus three keys it had never heard of, took the branch
+        # that discards its band table, and billed
         # 1024x1024 at 2x and ≤1.5K layer decomposition at 4x. Key names here
         # are not cosmetic; they are the contract.
         #
@@ -1395,23 +1385,20 @@ class ModelSyncRules:
         # from the 2nd. The schema has no volume axis, so a single-image
         # request is over-billed by ¥0.02 (~$0.003). The other SKUs do not
         # bill reference images at all and deliberately carry NO
-        # input_cost_per_image key — a 0.0 would be pushed to the gateway as
-        # a deployment-level override of a field it does not define.
+        # input_cost_per_image key — a 0.0 would be forwarded downstream as
+        # an override of a field the calculator does not define.
         #
-        # ⚠️ doubao-seedream-5-0 is priced identically to 5-0-lite. That is
-        # the gateway's definition, not an oversight: 5-0 is an alias of the
-        # lite family, and a request to -lite-260128 echoes back 5-0-260128.
+        # ⚠️ doubao-seedream-5-0 is priced identically to 5-0-lite: the
+        # Volcengine model list shows "doubao-seedream-5-0-260128（同时支持：
+        # doubao-seedream-5-0-lite-260128）", one model under two IDs.
         #
         # CNY source values: 5-0-pro 0.60 / 0.30 / 0.30 / 0.15 output and
         # 0.02 input; 5-0 + 5-0-lite 0.22; 4-5 0.25; 4-0 0.20.
         "volcengine/doubao-seedream-5-0-pro-260628": _SEEDREAM_PRO,
         "volcengine/doubao-seedream-5-0-pro": _SEEDREAM_PRO,
         # Seedream 5.0 Flash (2026-09): the cheapest 5.0 tier, ¥0.12 per output
-        # image, reference images free. NOT yet in GhishaDev/litellm-internal's
-        # price table (checked 2026-10-08), so the gateway has no static price
-        # for it: the catalogue's output_cost_per_image is what bills it, via the
-        # dashboard's deployment-level push. That is the same bare key the
-        # gateway reads for every single-price Seedream SKU, so no new contract.
+        # image, reference images free. Same bare output_cost_per_image key as
+        # every single-price Seedream SKU, so no new contract.
         "volcengine/doubao-seedream-5-0-flash-260915": _SEEDREAM_FLAT_012,
         "volcengine/doubao-seedream-5-0-flash": _SEEDREAM_FLAT_012,
         "volcengine/doubao-seedream-5-0-lite-260128": _SEEDREAM_FLAT_022,
@@ -1809,6 +1796,28 @@ class ModelSyncRules:
         "gemini/gemini-2.5-flash-image": {
             "supports_prompt_caching": False,  # "Caching: Not supported"
             "supports_pdf_input": False,  # "Inputs: Image and Text"
+            # Pricing page (2026-11-12): Batch "$0.0195 per image", Priority
+            # "$0.0702 per image", at 1290 tokens per image: $15 and $54 per M
+            # image tokens (upstream main's values). Flex is also $0.0195 but
+            # has no upstream image-token field, so it bills at Standard.
+            "output_cost_per_image_token_batches": 1.5e-05,
+            "output_cost_per_image_token_priority": 5.4e-05,
+        },
+        # Batch "Context caching price $0.015" (2026-11-12); Flex stays $0.02.
+        "gemini/gemini-3.5-flash-lite": {
+            "cache_read_input_token_cost_batches": 1.5e-08,
+        },
+        # Flex prompts over 200K (pricing page, 2026-11-12). Upstream main
+        # carries these; the pinned snapshot has Batch and Priority only.
+        "gemini/gemini-2.5-pro": {
+            "input_cost_per_token_above_200k_tokens_flex": 1.25e-06,
+            "output_cost_per_token_above_200k_tokens_flex": 7.5e-06,
+            "cache_read_input_token_cost_above_200k_tokens_flex": 2.5e-07,
+        },
+        "gemini/gemini-3.1-pro-preview": {
+            "input_cost_per_token_above_200k_tokens_flex": 2e-06,
+            "output_cost_per_token_above_200k_tokens_flex": 9e-06,
+            "cache_read_input_token_cost_above_200k_tokens_flex": 4e-07,
         },
         # The model page documents "Thinking: Supported (minimal and high)";
         # upstream leaves the minimal flag undefined, so LiteLLM would reject
@@ -1968,7 +1977,10 @@ class ModelSyncRules:
         # and the pricing page's Cyber table: $20 in / $2 cached / $100 out,
         # cache writes $25 (30-minute) / $50 (12-hour). The long-context
         # columns are "-" and there is no Batch / Flex / Fast row, so none is
-        # stored. Needs "Daybreak Red access and approval", like
+        # stored. Long context added 2026-11-12, when the pricing page began
+        # listing it (Cyber table, Long view): $40 in / $150 out / $4 cached
+        # above 272K; the long-context write columns are still "-".
+        # Needs "Daybreak Red access and approval", like
         # gpt-5.6-cyber. OPENAI_SYNTH_DATA overlays the 1,050,000 context
         # window; the model page gives "Maximum input is 922,000".
         "gpt-6-cyber": {
@@ -1981,6 +1993,9 @@ class ModelSyncRules:
             "max_output_tokens": 128000,
             "mode": "chat",
             "output_cost_per_token": 0.0001,
+            "input_cost_per_token_above_272k_tokens": 4e-05,
+            "output_cost_per_token_above_272k_tokens": 0.00015,
+            "cache_read_input_token_cost_above_272k_tokens": 4e-06,
             "source": "https://developers.openai.com/api/docs/models/gpt-6-cyber",
             "supported_endpoints": ["/v1/chat/completions", "/v1/responses"],
             "supported_modalities": ["text", "image"],
@@ -2019,6 +2034,61 @@ class ModelSyncRules:
             "source": "https://developers.openai.com/api/docs/pricing",
             "supported_endpoints": ["/v1/images/generations", "/v1/images/edits"],
             "supports_vision": True,
+        },
+        # gemini-4-carbon — GA 2026-11-10, copied from upstream main
+        # (52d1c4c, 2026-11-12) and checked against aistudio.google.com/docs/
+        # pricing: $2.00 in / $10.00 out / $0.10 cache "through November 30,
+        # 2026", every tier doubling on 2026-12-01 (Batch / Flex $1 / $5,
+        # Priority $3.60 / $18). Same tariff and date as gemini-4-argon, and
+        # the same rule: store today's rate, never pre-load the future one.
+        # Implicit caching only; no Free tier.
+        "gemini/gemini-4-carbon": {
+            "cache_read_input_token_cost": 1e-07,
+            "cache_read_input_token_cost_batches": 5e-08,
+            "cache_read_input_token_cost_flex": 5e-08,
+            "cache_read_input_token_cost_priority": 1.8e-07,
+            "google_maps_grounding_cost_per_query": 0.014,
+            "input_cost_per_token": 2e-06,
+            "input_cost_per_token_batches": 1e-06,
+            "input_cost_per_token_flex": 1e-06,
+            "input_cost_per_token_priority": 3.6e-06,
+            "litellm_provider": 'gemini',
+            "max_input_tokens": 1048576,
+            "max_output_tokens": 1048576,
+            "mode": 'chat',
+            "output_cost_per_reasoning_token": 1e-05,
+            "output_cost_per_token": 1e-05,
+            "output_cost_per_token_batches": 5e-06,
+            "output_cost_per_token_flex": 5e-06,
+            "output_cost_per_token_priority": 1.8e-05,
+            "prompt_cache_min_tokens": 4096.0,
+            "rpm": 2000.0,
+            "search_context_cost_per_query": {"search_context_size_low": 0.014, "search_context_size_medium": 0.014, "search_context_size_high": 0.014},
+            "search_free_requests": {"count": 5000, "period": "month", "shared_group": "gemini-3"},
+            "source": 'https://aistudio.google.com/docs/pricing#gemini-4-carbon',
+            "supported_endpoints": ["/v1/chat/completions", "/v1/completions"],
+            "supported_modalities": ["text", "image", "audio", "video"],
+            "supported_output_modalities": ["text"],
+            "supports_audio_input": True,
+            "supports_audio_output": False,
+            "supports_computer_use": True,
+            "supports_continuation": True,
+            "supports_function_calling": True,
+            "supports_minimal_reasoning_effort": False,
+            "supports_native_streaming": True,
+            "supports_parallel_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_system_messages": True,
+            "supports_tool_choice": True,
+            "supports_url_context": True,
+            "supports_video_input": True,
+            "supports_vision": True,
+            "supports_web_search": True,
+            "tpm": 800000.0,
+            "web_search_billing_unit": 'per_query',
         },
         "gemini/gemini-4-argon": {
             "cache_read_input_token_cost": 1e-07,
@@ -2155,10 +2225,10 @@ class ModelSyncRules:
     #     separate, higher cached-IMAGE rate that cache_read_input_token_cost
     #     cannot hold). Upstream has since adopted the same key with the same
     #     values, so it now flows from there — and is far more likely to be
-    #     read by the gateway's billing code than a local-only field was.
+    #     read by billing code than a local-only field was.
     #   • supports_service_tier on gpt-5 / 5-mini / 5.1 / 5.2 / 5.4 /
-    #     5.4-mini / 5.4-nano / 5.5. Upstream never set it, no code in the
-    #     LiteLLM fork reads it (schema-only), and it was never
+    #     5.4-mini / 5.4-nano / 5.5. Upstream never set it, no LiteLLM code
+    #     reads it (schema-only), and it was never
     #     vendor-verified per model — a forwarded flag with no effect and no
     #     source. Removed rather than allowlisted.
     OPENAI_SYNTH_DATA: dict[str, dict[str, Any]] = {
@@ -2198,7 +2268,14 @@ class ModelSyncRules:
         "gpt-6-cyber": {"max_input_tokens": 1050000},  # pre-staged in PRESTAGED
         "gpt-6-sol": {"max_input_tokens": 1050000},
         "gpt-6-luna": {"max_input_tokens": 1050000},
-        "gpt-5.6": {"max_input_tokens": 1050000},
+        # gpt-5.6 carries gpt-5.6-sol's tariff field for field, but upstream
+        # lacks the two Batch 12-hour cache-write fields sol has (2.5x the
+        # Batch input, $5 / $10 above 272K).
+        "gpt-5.6": {
+            "max_input_tokens": 1050000,
+            "cache_creation_input_token_cost_above_12hr_batches": 5e-06,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens_batches": 1e-05,
+        },
         "gpt-5.6-sol": {"max_input_tokens": 1050000},
         "gpt-5.6-terra": {"max_input_tokens": 1050000},
         "gpt-5.6-luna": {"max_input_tokens": 1050000},
@@ -2315,8 +2392,8 @@ class ModelSyncRules:
         # exported as type "language" while upstream still called them "chat".
         "realtime": "language",
         # A new type, by decision (2026-10-13): decision models are not
-        # language models to the user, so they get their own type. The
-        # dashboard must accept "decision" before this export reaches it.
+        # language models to the user, so they get their own type. Consumers
+        # must accept "decision" before this export reaches them.
         "evaluation": "decision",
     }
 
@@ -2923,9 +3000,8 @@ class ModelSyncRules:
         # output_cost_per_token family, tiered by resolution (base 720p
         # / 1080p / 4K) and v2v marker. Any one non-zero tier is
         # sufficient to consider the SKU priced. CNY-source values are
-        # converted at the policy FX rate inside the LiteLLM fork (see
-        # the fork's VOLCENGINE_FX_POLICY.md); saas-models-source
-        # consumes USD directly.
+        # converted at the policy FX rate (_CNY_USD_FX_RATE) before they
+        # get here.
         "video_generation": (
             "output_cost_per_token",
             "output_cost_per_token_with_input_video",
@@ -3953,17 +4029,15 @@ class ModelSyncRules:
     # supports_* flag on the target with the source's, so a model the vendor
     # says is "the same model" cannot drift from it. Targets must not carry
     # supports_* of their own (tests/test_policy.py enforces it).
-    # Routes our gateway (litellm-internal) serves for a model beyond the ones
-    # upstream lists, merged into supported_endpoints by
+    # Routes a proxy may serve for a model beyond the ones upstream lists,
+    # merged into supported_endpoints by
     # apply_gateway_endpoints. Merged, not replaced, so an endpoint upstream
     # adds later still comes through.
     #
-    # The gateway's /v1/decisions and /v1/systemone are one handler: the body
-    # picks the format ("input" = OpenAI, "state" = System One) and an
-    # intermediate representation translates it for whichever provider the
-    # model belongs to. So each decision model is reachable on both routes,
-    # whatever its vendor natively hosts (OpenAI: /v1/decisions; TypeSafe:
-    # /v1/systemone).
+    # /v1/decisions and /v1/systemone are two request formats for the same
+    # kind of call ("input" = OpenAI, "state" = System One), so each decision
+    # model is listed on both routes, whatever its vendor natively hosts
+    # (OpenAI: /v1/decisions; TypeSafe: /v1/systemone).
     _DECISION_ENDPOINTS = ("/v1/decisions", "/v1/systemone")
     GATEWAY_ENDPOINTS: dict[str, tuple[str, ...]] = dict.fromkeys(
         ["gpt-6-luna", *sorted(TYPESAFE_ALLOWED_KEYS)], _DECISION_ENDPOINTS
