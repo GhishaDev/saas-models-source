@@ -17,7 +17,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 
 - **OpenAI**: GPT-6 series (Astra, Astra for Law, 6.1 Sol, 6.1 Terra, Sol, Luna, Cyber — `gpt-6-cyber` needs Daybreak Red access), GPT-Rosalind (`gpt-6-rosalind`, `gpt-rosalind-discovery`, `gpt-rosalind-research` — life sciences, trusted-access only), GPT-5 series (the `*-chat-latest` variants are **all shut down** and excluded), `o3` (`o3-mini` / `o4-mini` shut down 2026-10-23 and excluded), text-embedding models, `gpt-image-*` series (`gpt-image-2.6-sunburst`, `gpt-image-2.6-flare`, `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1-mini`; `gpt-image-1` shut down 2026-10-23 and excluded), plus a curated audio / realtime allow-list covering the current generation (`gpt-live-1`, `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-translate`, `gpt-live-transcribe`, `gpt-realtime-whisper`, `gpt-transcribe`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) and the still-live older SKUs (`gpt-4o`, `gpt-4o-mini`, `gpt-realtime`, `gpt-4o-realtime-preview-2024-12-17`, `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`, `whisper-1`)
 - **Anthropic**: Claude 4.5+ series (Haiku, Sonnet, Opus), the Claude 5 flagships (Opus 5.5, Opus 5, Sonnet 5.5, Sonnet 5, Haiku 5.5) and the Fable / Mythos 5.1 pair, including dated snapshots
-- **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash** and **Gemini 4 Argon**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`, **Nano Banana 2.1** = `gemini-nano-banana-2.1`
+- **Google**: Gemini 2.5+ series (Flash, Flash-Lite, Pro) through **Gemini 3.8 Flash**, **Gemini 4 Argon**, **Gemini 4 Carbon** and **Gemini 4 Hydrogen**, Gemini Embedding 2, and the `gemini-*-image*` series. Models Google has **shut down** are excluded by exact key — the pipeline reads no lifecycle signal, so [the deprecations page](https://ai.google.dev/gemini-api/docs/deprecations) must be checked by hand on every sweep — including the Nano Banana line: **Nano Banana 2** = `gemini-3.1-flash-image`, **Nano Banana 2 Lite** = `gemini-3.1-flash-lite-image`, **Nano Banana Pro** = `gemini-3-pro-image`, **Nano Banana 2.1** = `gemini-nano-banana-2.1`
 - **Z.AI (GLM, international)**: Whitelist-curated `zai/glm-*` SKUs with z.ai-authoritative data overlay (GLM-4.5/4.6/4.7/5/5.1/5.2/5.3 family, including the natively-multimodal GLM-5.3-Flash, GLM-5.3-FlashX and its legal-domain variant GLM-5.3-FlashX-Legal, + vision/OCR variants), priced in USD. Also **GLM-ASR-2512** (`zai/glm-asr-2512`, speech recognition, $3.00 / M input tokens, output free) and the text embeddings **Embedding-3** / **Embedding-2** (`zai/embedding-*`, $7.14e-08 / M-token rate from bigmodel.cn's ¥0.5; z.ai itself publishes no embedding API or price)
 - **Bigmodel (智谱开放平台, GLM domestic gateway)**: Whitelist-curated `bigmodel/glm-*` SKUs that mirror sibling `zai/*` USD pricing 1:1 (16 SKUs: GLM-5.3-FlashX, GLM-5.3-FlashX-Legal, GLM-5.3-Flash, GLM-5.3, GLM-5.2, GLM-5.1, GLM-5, GLM-5-Turbo, GLM-5V-Turbo, GLM-4.7, GLM-4.7-FlashX, GLM-4.6V, GLM-4.6V-FlashX, GLM-4.5-Air, GLM-4.5V, GLM-OCR), plus **GLM-ASR-2512** (`bigmodel/glm-asr-2512`, speech recognition), whose price is mirrored from `zai/` the same way, and the text embeddings **Embedding-3** and **Embedding-2** (`bigmodel/embedding-*`), mirrored from `zai/embedding-*` too
 - **DeepSeek**: Whitelist-curated active SKUs from `api-docs.deepseek.com/quick_start/pricing` — the two models the page lists, plus one legacy alias: `deepseek-flash` (DeepSeek-V4.1-Flash, model version V4.1-Flash-1017 as of 2026-11-12, **$0.30 / $1.20**, cache $0.006, vision), `deepseek-v4-flash` and `deepseek-v4.1-flash` (**aliases** of the same model, identical price) and `deepseek-v4-pro` (**$1.32 / $3.96**, cache $0.044, no vision). All 1M context / 393,216 max output. The official tariff is **USD-native** and split into peak / off-peak windows: the flat fields carry the **peak** rate, and `off_peak_pricing` (from upstream since v1.16.44) carries the half-price rates with their UTC windows
@@ -90,12 +90,13 @@ OpenAI is explicit: its tables say **"Shutdown date"** and the page defines it a
 | Date | Models we still carry | Replacement |
 |---|---|---|
 | **2026-11-30** | `claude-sonnet-4-5` + dated snapshot — Anthropic: Deprecated 2026-09-30 | `claude-sonnet-5-5` |
-| **2026-12-01** | `gpt-image-1.5`, `gpt-image-1-mini` | `gpt-image-2` |
-| **2026-12-11** | `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `o3` | `gpt-5.6-sol` / `gpt-5.6-terra` / `gpt-5.6-luna` / `gpt-5.6-sol` |
+| **2026-12-01** | `gpt-image-1.5`, `gpt-image-1-mini` | `gpt-image-2.6-sunburst` / `gpt-image-2.6-flare` (per OpenAI) |
+| **2026-12-11** | `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `o3` | `gpt-6.1-sol` / `gpt-6.1-terra` / `gpt-6-luna` / `gpt-6.1-sol` (per OpenAI) |
 | **End of Dec 2026** (no exact date) | Kimi K2 series: `moonshot/kimi-k2.7-code`, `kimi-k2.7-code-highspeed`, `kimi-k2.6`. Kimi: *"starting October 31, 2026, K2 series models will no longer be available to newly registered users … We plan to retire all K2 series models by the end of December 2026"*. New Kimi accounts we register after 10-31 cannot call them | `kimi-k3.1-pro` (Kimi's migration link) |
 | **2027-01-06** | `tts-1`, `tts-1-hd`, `gpt-4o-mini-tts` | `gpt-realtime-2.1-mini` (per OpenAI) |
 | **2027-01-14** | `gpt-4.1`, `gpt-4.1-mini`, `gpt-4o`, `gpt-4o-mini` | `gpt-6-luna` |
 | **2027-01-20** | `gpt-realtime` | `gpt-realtime-2.1` |
+| **2027-02-10** | `gpt-image-2` (notice 2026-11-10) | `gpt-image-2.6-sunburst` / `gpt-image-2.6-flare` |
 | **2027-02-26** | `whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe` | `gpt-transcribe` / `gpt-live-transcribe` |
 | **2027-04-01** | `gpt-5.1`, `gpt-5.3-codex`, `gpt-5.4-nano` | `gpt-6-sol` / `gpt-6-sol` / `gpt-6-luna` |
 
@@ -725,6 +726,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.64 (2026-11-13)
+**Gemini 4 Hydrogen, and the 2026-11-13 OpenAI audit.** Exported total **214 → 215**. The pin stays at `fcef9cd`.
+
+- ➕ **`gemini/gemini-4-hydrogen`** (on the Gemini models page and pricing page). Pre-staged from upstream main `32cb45a`: $1.50 in / $7.50 out / $0.075 cached; Batch and Flex $0.75 / $3.75 / $0.0375; Priority $2.70 / $13.50 / $0.135. The pricing page gives no end date for this rate. Implicit caching only.
+- ⏸️ **Not added:** `gemini/gemini-omni-1.2-flash`, the successor of the already-deferred `gemini-omni-1.1-flash` (which routes to it from 2026-12-03). Upstream now carries its $12 / M video output tier, but still as mode `chat`, so it is excluded by exact key until the video mode is decided.
+- 🔎 **OpenAI audit:** every OpenAI price matched the live pricing page (Standard, Batch, Flex, Fast and Ultrafast tiers, image, realtime, audio, transcription and specialized tables). No OpenAI model is past its shutdown date. The calendar now lists the `gpt-image-2` shutdown (2027-02-10) and the replacements OpenAI currently recommends.
 
 ### v1.16.63 (2026-11-12)
 **Price fixes from the 2026-11-12 re-audit, Gemini 4 Carbon, and a public-repo cleanup.** Exported total **213 → 214**. The pin stays at `fcef9cd`.

@@ -2090,6 +2090,60 @@ class ModelSyncRules:
             "tpm": 800000.0,
             "web_search_billing_unit": 'per_query',
         },
+        # gemini-4-hydrogen — copied from upstream main (32cb45a, 2026-11-13)
+        # and checked against ai.google.dev/gemini-api/docs/pricing on
+        # 2026-11-13: $1.50 in / $7.50 out (incl. thinking) / $0.075 cache;
+        # Batch and Flex $0.75 / $3.75 / $0.0375; Priority $2.70 / $13.50 /
+        # $0.135. Unlike Argon and Carbon the page states no end date for
+        # this rate. Implicit caching only. Same record shape as Carbon.
+        "gemini/gemini-4-hydrogen": {
+            "cache_read_input_token_cost": 7.5e-08,
+            "cache_read_input_token_cost_batches": 3.75e-08,
+            "cache_read_input_token_cost_flex": 3.75e-08,
+            "cache_read_input_token_cost_priority": 1.35e-07,
+            "google_maps_grounding_cost_per_query": 0.014,
+            "input_cost_per_token": 1.5e-06,
+            "input_cost_per_token_batches": 7.5e-07,
+            "input_cost_per_token_flex": 7.5e-07,
+            "input_cost_per_token_priority": 2.7e-06,
+            "litellm_provider": 'gemini',
+            "max_input_tokens": 1048576,
+            "max_output_tokens": 1048576,
+            "mode": 'chat',
+            "output_cost_per_reasoning_token": 7.5e-06,
+            "output_cost_per_token": 7.5e-06,
+            "output_cost_per_token_batches": 3.75e-06,
+            "output_cost_per_token_flex": 3.75e-06,
+            "output_cost_per_token_priority": 1.35e-05,
+            "prompt_cache_min_tokens": 4096.0,
+            "rpm": 2000.0,
+            "search_context_cost_per_query": {"search_context_size_low": 0.014, "search_context_size_medium": 0.014, "search_context_size_high": 0.014},
+            "search_free_requests": {"count": 5000, "period": "month", "shared_group": "gemini-3"},
+            "source": 'https://aistudio.google.com/docs/pricing#gemini-4-hydrogen',
+            "supported_endpoints": ["/v1/chat/completions", "/v1/completions"],
+            "supported_modalities": ["text", "image", "audio", "video"],
+            "supported_output_modalities": ["text"],
+            "supports_audio_input": True,
+            "supports_audio_output": False,
+            "supports_computer_use": True,
+            "supports_continuation": True,
+            "supports_function_calling": True,
+            "supports_minimal_reasoning_effort": False,
+            "supports_native_streaming": True,
+            "supports_parallel_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_system_messages": True,
+            "supports_tool_choice": True,
+            "supports_url_context": True,
+            "supports_video_input": True,
+            "supports_vision": True,
+            "supports_web_search": True,
+            "tpm": 800000.0,
+            "web_search_billing_unit": 'per_query',
+        },
         "gemini/gemini-4-argon": {
             "cache_read_input_token_cost": 1e-07,
             "cache_read_input_token_cost_batches": 5e-08,
@@ -2725,6 +2779,12 @@ class ModelSyncRules:
         # importing it as chat would under-bill video output by roughly half.
         # Admit it once the mode and the video output tier are modelled.
         "gemini/gemini-omni-1.1-flash",
+        # Deferred for the same reason: gemini-omni-1.2-flash (GA, the 1.1
+        # successor; 1.1 routes to it from 2026-12-03). Upstream main now
+        # carries the video output tier ($12.00 per M video tokens, matching
+        # the pricing page) but still as mode "chat" on /v1beta/interactions.
+        # Listed so it cannot enter on the next pin bump without a decision.
+        "gemini/gemini-omni-1.2-flash",
     ]
 
     # Date patterns for validation
