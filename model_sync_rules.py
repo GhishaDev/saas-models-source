@@ -105,6 +105,26 @@ def _seedream_flat(cny_per_image: float) -> dict[str, Any]:
     }
 
 
+# Seedream 5.5 (pricing page updated 2026-11-12): EVERY reference image is
+# billed (¥0.05, no free first image, so input_cost_per_image is exact here,
+# not a marginal rate) and the output has two pixel bands, ≤2.61M px (1.5K)
+# ¥0.13 and 2.61M-4.63M px ¥0.23. The page gives one price per band for both
+# single-image and layer-decomposition requests, so the layer keys repeat the
+# single-image bands instead of being left to the calculator's fallback.
+_SEEDREAM_5_5: dict[str, Any] = {
+    "litellm_provider": "volcengine",
+    "mode": "image_generation",
+    "source": _SEEDREAM_SOURCE,
+    "supported_endpoints": _SEEDREAM_ENDPOINTS,
+    "input_cost_per_image": _cny_per_image_to_usd_per_image(0.05),
+    "output_cost_per_image": _cny_per_image_to_usd_per_image(0.13),  # fallback = <=1.5K band
+    "output_cost_per_image_1_5k_and_below": _cny_per_image_to_usd_per_image(0.13),
+    "output_cost_per_image_above_1_5k": _cny_per_image_to_usd_per_image(0.23),
+    "output_cost_per_image_layer_decomposition_1_5k_and_below": _cny_per_image_to_usd_per_image(0.13),
+    "output_cost_per_image_layer_decomposition_above_1_5k": _cny_per_image_to_usd_per_image(0.23),
+    "supports_vision": True,
+}
+
 _SEEDREAM_FLAT_012 = _seedream_flat(0.12)   # 5-0-flash
 _SEEDREAM_FLAT_022 = _seedream_flat(0.22)   # 5-0 and 5-0-lite
 _SEEDREAM_FLAT_025 = _seedream_flat(0.25)   # 4-5
@@ -129,6 +149,25 @@ _BYTEPLUS_SEEDREAM_PRO: dict[str, Any] = {
     "output_cost_per_image_above_1_5k": 0.09,
     "output_cost_per_image_layer_decomposition_1_5k_and_below": 0.0225,
     "output_cost_per_image_layer_decomposition_above_1_5k": 0.045,
+    "supports_vision": True,
+}
+
+
+# dola-seedream-5-5-261028 (pricing page, read 2026-11-13): input image
+# $0.008 each (every image), output 921,600 <= P <= 2,601,123.84 px $0.020 and
+# up to 4,624,220.16 px $0.035 — the same two bands as Volcengine's ¥0.13 /
+# ¥0.23, one price for single-image and layer decomposition alike.
+_BYTEPLUS_SEEDREAM_5_5: dict[str, Any] = {
+    "litellm_provider": "byteplus",
+    "mode": "image_generation",
+    "source": _BYTEPLUS_SEEDREAM_SOURCE,
+    "supported_endpoints": _SEEDREAM_ENDPOINTS,
+    "input_cost_per_image": 0.008,
+    "output_cost_per_image": 0.02,  # fallback = the <=1.5K band
+    "output_cost_per_image_1_5k_and_below": 0.02,
+    "output_cost_per_image_above_1_5k": 0.035,
+    "output_cost_per_image_layer_decomposition_1_5k_and_below": 0.02,
+    "output_cost_per_image_layer_decomposition_above_1_5k": 0.035,
     "supports_vision": True,
 }
 
@@ -1223,6 +1262,9 @@ class ModelSyncRules:
         # Seedance video only until 2026-09-17). Every dated ID and alias is
         # listed, so a consumer can pick any of them with its price filled in
         # instead of typing a model id by hand.
+        # Seedream 5.5 (2026-11-13): only the alias the pricing page names;
+        # the dated ID is not on a readable official page yet.
+        "volcengine/doubao-seedream-5-5",
         "volcengine/doubao-seedream-5-0-pro",
         "volcengine/doubao-seedream-5-0-pro-260628",
         "volcengine/doubao-seedream-5-0-lite",
@@ -1394,6 +1436,8 @@ class ModelSyncRules:
         #
         # CNY source values: 5-0-pro 0.60 / 0.30 / 0.30 / 0.15 output and
         # 0.02 input; 5-0 + 5-0-lite 0.22; 4-5 0.25; 4-0 0.20.
+        # Seedream 5.5: template and source note at the top of the module.
+        "volcengine/doubao-seedream-5-5": _SEEDREAM_5_5,
         "volcengine/doubao-seedream-5-0-pro-260628": _SEEDREAM_PRO,
         "volcengine/doubao-seedream-5-0-pro": _SEEDREAM_PRO,
         # Seedream 5.0 Flash (2026-09): the cheapest 5.0 tier, ¥0.12 per output
@@ -1442,6 +1486,8 @@ class ModelSyncRules:
         # prefix on both the pricing page and the Model list; the rest do not.
         # seedream-5-0-260128 is on the Model list but has no price, so it is
         # left out rather than priced by analogy.
+        "byteplus/dola-seedream-5-5-261028",
+        "byteplus/dola-seedream-5-5",
         "byteplus/dola-seedream-5-0-pro-260628",
         "byteplus/dola-seedream-5-0-pro",
         "byteplus/dola-seedream-5-0-flash-260915",
@@ -1607,6 +1653,8 @@ class ModelSyncRules:
         # ── Seedream images (per image, USD list price) ──────────────────
         # Templates and source notes beside the Volcengine ones at the top
         # of the module. Each dated ID and its alias share one object.
+        "byteplus/dola-seedream-5-5-261028": _BYTEPLUS_SEEDREAM_5_5,
+        "byteplus/dola-seedream-5-5": _BYTEPLUS_SEEDREAM_5_5,
         "byteplus/dola-seedream-5-0-pro-260628": _BYTEPLUS_SEEDREAM_PRO,
         "byteplus/dola-seedream-5-0-pro": _BYTEPLUS_SEEDREAM_PRO,
         "byteplus/dola-seedream-5-0-flash-260915": _BYTEPLUS_SEEDREAM_FLASH,
