@@ -62,7 +62,7 @@ def test_fail_on_selects_only_named_non_empty_categories():
 
 def test_top_level_and_non_price_edits_are_other_changed():
     # A regeneration-consistency check that only saw prices and supports_*
-    # let `type` — which decides the dashboard's modelType — change silently.
+    # let `type` — which decides the consumer-side model type — change silently.
     committed = {"m": {"type": "video", "friendly_name": "X", "raw_data": {"max_input_tokens": 1}}}
     regenerated = {"m": {"type": "language", "friendly_name": "X", "raw_data": {"max_input_tokens": 272000}}}
     report = classify(committed, regenerated)
