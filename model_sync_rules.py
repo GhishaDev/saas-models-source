@@ -2819,6 +2819,12 @@ class ModelSyncRules:
     # Provider-level exclusions must still be narrowed at their own site.
     INCLUDE_PATTERNS: list[re.Pattern] = [
         re.compile(r"^gpt-.*-chat-latest$", re.IGNORECASE),  # Allow gpt-*-chat-latest despite -latest rule
+        # The current ChatGPT model is published as plain `chat-latest` (no
+        # gpt- prefix), so the pattern above misses it. It is listed in the
+        # Specialized table of developers.openai.com/api/docs/pricing
+        # (checked 2026-11-13: $5.00 in / $30.00 out / $0.50 cached) and is
+        # not on the deprecations page. Exact match only.
+        re.compile(r"^chat-latest$"),
         re.compile(r"^gemini/gemini-[3-9].*-preview$", re.IGNORECASE),  # Allow Gemini 3.x+ preview models
         # TypeSafe's jev-latest / jev-preview are documented aliases, not
         # stale snapshots; TYPESAFE_ALLOWED_KEYS alone decides scope.
