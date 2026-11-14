@@ -6236,7 +6236,7 @@
       "cache_read_input_token_cost": null,
       "max_input_tokens": 65536,
       "max_output_tokens": null,
-      "supports_vision": false,
+      "supports_vision": true,
       "supports_function_calling": false,
       "supports_json_output": false,
       "raw_data": {
@@ -6246,6 +6246,7 @@
         "mode": "evaluation",
         "output_cost_per_token": 0.0,
         "source": "https://docs.typesafe.ai/models",
+        "supports_vision": true,
         "supported_endpoints": [
           "/v1/decisions",
           "/v1/systemone"
@@ -6263,7 +6264,7 @@
       "cache_read_input_token_cost": null,
       "max_input_tokens": 65536,
       "max_output_tokens": null,
-      "supports_vision": false,
+      "supports_vision": true,
       "supports_function_calling": false,
       "supports_json_output": false,
       "raw_data": {
@@ -6274,6 +6275,7 @@
         "output_cost_per_token": 0.0,
         "source": "https://docs.typesafe.ai/models",
         "supports_box_questions": true,
+        "supports_vision": true,
         "supported_endpoints": [
           "/v1/decisions",
           "/v1/systemone"
@@ -6291,7 +6293,7 @@
       "cache_read_input_token_cost": null,
       "max_input_tokens": 65536,
       "max_output_tokens": null,
-      "supports_vision": false,
+      "supports_vision": true,
       "supports_function_calling": false,
       "supports_json_output": false,
       "raw_data": {
@@ -6301,6 +6303,7 @@
         "mode": "evaluation",
         "output_cost_per_token": 0.0,
         "source": "https://docs.typesafe.ai/models",
+        "supports_vision": true,
         "supported_endpoints": [
           "/v1/decisions",
           "/v1/systemone"
@@ -6318,7 +6321,7 @@
       "cache_read_input_token_cost": null,
       "max_input_tokens": 65536,
       "max_output_tokens": null,
-      "supports_vision": false,
+      "supports_vision": true,
       "supports_function_calling": false,
       "supports_json_output": false,
       "raw_data": {
@@ -6329,6 +6332,7 @@
         "output_cost_per_token": 0.0,
         "source": "https://docs.typesafe.ai/models",
         "supports_box_questions": true,
+        "supports_vision": true,
         "supported_endpoints": [
           "/v1/decisions",
           "/v1/systemone"
@@ -7528,6 +7532,37 @@
         "supports_tool_choice": true,
         "supports_video_input": true,
         "supports_vision": true
+      }
+    },
+    "gemini/gemini-decision-1": {
+      "model_key": "gemini/gemini-decision-1",
+      "provider": "google",
+      "type": "decision",
+      "friendly_name": "Gemini Decision 1",
+      "is_default_available": true,
+      "input_cost_per_token": 1e-07,
+      "output_cost_per_token": 0.0,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": 262144,
+      "max_output_tokens": null,
+      "supports_vision": true,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "gemini",
+        "mode": "evaluation",
+        "max_input_tokens": 262144,
+        "source": "https://ai.google.dev/gemini-api/docs/pricing",
+        "supported_endpoints": [
+          "/v1/decisions",
+          "/v1/systemone"
+        ],
+        "input_cost_per_token": 1e-07,
+        "output_cost_per_token": 0.0,
+        "supports_vision": true,
+        "supports_audio_input": true,
+        "supports_video_input": true,
+        "supports_pdf_input": true
       }
     },
     "zai/glm-5.3-flashx": {
@@ -8833,6 +8868,38 @@
         "supports_reasoning": true,
         "supports_prompt_caching": true,
         "supports_vision": true
+      }
+    },
+    "dashscope/qwen3.8-27b": {
+      "model_key": "dashscope/qwen3.8-27b",
+      "provider": "dashscope",
+      "type": "language",
+      "friendly_name": "Qwen3.8-27B",
+      "is_default_available": true,
+      "input_cost_per_token": 5e-07,
+      "output_cost_per_token": 3e-06,
+      "cache_read_input_token_cost": 1e-07,
+      "max_input_tokens": 991808,
+      "max_output_tokens": 131072,
+      "supports_vision": true,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "dashscope",
+        "mode": "chat",
+        "max_input_tokens": 991808,
+        "max_output_tokens": 131072,
+        "max_tokens": 131072,
+        "source": "https://www.qwencloud.com/models/qwen3.8-27b",
+        "input_cost_per_token": 5e-07,
+        "output_cost_per_token": 3e-06,
+        "cache_read_input_token_cost": 1e-07,
+        "supports_function_calling": true,
+        "supports_tool_choice": true,
+        "supports_reasoning": true,
+        "supports_prompt_caching": true,
+        "supports_vision": true,
+        "supports_video_input": true
       }
     },
     "dashscope/qwen3.7-flash": {

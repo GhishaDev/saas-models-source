@@ -27,7 +27,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **BytePlus (ByteDance Ark overseas, Dreamina Seedance video + Seedream image)**: Whitelist-curated Seedream image SKUs (Dola Seedream 5.5 / 5.0 Pro / Flash, Seedream 5.0 Lite / 4.5 / 4.0, × {dated + alias}, USD per image; see the BytePlus section) and Dreamina Seedance 2.0 + 2.5 video SKUs from [docs.byteplus.com/en/docs/ModelArk/1544106](https://docs.byteplus.com/en/docs/ModelArk/1544106) (8 entries: 2.0 standard / Fast / Mini + 2.5, each × {dated + alias}). BytePlus is the overseas sibling of Volcengine — same Ark platform, same YYMMDD version stamps — but a different brand and a **USD-native tariff**, so these are independent SKUs, *not* mirrors of `volcengine/*`. List prices in USD/M tokens (no-video / with-video): 2.5 — 480P/720P **10.70 / 6.40**, 1080P **11.70 / 7.00**, 4K **6.08 / 3.57** *estimated*; 2.0 — 480P/720P **7.00 / 4.30**, 1080P **7.70 / 4.70**, 4K **4.00 / 2.40**; 2.0 Fast — **5.60 / 3.30**; 2.0 Mini — **3.50 / 2.10**. Same `output_cost_per_token[_<res>][_with_input_video]` field family as Volcengine, but **no FX conversion is applied**
 - **new-api (aggregator gateway)**: Reverse-whitelist mirror provider. Every `new-api/<sku>` is a full copy of an already-populated `<vendor>/<sku>` record with only `litellm_provider` re-labelled. Seedance is the first family mirrored (8 SKUs from `volcengine/doubao-seedance-*`); extending to more vendors is a two-line change (whitelist entry + `NEWAPI_MIRROR_SOURCES` mapping)
 - **ecloud_aicc (aggregator gateway)**: Second mirror provider — same mechanic as new-api, distinct namespace so deployments routing through the ecloud_aicc gateway can address SKUs by their aggregator-side name. Currently mirrors the same 8 Seedance SKUs from `volcengine/doubao-seedance-*`
-- **TypeSafe (decision models)**: `typesafe/jev-1.14.0` (newest), `typesafe/jev-1.13.0` and the documented aliases `jev-latest` / `jev-preview` (both → 1.14.0), reverse-whitelisted by `TYPESAFE_ALLOWED_KEYS`. Jev returns typed answers (a probability, a choice or a score), not text; $0.042 per M input tokens, output free ([docs.typesafe.ai/models](https://docs.typesafe.ai/models)). Exported as type **`decision`**.
+- **TypeSafe (decision models)**: `typesafe/jev-1.14.0` (newest), `typesafe/jev-1.13.0` and the documented aliases `jev-latest` / `jev-preview` (both → 1.14.0), reverse-whitelisted by `TYPESAFE_ALLOWED_KEYS`. Jev returns typed answers (a probability, a choice or a score), not text; $0.042 per M input tokens, output free ([docs.typesafe.ai/models](https://docs.typesafe.ai/models)). Text and image input (`supports_vision`, since v1.16.66). Exported as type **`decision`**.
 
 ## Supported Model Types
 
@@ -38,7 +38,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
 | `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `byteplus/dreamina-seedance-2-5`, `new-api/doubao-seedance-2-0-fast`, `ecloud_aicc/doubao-seedance-2-0-mini` |
 | `audio` | `audio_speech`, `audio_transcription` | `gpt-4o-mini-tts` / `tts-1` / `tts-1-hd` (TTS), `gpt-4o-mini-transcribe` / `whisper-1` / `zai/glm-asr-2512` / `bigmodel/glm-asr-2512` (ASR) |
-| `decision` | `evaluation` | `typesafe/jev-1.14.0`, `typesafe/jev-1.13.0`, `typesafe/jev-latest`, `typesafe/jev-preview` |
+| `decision` | `evaluation` | `typesafe/jev-1.14.0`, `typesafe/jev-1.13.0`, `typesafe/jev-latest`, `typesafe/jev-preview`, `gemini/gemini-decision-1` |
 
 **Decisions routes.** `gpt-6-luna` stays type `language` because it is also a chat model; its Decisions capability shows up as `/v1/decisions` and `/v1/systemone` in `supported_endpoints`. The two routes are two request formats for the same kind of call (`input` = OpenAI, `state` = System One), so every decision model is listed on both, whichever one its vendor hosts. `GATEWAY_ENDPOINTS` adds them to upstream's list instead of replacing it.
 
@@ -367,16 +367,17 @@ is not a vendor audit.
 > **Why two GLM providers?** `zai/` and `bigmodel/` describe the **same models served by two gateways** — z.ai (international) and bigmodel.cn (中国版). Pricing is currently unified to z.ai's USD tariff on both sides; the two namespaces remain distinct so downstream consumers can pick the gateway they actually call without rewriting the model key.
 
 #### DashScope (阿里云百炼 / Alibaba Cloud Model Studio — Qwen)
-- ✅ Include: only keys listed in `ModelSyncRules.DASHSCOPE_ALLOWED_KEYS` (reverse whitelist, 7 SKUs today). Upstream carries 45 `dashscope/*` keys — Qwen plus third-party models resold through Model Studio — so the whitelist is what keeps the catalogue narrow
+- ✅ Include: only keys listed in `ModelSyncRules.DASHSCOPE_ALLOWED_KEYS` (reverse whitelist, 8 SKUs today). Upstream carries 45 `dashscope/*` keys — Qwen plus third-party models resold through Model Studio — so the whitelist is what keeps the catalogue narrow
 - ✅ **Namespace rationale.** *DashScope* is the API/SDK identifier (`dashscope.aliyuncs.com`, the `dashscope` SDK, `DASHSCOPE_API_KEY`); *百炼 / Model Studio* is the product brand for the same service. Verified 2026-08-29: all 45 upstream keys use `litellm_provider: "dashscope"` **and** the `dashscope/` prefix, with no competing `bailian` / `alibaba` / `aliyun` label. Matching it means an upstream key of the same name merges cleanly rather than colliding with an invented namespace. **Not** ModelScope (魔搭), which is Alibaba's open-weights hub and has no upstream provider label at all
 - ✅ **Currency: International USD, native**, sourced from [qwencloud.com/pricing/api](https://www.qwencloud.com/pricing/api). Alibaba publishes two separate books — domestic 百炼 in CNY and International in USD — and upstream's `dashscope/*` prices are the USD ones (`dashscope/qwen3.8-max` is `$2 / $6` upstream while 百炼 lists `12 / 36` CNY, which is *not* 12÷7). We match that convention. **Do not** route these through `_cny_per_m_to_usd_per_token`
-- ✅ Scope is the Qwen **3.8** and **3.7** generations — flagship text models plus, by decision on 2026-11-06, the omni model `qwen3.8-omni-flash` ($0.15 / $0.47 / $0.016 implicit cache, one rate for every input modality). All prices are the **effective (post-discount)** ones — what a caller is billed today:
+- ✅ Scope is the Qwen **3.8** and **3.7** generations — flagship text models plus, by decision on 2026-11-06, the omni model `qwen3.8-omni-flash` ($0.15 / $0.47 / $0.016 implicit cache, one rate for every input modality) and, by decision on 2026-11-14, the open-source 27B vision-language model `qwen3.8-27b`. All prices are the **effective (post-discount)** ones — what a caller is billed today:
 
   | Key | Input tier | Input | Output | Implicit cache | Ctx / out | Vision |
   |---|---|---|---|---|---|---|
   | `qwen3.8-flash` | — | $0.15 | $0.47 | $0.016 | 991,808 / 131,072 | ✅ |
   | `qwen3.8-max` | — | $2 | $6 | $0.25 | 991,808 / 131,072 | ✅ |
   | `qwen3.8-2.4t-a95b` | — | $2 | $6 | $0.25 | 991,808 / 131,072 | ✅ |
+  | `qwen3.8-27b` | — | $0.5 | $3 | $0.1 | 991,808 / 131,072 | ✅ |
   | `qwen3.7-max` | — | $2.5 | $7.5 | $0.5 | 991,808 / 65,536 | ❌ |
   | `qwen3.7-plus` | ≤256K | $0.32 *(20% off $0.4)* | $1.28 *($1.6)* | $0.064 *($0.08)* | 991,808 / 65,536 | ✅ |
   | | 256K–1M | $0.96 *($1.2)* | $3.84 *($4.8)* | $0.192 *($0.24)* | | |
@@ -726,6 +727,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.66 (2026-11-14)
+**Gemini Decision 1, Qwen3.8-27B, and image input for TypeSafe Jev.** Exported total **219 → 221**. The pin stays at `fcef9cd`.
+
+- ➕ **`gemini/gemini-decision-1`**, Google's decision model for the Decisions API: typed questions over text, images, video, audio and PDFs, answered with probabilities and zero output tokens. $0.10 per M input tokens for every modality, output free, no context caching, no Batch ([pricing page](https://ai.google.dev/gemini-api/docs/pricing)); input limit 262,144 tokens (model page). Stored with mode `evaluation`, so it exports as type `decision` like Jev; upstream main calls the mode `decisions`, which this catalogue does not use, so the full record stays in `GOOGLE_SYNTH_DATA`. On the pin bump that brings the key in, trim that entry to `mode` (drop the `supports_*` flags `capability_check` reports as redundant) instead of deleting it, or the model drops out of the export. Listed on both decision routes (`/v1/decisions`, `/v1/systemone`) like every decision model.
+- ➕ **`dashscope/qwen3.8-27b`**, the open-source 27B vision-language build of Qwen 3.8: $0.5 in / $3 out / $0.1 implicit cache per M, 991,808 / 131,072 tokens, text, image and video input ([model card](https://www.qwencloud.com/models/qwen3.8-27b); the Model Studio International price table shows the same $0.5 / $3). The qwencloud API pricing table does not list it yet. Explicit-cache prices are not modelled, as for its siblings.
+- 🔧 **`typesafe/jev-*` now `supports_vision: true`.** [docs.typesafe.ai/models](https://docs.typesafe.ai/models) lists "Input: Text, images" for Jev 1.14 and 1.13 ("PNG and JPEG images anywhere in the request"); `jev-latest` and `jev-preview` are aliases of 1.14. Upstream does not define the flag, so a new `TYPESAFE_SYNTH_DATA` overlay sets it and the four pairs are allowlisted in `CAPABILITY_OVERRIDES`.
 
 ### v1.16.65 (2026-11-13)
 **Added Seedream 5.5 on Volcengine and BytePlus.** Exported total **216 → 219**. The pin stays at `fcef9cd`.
