@@ -257,6 +257,16 @@ class ModelSyncRules:
         "typesafe/jev-preview",
     })
 
+    # TypeSafe capability overlay. docs.typesafe.ai/models (2026-11-14) lists
+    # "Input: Text, images" for both jev-1.14.0 and jev-1.13.0 ("It also reads
+    # PNG and JPEG images anywhere in the request"); jev-latest and
+    # jev-preview are aliases of jev-1.14.0. Upstream does not define
+    # supports_vision for any of them, so each pair is in CAPABILITY_OVERRIDES.
+    TYPESAFE_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        key: {"supports_vision": True}
+        for key in ("typesafe/jev-1.14.0", "typesafe/jev-1.13.0", "typesafe/jev-latest", "typesafe/jev-preview")
+    }
+
     # zai/glm whitelist — only these keys are allowed through provider filter.
     # Includes models present on the LiteLLM source today, plus pre-staged SKUs
     # that exist on z.ai's official pricing page but are not yet synced upstream.
@@ -1036,6 +1046,9 @@ class ModelSyncRules:
         "dashscope/qwen3.8-flash",
         "dashscope/qwen3.8-max",
         "dashscope/qwen3.8-2.4t-a95b",
+        # Open-source dense 27B vision-language build, single-tier; admitted by
+        # decision on 2026-11-14. See DASHSCOPE_SYNTH_DATA.
+        "dashscope/qwen3.8-27b",
         # Omni (text / image / audio / video in, text out), single-tier:
         # $0.15 in / $0.47 out / $0.016 implicit cache, one rate for every
         # input modality (qwencloud.com/pricing/api, 2026-11-06). Upstream
@@ -1111,6 +1124,31 @@ class ModelSyncRules:
             "supports_reasoning": True,
             "supports_prompt_caching": True,
             "supports_vision": True,
+        },
+        # Qwen3.8-27B — "native vision-language dense model" (qwencloud.com/
+        # models/qwen3.8-27b, 2026-11-14): input Text / Image / Video, output
+        # Text; $0.5 in / $3 out / $0.1 implicit cache per M; max input 991K,
+        # max output 131K, 1M context. The Model Studio International price
+        # table shows the same $0.5 / $3 single tier (0 < tokens <= 1M). The
+        # qwencloud API pricing table does not list it yet. Not on LiteLLM
+        # upstream under dashscope/, so injected. Explicit-cache prices
+        # ($0.625 creation / $0.05 read) are not modelled, as for its siblings.
+        "dashscope/qwen3.8-27b": {
+            "litellm_provider": "dashscope",
+            "mode": "chat",
+            "max_input_tokens": 991808,
+            "max_output_tokens": 131072,
+            "max_tokens": 131072,
+            "source": "https://www.qwencloud.com/models/qwen3.8-27b",
+            "input_cost_per_token": _usd_per_m_to_usd_per_token(0.5),
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(3.0),
+            "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.1),
+            "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
+            "supports_vision": True,
+            "supports_video_input": True,
         },
         # ── Qwen 3.7 ─────────────────────────────────────────────────────
         # PRICES ARE THE EFFECTIVE (DISCOUNTED) ONES, per request: store what
@@ -1827,6 +1865,40 @@ class ModelSyncRules:
     #     Upstream has since corrected it to False, so the override became
     #     redundant and was removed.
     GOOGLE_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        # Gemini Decision 1 — Google's decision model for the Decisions API:
+        # typed questions (yes/no, choice, score) over text, images, video,
+        # audio and PDFs, answered with calibrated probabilities and ZERO
+        # output tokens. Pricing page (2026-11-14): $0.10 per M input tokens
+        # for every modality, output "Not applicable (0 output tokens)", no
+        # context caching, Batch not supported. Model page: input token limit
+        # 262,144, up to 1,000 questions per request.
+        #
+        # mode is "evaluation", the catalogue's decision-model mode (type
+        # "decision", like TypeSafe Jev), by decision (2026-11-14). Upstream
+        # main calls it "decisions", which this catalogue does not support, so
+        # the entry is a full record that stays authoritative for `mode` after
+        # a pin bump brings the upstream key in.
+        #
+        # ⚠️ ON THE PIN BUMP THAT BRINGS THIS KEY IN, DO NOT DELETE THE ENTRY.
+        # capability_check will report the four supports_* flags as
+        # "redundant" (upstream main sets them identically): delete those
+        # flags and keep `mode`. Dropping the whole entry hands the key back
+        # to upstream's "decisions" mode, which SUPPORTED_MODES rejects, and
+        # the model vanishes from the export (the decision-routes test in
+        # tests/ would then fail on the missing key).
+        "gemini/gemini-decision-1": {
+            "litellm_provider": "gemini",
+            "mode": "evaluation",
+            "max_input_tokens": 262144,
+            "source": "https://ai.google.dev/gemini-api/docs/pricing",
+            "supported_endpoints": ["/v1/decisions"],
+            "input_cost_per_token": 1e-07,
+            "output_cost_per_token": 0.0,
+            "supports_vision": True,
+            "supports_audio_input": True,
+            "supports_video_input": True,
+            "supports_pdf_input": True,
+        },
         # Upstream invented a 2026-10-29 shutdown. Google's changelog
         # (2026-10-06): "The gemini-3.1-flash-image model is deprecated (no
         # shutdown date announced). Migrate to gemini-nano-banana-2.1." The
@@ -3731,7 +3803,9 @@ class ModelSyncRules:
         yet carried by BerriAI upstream (GOOGLE_SYNTH_DATA). Entries are
         complete litellm-style records; a present upstream key is overlaid,
         an absent one is injected wholesale. Remove an entry once upstream
-        carries the same model.
+        carries the same model, unless the entry also overrides a field
+        upstream keeps differently (gemini-decision-1's `mode`): then trim it
+        to the overriding fields instead.
 
         Does not mutate the input.
         """
@@ -3840,6 +3914,20 @@ class ModelSyncRules:
         """
         merged: dict[str, Any] = dict(models)
         for key, synth in cls.MOONSHOT_SYNTH_DATA.items():
+            existing = merged.get(key)
+            merged[key] = dict(synth) if existing is None else {**existing, **synth}
+        return merged
+
+    @classmethod
+    def apply_typesafe_synth(cls, models: dict[str, Any]) -> dict[str, Any]:
+        """
+        Overlay TYPESAFE_SYNTH_DATA (capability flags only) onto the upstream
+        typesafe/* records; an absent key is injected as-is.
+
+        Does not mutate the input.
+        """
+        merged: dict[str, Any] = dict(models)
+        for key, synth in cls.TYPESAFE_SYNTH_DATA.items():
             existing = merged.get(key)
             merged[key] = dict(synth) if existing is None else {**existing, **synth}
         return merged
@@ -4096,7 +4184,20 @@ class ModelSyncRules:
         "so LiteLLM would reject the vendor's own default."
     )
 
+    _SRC_TYPESAFE_JEV_IMAGES = (
+        "https://docs.typesafe.ai/models (2026-11-14): 'Input: Text, images' for jev-1.14.0 and "
+        "jev-1.13.0; 'It also reads PNG and JPEG images anywhere in the request'. jev-latest and "
+        "jev-preview are aliases of jev-1.14.0. Upstream leaves supports_vision undefined."
+    )
+
     CAPABILITY_OVERRIDES: dict[tuple[str, str], str] = {
+        **dict.fromkeys(
+            [
+                (k, "supports_vision")
+                for k in ("typesafe/jev-1.14.0", "typesafe/jev-1.13.0", "typesafe/jev-latest", "typesafe/jev-preview")
+            ],
+            _SRC_TYPESAFE_JEV_IMAGES,
+        ),
         ("gemini/gemini-2.5-flash-image", "supports_prompt_caching"): _SRC_GEMINI_25_FLASH_IMAGE,
         ("gemini/gemini-2.5-flash-image", "supports_pdf_input"): _SRC_GEMINI_25_FLASH_IMAGE,
         ("moonshot/kimi-k3", "supports_max_reasoning_effort"): _SRC_KIMI_K3_EFFORT,
@@ -4151,10 +4252,10 @@ class ModelSyncRules:
     # /v1/decisions and /v1/systemone are two request formats for the same
     # kind of call ("input" = OpenAI, "state" = System One), so each decision
     # model is listed on both routes, whatever its vendor natively hosts
-    # (OpenAI: /v1/decisions; TypeSafe: /v1/systemone).
+    # (OpenAI and Google: /v1/decisions; TypeSafe: /v1/systemone).
     _DECISION_ENDPOINTS = ("/v1/decisions", "/v1/systemone")
     GATEWAY_ENDPOINTS: dict[str, tuple[str, ...]] = dict.fromkeys(
-        ["gpt-6-luna", *sorted(TYPESAFE_ALLOWED_KEYS)], _DECISION_ENDPOINTS
+        ["gpt-6-luna", "gemini/gemini-decision-1", *sorted(TYPESAFE_ALLOWED_KEYS)], _DECISION_ENDPOINTS
     )
 
     CAPABILITY_MIRRORS: dict[str, str] = {
@@ -4308,6 +4409,7 @@ ModelSyncRules.SYNTH_PIPELINE = (
     ModelSyncRules.__dict__["apply_dashscope_synth"],
     ModelSyncRules.__dict__["apply_byteplus_synth"],
     ModelSyncRules.__dict__["apply_anthropic_synth"],
+    ModelSyncRules.__dict__["apply_typesafe_synth"],
     ModelSyncRules.__dict__["apply_gateway_endpoints"],  # after all vendor synths
     ModelSyncRules.__dict__["apply_capability_mirrors"],  # after all vendor synths
     ModelSyncRules.__dict__["apply_newapi_synth"],
