@@ -8460,6 +8460,30 @@
         "output_cost_per_token_4k_with_input_video": 3.429e-06
       }
     },
+    "volcengine/doubao-seedance-2-5-flash": {
+      "model_key": "volcengine/doubao-seedance-2-5-flash",
+      "provider": "volcengine",
+      "type": "video",
+      "friendly_name": "Doubao-Seedance 2.5 Flash",
+      "is_default_available": false,
+      "input_cost_per_token": null,
+      "output_cost_per_token": 6.571e-06,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": 1024,
+      "max_output_tokens": 1024,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "volcengine",
+        "mode": "video_generation",
+        "max_input_tokens": 1024,
+        "max_output_tokens": 1024,
+        "source": "https://www.volcengine.com/docs/82379/1544106",
+        "output_cost_per_token": 6.571e-06,
+        "output_cost_per_token_with_input_video": 4e-06
+      }
+    },
     "volcengine/doubao-seedream-5-5": {
       "model_key": "volcengine/doubao-seedream-5-5",
       "provider": "volcengine",
@@ -9171,6 +9195,54 @@
         "output_cost_per_token_with_input_video": 2.1e-06
       }
     },
+    "byteplus/dreamina-seedance-2-5-flash-261115": {
+      "model_key": "byteplus/dreamina-seedance-2-5-flash-261115",
+      "provider": "byteplus",
+      "type": "video",
+      "friendly_name": "Dreamina Seedance 2.5 Flash",
+      "is_default_available": false,
+      "input_cost_per_token": null,
+      "output_cost_per_token": 7e-06,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": 1024,
+      "max_output_tokens": 1024,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "byteplus",
+        "mode": "video_generation",
+        "max_input_tokens": 1024,
+        "max_output_tokens": 1024,
+        "source": "https://docs.byteplus.com/en/docs/ModelArk/1544106",
+        "output_cost_per_token": 7e-06,
+        "output_cost_per_token_with_input_video": 4.3e-06
+      }
+    },
+    "byteplus/dreamina-seedance-2-5-flash": {
+      "model_key": "byteplus/dreamina-seedance-2-5-flash",
+      "provider": "byteplus",
+      "type": "video",
+      "friendly_name": "Dreamina Seedance 2.5 Flash",
+      "is_default_available": false,
+      "input_cost_per_token": null,
+      "output_cost_per_token": 7e-06,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": 1024,
+      "max_output_tokens": 1024,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "byteplus",
+        "mode": "video_generation",
+        "max_input_tokens": 1024,
+        "max_output_tokens": 1024,
+        "source": "https://docs.byteplus.com/en/docs/ModelArk/1544106",
+        "output_cost_per_token": 7e-06,
+        "output_cost_per_token_with_input_video": 4.3e-06
+      }
+    },
     "byteplus/dola-seedream-5-5-261028": {
       "model_key": "byteplus/dola-seedream-5-5-261028",
       "provider": "byteplus",
@@ -9864,6 +9936,30 @@
         "output_cost_per_token_4k_with_input_video": 3.429e-06
       }
     },
+    "new-api/doubao-seedance-2-5-flash": {
+      "model_key": "new-api/doubao-seedance-2-5-flash",
+      "provider": "new-api",
+      "type": "video",
+      "friendly_name": "Doubao-Seedance 2.5 Flash",
+      "is_default_available": false,
+      "input_cost_per_token": null,
+      "output_cost_per_token": 6.571e-06,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": 1024,
+      "max_output_tokens": 1024,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "new-api",
+        "mode": "video_generation",
+        "max_input_tokens": 1024,
+        "max_output_tokens": 1024,
+        "source": "https://www.volcengine.com/docs/82379/1544106",
+        "output_cost_per_token": 6.571e-06,
+        "output_cost_per_token_with_input_video": 4e-06
+      }
+    },
     "ecloud_aicc/doubao-seedance-2-0": {
       "model_key": "ecloud_aicc/doubao-seedance-2-0",
       "provider": "ecloud_aicc",
@@ -10223,6 +10319,30 @@
         "output_cost_per_token_1080p_with_input_video": 6.571e-06,
         "output_cost_per_token_4k": 5.571e-06,
         "output_cost_per_token_4k_with_input_video": 3.429e-06
+      }
+    },
+    "ecloud_aicc/doubao-seedance-2-5-flash": {
+      "model_key": "ecloud_aicc/doubao-seedance-2-5-flash",
+      "provider": "ecloud_aicc",
+      "type": "video",
+      "friendly_name": "Doubao-Seedance 2.5 Flash",
+      "is_default_available": false,
+      "input_cost_per_token": null,
+      "output_cost_per_token": 6.571e-06,
+      "cache_read_input_token_cost": null,
+      "max_input_tokens": 1024,
+      "max_output_tokens": 1024,
+      "supports_vision": false,
+      "supports_function_calling": false,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "ecloud_aicc",
+        "mode": "video_generation",
+        "max_input_tokens": 1024,
+        "max_output_tokens": 1024,
+        "source": "https://www.volcengine.com/docs/82379/1544106",
+        "output_cost_per_token": 6.571e-06,
+        "output_cost_per_token_with_input_video": 4e-06
       }
     }
   }
