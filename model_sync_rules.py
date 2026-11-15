@@ -1296,6 +1296,10 @@ class ModelSyncRules:
         # Seedance 2.5 (date-less alias + dated snapshot)
         "volcengine/doubao-seedance-2-5",
         "volcengine/doubao-seedance-2-5-260628",
+        # Seedance 2.5 Flash (2026-11-15): only the alias the pricing page
+        # names ("doubao-seedance-2.5-flash"); the dated ID is not on a
+        # readable official page yet — same handling as Seedream 5.5.
+        "volcengine/doubao-seedance-2-5-flash",
         # Seedream image models — the NON-video volcengine SKUs (scope was
         # Seedance video only until 2026-09-17). Every dated ID and alias is
         # listed, so a consumer can pick any of them with its price filled in
@@ -1436,6 +1440,18 @@ class ModelSyncRules:
             "output_cost_per_token_4k": _cny_per_m_to_usd_per_token(39),
             "output_cost_per_token_4k_with_input_video": _cny_per_m_to_usd_per_token(24),
         },
+        # Seedance 2.5 Flash — 480P/720P only (the price examples mark 1080P
+        # 不支持). Source: 视频生成模型 table of the pricing page, read
+        # 2026-11-15: 输入不含视频 46.00, 输入包含视频 28.00 CNY/M.
+        "volcengine/doubao-seedance-2-5-flash": {
+            "litellm_provider": "volcengine",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://www.volcengine.com/docs/82379/1544106",
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(46),
+            "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(28),
+        },
         # ── Seedream image generation ────────────────────────────────────
         # Billed PER IMAGE in CNY (元/张), not per token — a different shape
         # from every other volcengine SKU here, hence
@@ -1512,11 +1528,13 @@ class ModelSyncRules:
     BYTEPLUS_ALLOWED_KEYS = frozenset({
         # Dated official IDs
         "byteplus/dreamina-seedance-2-5-260628",
+        "byteplus/dreamina-seedance-2-5-flash-261115",
         "byteplus/dreamina-seedance-2-0-260128",
         "byteplus/dreamina-seedance-2-0-fast-260128",
         "byteplus/dreamina-seedance-2-0-mini-260615",
         # Date-less aliases
         "byteplus/dreamina-seedance-2-5",
+        "byteplus/dreamina-seedance-2-5-flash",
         "byteplus/dreamina-seedance-2-0",
         "byteplus/dreamina-seedance-2-0-fast",
         "byteplus/dreamina-seedance-2-0-mini",
@@ -1688,6 +1706,27 @@ class ModelSyncRules:
             "output_cost_per_token": _usd_per_m_to_usd_per_token(3.50),
             "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(2.10),
         },
+        # Dreamina Seedance 2.5 Flash — 480p/720p only (1080p marked not
+        # supported in the price examples). Read 2026-11-15: no video input
+        # $7.0, with video input $4.3 per M tokens; online inference only.
+        "byteplus/dreamina-seedance-2-5-flash-261115": {
+            "litellm_provider": "byteplus",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://docs.byteplus.com/en/docs/ModelArk/1544106",
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(7.00),
+            "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(4.30),
+        },
+        "byteplus/dreamina-seedance-2-5-flash": {
+            "litellm_provider": "byteplus",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://docs.byteplus.com/en/docs/ModelArk/1544106",
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(7.00),
+            "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(4.30),
+        },
         # ── Seedream images (per image, USD list price) ──────────────────
         # Templates and source notes beside the Volcengine ones at the top
         # of the module. Each dated ID and its alias share one object.
@@ -1729,6 +1768,7 @@ class ModelSyncRules:
         "new-api/doubao-seedance-2-0-mini-260615",
         "new-api/doubao-seedance-2-5",
         "new-api/doubao-seedance-2-5-260628",
+        "new-api/doubao-seedance-2-5-flash",
     })
 
     # Map new-api/<sku> → authoritative source key (after all other synths run).
@@ -1742,6 +1782,7 @@ class ModelSyncRules:
         "new-api/doubao-seedance-2-0-mini-260615":  "volcengine/doubao-seedance-2-0-mini-260615",
         "new-api/doubao-seedance-2-5":              "volcengine/doubao-seedance-2-5",
         "new-api/doubao-seedance-2-5-260628":       "volcengine/doubao-seedance-2-5-260628",
+        "new-api/doubao-seedance-2-5-flash":        "volcengine/doubao-seedance-2-5-flash",
     }
 
     # ── ecloud_aicc (aggregator gateway) ──────────────────────────────────
@@ -1762,6 +1803,7 @@ class ModelSyncRules:
         "ecloud_aicc/doubao-seedance-2-0-mini-260615",
         "ecloud_aicc/doubao-seedance-2-5",
         "ecloud_aicc/doubao-seedance-2-5-260628",
+        "ecloud_aicc/doubao-seedance-2-5-flash",
     })
 
     # Map ecloud_aicc/<sku> → authoritative source key.
@@ -1774,6 +1816,7 @@ class ModelSyncRules:
         "ecloud_aicc/doubao-seedance-2-0-mini-260615":  "volcengine/doubao-seedance-2-0-mini-260615",
         "ecloud_aicc/doubao-seedance-2-5":              "volcengine/doubao-seedance-2-5",
         "ecloud_aicc/doubao-seedance-2-5-260628":       "volcengine/doubao-seedance-2-5-260628",
+        "ecloud_aicc/doubao-seedance-2-5-flash":        "volcengine/doubao-seedance-2-5-flash",
     }
 
     # DEEPSEEK_SYNTH_DATA / apply_deepseek_synth RETIRED 2026-09-04.

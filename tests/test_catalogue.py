@@ -154,9 +154,11 @@ def test_byteplus_names_follow_each_id_brand():
     assert fmt("byteplus/seedream-4-5", "byteplus") == "Seedream 4.5"
 
 
-def test_byteplus_seedream_aliases_share_their_dated_price(exported_models):
+def test_byteplus_aliases_share_their_dated_price(exported_models):
+    # Every BytePlus alias is a hand-written copy of its dated record, so a
+    # price edit that misses one of the pair must fail here.
     for key in ModelSyncRules.BYTEPLUS_ALLOWED_KEYS:
-        dated = re.match(r"^(byteplus/(?:dola-)?seedream-.+)-\d{6}$", key)
+        dated = re.match(r"^(byteplus/(?:(?:dola-)?seedream|dreamina-seedance)-.+)-\d{6}$", key)
         if dated:
             assert exported_models[key]["raw_data"] == exported_models[dated.group(1)]["raw_data"], key
 
