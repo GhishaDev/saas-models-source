@@ -1402,7 +1402,7 @@ class ModelSyncRules:
             "output_cost_per_token": _cny_per_m_to_usd_per_token(23),
             "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(14),
         },
-        # Seedance 2.5 — 480P/720P + 1080P tiers (no 4k). Source
+        # Seedance 2.5 — 480P/720P + 1080P + 4K tiers. Source
         # docs.volcengine.com/docs/82379/2191775 (Tokens 抵扣规则 table):
         #   480P/720P: 无视频输入 0.070 元/千 = 70 CNY/M; 含视频输入 0.042 = 42.
         #   1080P:     无视频输入 0.077 元/千 = 77 CNY/M; 含视频输入 0.046 = 46.
@@ -1416,12 +1416,11 @@ class ModelSyncRules:
             "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(42),
             "output_cost_per_token_1080p": _cny_per_m_to_usd_per_token(77),
             "output_cost_per_token_1080p_with_input_video": _cny_per_m_to_usd_per_token(46),
-            # 4K: ESTIMATED — the official 2.5 table has no 4K row. Scaled from
-            # 2.5's 1080P by the 2.0 4K:1080P ratio (~0.51×): 无视频 77×26/51≈39,
-            # 含视频 46×16/31≈24 CNY/M. Replace with the official rate once
-            # Volcengine publishes a 2.5 4K tier.
-            "output_cost_per_token_4k": _cny_per_m_to_usd_per_token(39),
-            "output_cost_per_token_4k_with_input_video": _cny_per_m_to_usd_per_token(24),
+            # 4K: official since 2026-11-16 (pricing page 1544106, 视频生成模型
+            # table: 输出视频分辨率为 4K 输入不含视频 31.00 / 输入包含视频 19.00
+            # 元/M token). Replaces the earlier 39 / 24 estimate.
+            "output_cost_per_token_4k": _cny_per_m_to_usd_per_token(31),
+            "output_cost_per_token_4k_with_input_video": _cny_per_m_to_usd_per_token(19),
         },
         "volcengine/doubao-seedance-2-5-260628": {
             "litellm_provider": "volcengine",
@@ -1433,12 +1432,11 @@ class ModelSyncRules:
             "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(42),
             "output_cost_per_token_1080p": _cny_per_m_to_usd_per_token(77),
             "output_cost_per_token_1080p_with_input_video": _cny_per_m_to_usd_per_token(46),
-            # 4K: ESTIMATED — the official 2.5 table has no 4K row. Scaled from
-            # 2.5's 1080P by the 2.0 4K:1080P ratio (~0.51×): 无视频 77×26/51≈39,
-            # 含视频 46×16/31≈24 CNY/M. Replace with the official rate once
-            # Volcengine publishes a 2.5 4K tier.
-            "output_cost_per_token_4k": _cny_per_m_to_usd_per_token(39),
-            "output_cost_per_token_4k_with_input_video": _cny_per_m_to_usd_per_token(24),
+            # 4K: official since 2026-11-16 (pricing page 1544106, 视频生成模型
+            # table: 输出视频分辨率为 4K 输入不含视频 31.00 / 输入包含视频 19.00
+            # 元/M token). Replaces the earlier 39 / 24 estimate.
+            "output_cost_per_token_4k": _cny_per_m_to_usd_per_token(31),
+            "output_cost_per_token_4k_with_input_video": _cny_per_m_to_usd_per_token(19),
         },
         # Seedance 2.5 Flash — 480P/720P only (the price examples mark 1080P
         # 不支持). Source: 视频生成模型 table of the pricing page, read
@@ -1571,7 +1569,7 @@ class ModelSyncRules:
     # Snapshot 2026-08-21. LIST prices, USD/M tokens:
     #
     #   SKU                   480p/720p      1080p         4K
-    #   2.5                   10.70 / 6.40   11.70 / 7.00  -
+    #   2.5                   10.70 / 6.40   11.70 / 7.00  4.70 / 2.90 (4K since 2026-11-16)
     #   2.0                    7.00 / 4.30    7.70 / 4.70  4.00 / 2.40
     #   2.0 fast               5.60 / 3.30    -            -
     #   2.0 mini               3.50 / 2.10    -            -
@@ -1588,8 +1586,8 @@ class ModelSyncRules:
     # ANTHROPIC_SYNTH_DATA, which does carry effective introductory prices —
     # that discount is unconditional and applies to every customer.)
     BYTEPLUS_SYNTH_DATA: dict[str, dict[str, Any]] = {
-        # Dreamina Seedance 2.5 — 480p/720p + 1080p (no 4K tier officially
-        # priced, consistent with the domestic 2.5 table).
+        # Dreamina Seedance 2.5 — 480p/720p + 1080p + 4K (4K officially
+        # priced since 2026-11-16, as on the domestic 2.5 table).
         "byteplus/dreamina-seedance-2-5-260628": {
             "litellm_provider": "byteplus",
             "mode": "video_generation",
@@ -1600,20 +1598,11 @@ class ModelSyncRules:
             "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(6.40),
             "output_cost_per_token_1080p": _usd_per_m_to_usd_per_token(11.70),
             "output_cost_per_token_1080p_with_input_video": _usd_per_m_to_usd_per_token(7.00),
-            # 4K: ESTIMATED — the official BytePlus 2.5 table has no 4K row
-            # (neither does the domestic one). Same derivation as the domestic
-            # estimate in VOLCENGINE_SYNTH_DATA: scale 2.5's 1080P by the 2.0
-            # 4K:1080P ratio, computed entirely inside the overseas USD price
-            # set so no FX or cross-catalogue mixing enters.
-            #   no video:   11.70 x (4.00 / 7.70) = 6.078 -> 6.08
-            #   with video:  7.00 x (2.40 / 4.70) = 3.574 -> 3.57
-            # Sanity check: the overseas/domestic premium on every officially
-            # priced 2.5 tier sits in 1.064-1.070; these estimates imply 1.091
-            # and 1.041, the spread coming from the domestic 4K estimate being
-            # rounded to whole CNY (39 / 24). Replace with the official rate
-            # once BytePlus publishes a 2.5 4K tier.
-            "output_cost_per_token_4k": _usd_per_m_to_usd_per_token(6.08),
-            "output_cost_per_token_4k_with_input_video": _usd_per_m_to_usd_per_token(3.57),
+            # 4K: official since 2026-11-16 (pricing page 1544106: 4K $4.7
+            # without input video / $2.9 with input video per M tokens).
+            # Replaces the earlier 6.08 / 3.57 estimate.
+            "output_cost_per_token_4k": _usd_per_m_to_usd_per_token(4.7),
+            "output_cost_per_token_4k_with_input_video": _usd_per_m_to_usd_per_token(2.9),
         },
         "byteplus/dreamina-seedance-2-5": {
             "litellm_provider": "byteplus",
@@ -1625,23 +1614,14 @@ class ModelSyncRules:
             "output_cost_per_token_with_input_video": _usd_per_m_to_usd_per_token(6.40),
             "output_cost_per_token_1080p": _usd_per_m_to_usd_per_token(11.70),
             "output_cost_per_token_1080p_with_input_video": _usd_per_m_to_usd_per_token(7.00),
-            # 4K: ESTIMATED — the official BytePlus 2.5 table has no 4K row
-            # (neither does the domestic one). Same derivation as the domestic
-            # estimate in VOLCENGINE_SYNTH_DATA: scale 2.5's 1080P by the 2.0
-            # 4K:1080P ratio, computed entirely inside the overseas USD price
-            # set so no FX or cross-catalogue mixing enters.
-            #   no video:   11.70 x (4.00 / 7.70) = 6.078 -> 6.08
-            #   with video:  7.00 x (2.40 / 4.70) = 3.574 -> 3.57
-            # Sanity check: the overseas/domestic premium on every officially
-            # priced 2.5 tier sits in 1.064-1.070; these estimates imply 1.091
-            # and 1.041, the spread coming from the domestic 4K estimate being
-            # rounded to whole CNY (39 / 24). Replace with the official rate
-            # once BytePlus publishes a 2.5 4K tier.
-            "output_cost_per_token_4k": _usd_per_m_to_usd_per_token(6.08),
-            "output_cost_per_token_4k_with_input_video": _usd_per_m_to_usd_per_token(3.57),
+            # 4K: official since 2026-11-16 (pricing page 1544106: 4K $4.7
+            # without input video / $2.9 with input video per M tokens).
+            # Replaces the earlier 6.08 / 3.57 estimate.
+            "output_cost_per_token_4k": _usd_per_m_to_usd_per_token(4.7),
+            "output_cost_per_token_4k_with_input_video": _usd_per_m_to_usd_per_token(2.9),
         },
         # Dreamina Seedance 2.0 (standard) — all three resolution tiers,
-        # 4K officially priced (unlike 2.5).
+        # 4K officially priced.
         "byteplus/dreamina-seedance-2-0-260128": {
             "litellm_provider": "byteplus",
             "mode": "video_generation",

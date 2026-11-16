@@ -5522,8 +5522,8 @@
         "output_cost_per_token_with_input_video": 6e-06,
         "output_cost_per_token_1080p": 1.1e-05,
         "output_cost_per_token_1080p_with_input_video": 6.571e-06,
-        "output_cost_per_token_4k": 5.571e-06,
-        "output_cost_per_token_4k_with_input_video": 3.429e-06
+        "output_cost_per_token_4k": 4.429e-06,
+        "output_cost_per_token_4k_with_input_video": 2.714e-06
       }
     },
     "volcengine/doubao-seedance-2-0-260128": {
@@ -8456,8 +8456,8 @@
         "output_cost_per_token_with_input_video": 6e-06,
         "output_cost_per_token_1080p": 1.1e-05,
         "output_cost_per_token_1080p_with_input_video": 6.571e-06,
-        "output_cost_per_token_4k": 5.571e-06,
-        "output_cost_per_token_4k_with_input_video": 3.429e-06
+        "output_cost_per_token_4k": 4.429e-06,
+        "output_cost_per_token_4k_with_input_video": 2.714e-06
       }
     },
     "volcengine/doubao-seedance-2-5-flash": {
@@ -9011,8 +9011,8 @@
         "output_cost_per_token_with_input_video": 6.4e-06,
         "output_cost_per_token_1080p": 1.17e-05,
         "output_cost_per_token_1080p_with_input_video": 7e-06,
-        "output_cost_per_token_4k": 6.08e-06,
-        "output_cost_per_token_4k_with_input_video": 3.57e-06
+        "output_cost_per_token_4k": 4.7e-06,
+        "output_cost_per_token_4k_with_input_video": 2.9e-06
       }
     },
     "byteplus/dreamina-seedance-2-5": {
@@ -9039,8 +9039,8 @@
         "output_cost_per_token_with_input_video": 6.4e-06,
         "output_cost_per_token_1080p": 1.17e-05,
         "output_cost_per_token_1080p_with_input_video": 7e-06,
-        "output_cost_per_token_4k": 6.08e-06,
-        "output_cost_per_token_4k_with_input_video": 3.57e-06
+        "output_cost_per_token_4k": 4.7e-06,
+        "output_cost_per_token_4k_with_input_video": 2.9e-06
       }
     },
     "byteplus/dreamina-seedance-2-0-260128": {
@@ -9865,8 +9865,8 @@
         "output_cost_per_token_with_input_video": 6e-06,
         "output_cost_per_token_1080p": 1.1e-05,
         "output_cost_per_token_1080p_with_input_video": 6.571e-06,
-        "output_cost_per_token_4k": 5.571e-06,
-        "output_cost_per_token_4k_with_input_video": 3.429e-06
+        "output_cost_per_token_4k": 4.429e-06,
+        "output_cost_per_token_4k_with_input_video": 2.714e-06
       }
     },
     "new-api/doubao-seedance-2-5-260628": {
@@ -9932,8 +9932,8 @@
         "output_cost_per_token_with_input_video": 6e-06,
         "output_cost_per_token_1080p": 1.1e-05,
         "output_cost_per_token_1080p_with_input_video": 6.571e-06,
-        "output_cost_per_token_4k": 5.571e-06,
-        "output_cost_per_token_4k_with_input_video": 3.429e-06
+        "output_cost_per_token_4k": 4.429e-06,
+        "output_cost_per_token_4k_with_input_video": 2.714e-06
       }
     },
     "new-api/doubao-seedance-2-5-flash": {
@@ -10250,8 +10250,8 @@
         "output_cost_per_token_with_input_video": 6e-06,
         "output_cost_per_token_1080p": 1.1e-05,
         "output_cost_per_token_1080p_with_input_video": 6.571e-06,
-        "output_cost_per_token_4k": 5.571e-06,
-        "output_cost_per_token_4k_with_input_video": 3.429e-06
+        "output_cost_per_token_4k": 4.429e-06,
+        "output_cost_per_token_4k_with_input_video": 2.714e-06
       }
     },
     "ecloud_aicc/doubao-seedance-2-5-260628": {
@@ -10317,8 +10317,8 @@
         "output_cost_per_token_with_input_video": 6e-06,
         "output_cost_per_token_1080p": 1.1e-05,
         "output_cost_per_token_1080p_with_input_video": 6.571e-06,
-        "output_cost_per_token_4k": 5.571e-06,
-        "output_cost_per_token_4k_with_input_video": 3.429e-06
+        "output_cost_per_token_4k": 4.429e-06,
+        "output_cost_per_token_4k_with_input_video": 2.714e-06
       }
     },
     "ecloud_aicc/doubao-seedance-2-5-flash": {
