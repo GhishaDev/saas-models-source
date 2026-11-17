@@ -1038,6 +1038,10 @@ class ModelSyncRules:
     # NOT related to ModelScope (魔搭): that is Alibaba's open-weights
     # community hub, a different product with no upstream provider label.
     DASHSCOPE_ALLOWED_KEYS = frozenset({
+        # Qwen 4 generation: the flagship, single-tier (0 < tokens <= 1M) on
+        # the International tariff, so it fits the flat schema like
+        # qwen3.8-max. See DASHSCOPE_SYNTH_DATA.
+        "dashscope/qwen4-max",
         # Qwen 3.8 generation. All three are single-tier on the official
         # tariff (no 阶梯计价 / input-size bands), which is what lets them fit
         # the flat input/output/cache_read schema this catalogue uses. The
@@ -1096,6 +1100,35 @@ class ModelSyncRules:
     #     查看更多. qwen3.8-flash IS multimodal (model card: "Text & Code |
     #     Image | Video"; vision docs: top 2,048-image tier).
     DASHSCOPE_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        # Qwen4-Max — the Qwen 4 flagship, GA ("qwen4-max (Latest Model)";
+        # qwen4-max-preview is a separate Token-Plan-only model). qwencloud
+        # API pricing, International (2026-11-17): $1.5 in / $4.5 out /
+        # $0.075 implicit cache per M, single tier; the model page shows the
+        # same $1.5 / $4.5 for 0 < tokens <= 1M. Limits are the non-thinking
+        # ones (991,808 in / 131,072 out). Upstream main carries the key with
+        # the same price but no cache-read rate; the pinned snapshot lacks
+        # it, so the full record is injected here. On the pin bump that
+        # brings it in, keep only cache_read_input_token_cost (and source).
+        # Explicit-cache prices are not modelled, as for its siblings.
+        "dashscope/qwen4-max": {
+            "litellm_provider": "dashscope",
+            "mode": "chat",
+            "max_input_tokens": 991808,
+            "max_output_tokens": 131072,
+            "max_tokens": 131072,
+            "source": "https://www.qwencloud.com/pricing/api",
+            "input_cost_per_token": _usd_per_m_to_usd_per_token(1.5),
+            "output_cost_per_token": _usd_per_m_to_usd_per_token(4.5),
+            "cache_read_input_token_cost": _usd_per_m_to_usd_per_token(0.075),
+            "supports_function_calling": True,
+            "supports_parallel_function_calling": True,
+            "supports_reasoning": True,
+            "supports_prompt_caching": True,
+            "supports_response_schema": True,
+            "supports_vision": True,
+            "supports_video_input": True,
+            "supports_web_search": True,
+        },
         # Qwen3.8-2.4T-A95B — per its qwencloud.com/models card, "the
         # open-source release of Qwen's latest flagship", 2.4T total
         # parameters with ~95B activated. Same tariff as qwen3.8-max
