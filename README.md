@@ -370,10 +370,11 @@ is not a vendor audit.
 - ✅ Include: only keys listed in `ModelSyncRules.DASHSCOPE_ALLOWED_KEYS` (reverse whitelist, 8 SKUs today). Upstream carries 45 `dashscope/*` keys — Qwen plus third-party models resold through Model Studio — so the whitelist is what keeps the catalogue narrow
 - ✅ **Namespace rationale.** *DashScope* is the API/SDK identifier (`dashscope.aliyuncs.com`, the `dashscope` SDK, `DASHSCOPE_API_KEY`); *百炼 / Model Studio* is the product brand for the same service. Verified 2026-08-29: all 45 upstream keys use `litellm_provider: "dashscope"` **and** the `dashscope/` prefix, with no competing `bailian` / `alibaba` / `aliyun` label. Matching it means an upstream key of the same name merges cleanly rather than colliding with an invented namespace. **Not** ModelScope (魔搭), which is Alibaba's open-weights hub and has no upstream provider label at all
 - ✅ **Currency: International USD, native**, sourced from [qwencloud.com/pricing/api](https://www.qwencloud.com/pricing/api). Alibaba publishes two separate books — domestic 百炼 in CNY and International in USD — and upstream's `dashscope/*` prices are the USD ones (`dashscope/qwen3.8-max` is `$2 / $6` upstream while 百炼 lists `12 / 36` CNY, which is *not* 12÷7). We match that convention. **Do not** route these through `_cny_per_m_to_usd_per_token`
-- ✅ Scope is the Qwen **3.8** and **3.7** generations — flagship text models plus, by decision on 2026-11-06, the omni model `qwen3.8-omni-flash` ($0.15 / $0.47 / $0.016 implicit cache, one rate for every input modality) and, by decision on 2026-11-14, the open-source 27B vision-language model `qwen3.8-27b`. All prices are the **effective (post-discount)** ones — what a caller is billed today:
+- ✅ Scope is the Qwen **4** flagship (`qwen4-max`, added 2026-11-17) and the Qwen **3.8** and **3.7** generations — flagship text models plus, by decision on 2026-11-06, the omni model `qwen3.8-omni-flash` ($0.15 / $0.47 / $0.016 implicit cache, one rate for every input modality) and, by decision on 2026-11-14, the open-source 27B vision-language model `qwen3.8-27b`. All prices are the **effective (post-discount)** ones — what a caller is billed today:
 
   | Key | Input tier | Input | Output | Implicit cache | Ctx / out | Vision |
   |---|---|---|---|---|---|---|
+  | `qwen4-max` | — | $1.5 | $4.5 | $0.075 | 991,808 / 131,072 | ✅ |
   | `qwen3.8-flash` | — | $0.15 | $0.47 | $0.016 | 991,808 / 131,072 | ✅ |
   | `qwen3.8-max` | — | $2 | $6 | $0.25 | 991,808 / 131,072 | ✅ |
   | `qwen3.8-2.4t-a95b` | — | $2 | $6 | $0.25 | 991,808 / 131,072 | ✅ |
@@ -727,6 +728,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.69 (2026-11-17)
+**Added Qwen4-Max.** Exported total **226 → 227**. The pin stays at `fcef9cd`.
+
+- ➕ **`dashscope/qwen4-max`**, the Qwen 4 flagship (GA): $1.5 in / $4.5 out / $0.075 implicit cache per M, single tier, 991,808 / 131,072 tokens (non-thinking limits), text, image and video input ([pricing](https://www.qwencloud.com/pricing/api), International; the [model page](https://www.alibabacloud.com/help/en/model-studio/qwen4-max) shows the same $1.5 / $4.5 for 0 < tokens ≤ 1M). Upstream main carries the key with the same price but no cache-read rate; the pinned snapshot lacks it, so the full record lives in `DASHSCOPE_SYNTH_DATA`. On the pin bump, trim that entry to the cache-read price instead of deleting it. Explicit-cache prices are not modelled, as for its siblings.
 
 ### v1.16.68 (2026-11-16)
 **Seedance 2.5 4K is now officially priced; the estimates are replaced.** Exported total unchanged. The pin stays at `fcef9cd`.

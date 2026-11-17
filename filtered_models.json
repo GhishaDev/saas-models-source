@@ -8863,6 +8863,40 @@
         "supports_vision": true
       }
     },
+    "dashscope/qwen4-max": {
+      "model_key": "dashscope/qwen4-max",
+      "provider": "dashscope",
+      "type": "language",
+      "friendly_name": "Qwen4-Max",
+      "is_default_available": true,
+      "input_cost_per_token": 1.5e-06,
+      "output_cost_per_token": 4.5e-06,
+      "cache_read_input_token_cost": 7.5e-08,
+      "max_input_tokens": 991808,
+      "max_output_tokens": 131072,
+      "supports_vision": true,
+      "supports_function_calling": true,
+      "supports_json_output": false,
+      "raw_data": {
+        "litellm_provider": "dashscope",
+        "mode": "chat",
+        "max_input_tokens": 991808,
+        "max_output_tokens": 131072,
+        "max_tokens": 131072,
+        "source": "https://www.qwencloud.com/pricing/api",
+        "input_cost_per_token": 1.5e-06,
+        "output_cost_per_token": 4.5e-06,
+        "cache_read_input_token_cost": 7.5e-08,
+        "supports_function_calling": true,
+        "supports_parallel_function_calling": true,
+        "supports_reasoning": true,
+        "supports_prompt_caching": true,
+        "supports_response_schema": true,
+        "supports_vision": true,
+        "supports_video_input": true,
+        "supports_web_search": true
+      }
+    },
     "dashscope/qwen3.8-2.4t-a95b": {
       "model_key": "dashscope/qwen3.8-2.4t-a95b",
       "provider": "dashscope",
