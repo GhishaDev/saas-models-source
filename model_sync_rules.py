@@ -2498,6 +2498,16 @@ class ModelSyncRules:
         "gpt-6-cyber": {"max_input_tokens": 1050000},  # pre-staged in PRESTAGED
         "gpt-6-sol": {"max_input_tokens": 1050000},
         "gpt-6-luna": {"max_input_tokens": 1050000},
+        # gpt-6-astra-law: the pricing page's "Legal model configurations"
+        # row lists a >272K tier ($20 in / $2.00 cached / $75 out per M,
+        # checked 2026-11-18) that the pinned upstream record lacks, so long
+        # requests were priced at the short-context rate. Upstream main has
+        # the same three values; drop this entry at the next pin bump.
+        "gpt-6-astra-law": {
+            "cache_read_input_token_cost_above_272k_tokens": 2e-06,
+            "input_cost_per_token_above_272k_tokens": 2e-05,
+            "output_cost_per_token_above_272k_tokens": 7.5e-05,
+        },
         # gpt-5.6 carries gpt-5.6-sol's tariff field for field, but upstream
         # lacks the two Batch 12-hour cache-write fields sol has (2.5x the
         # Batch input, $5 / $10 above 272K).
