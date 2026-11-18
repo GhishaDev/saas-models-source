@@ -207,6 +207,30 @@ def test_gpt_6_2_prestaged_tariff(exported_models, key, standard, long_context):
     assert "fedramp_uplift_multiplier" not in raw, key
 
 
+@pytest.mark.parametrize(
+    "key, cache_write, cache_write_long, batch_in, fast_in, ultrafast",
+    [
+        # Cache writes (30-minute) <=272K and >272K, Batch 50% and Fast 2x
+        # input, Ultrafast 3x (input, output) until 2027-02-28.
+        ("gpt-6.2-astra", 1e-05, 2e-05, 4e-06, 1.6e-05, (2.4e-05, 1.2e-04)),
+        ("gpt-6.2-sol", 2.5e-06, 5e-06, 1e-06, 4e-06, (6e-06, 3e-05)),
+    ],
+)
+def test_gpt_6_2_tier_prices(exported_models, key, cache_write, cache_write_long, batch_in, fast_in, ultrafast):
+    raw = exported_models[key]["raw_data"]
+    assert raw["cache_creation_input_token_cost"] == pytest.approx(cache_write)
+    assert raw["cache_creation_input_token_cost_above_272k_tokens"] == pytest.approx(cache_write_long)
+    assert raw["input_cost_per_token_batches"] == pytest.approx(batch_in)
+    assert raw["input_cost_per_token_priority"] == pytest.approx(fast_in)
+    assert (raw["input_cost_per_token_ultrafast"], raw["output_cost_per_token_ultrafast"]) == pytest.approx(ultrafast)
+
+
+def test_gpt_6_2_astra_law_has_no_tier_prices(exported_models):
+    # No Batch / Fast / Ultrafast rows for the legal configuration.
+    raw = exported_models["gpt-6.2-astra-law"]["raw_data"]
+    assert not any(field.endswith(("_batches", "_priority", "_ultrafast")) for field in raw)
+
+
 def test_gpt_6_2_astra_and_sol_carry_the_context_window(exported_models):
     for key in ("gpt-6.2-astra", "gpt-6.2-sol"):
         assert exported_models[key]["raw_data"]["max_input_tokens"] == 1050000, key
