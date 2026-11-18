@@ -63,7 +63,7 @@ Two rules learned the hard way:
 | Date | What | Direction | Action |
 |---|---|---|---|
 | **2026-12-01** | `gemini-2.5-pro` → routed to `gemini-3.8-flash`, *"billed at Gemini 3.8 Flash rates"*; `gemini-2.5-flash` → routed to `gemini-3.5-flash-lite`, *"billed at Gemini 3.5 Flash-Lite rates"* (deprecations page) | Price will **fall** → we would **over**-bill | On or after the day, verify, then add both to `GOOGLE_ROUTED_PRICE_SOURCES`. Not before: a routed price written today is wrong until then. |
-| **2026-12-31** | `gpt-6-astra-law` promotional pricing, *"available at least through December 31, 2026"* ($10 / $1 cached / $50) | Price will probably **rise** → we would **under**-bill | Re-check. Same shape as `gpt-5.6-sol`: no post-promo price is published. |
+| **2026-12-31** | `gpt-6-astra-law` promotional pricing, *"available at least through December 31, 2026"* ($10 / $1 cached / $50; >272K $20 / $2 / $75) | Price will probably **rise** → we would **under**-bill | Re-check. Same shape as `gpt-5.6-sol`: no post-promo price is published. |
 | **2026-11-30** | `gpt-5.6-sol` promotional pricing, *"available until November 30, 2026"* (was *"at least through November 21"*; re-read 2026-11-06) | Price will **rise** → we would **under**-bill | Re-check. No post-promo price is published — nothing can be pre-staged. |
 | **2026-12-01** | `gemini-4-carbon` (GA 2026-11-10): the same tariff and the same doubling as Argon on the next row — $2 / $10 / $0.10 → $4 / $20 / $0.20, every tier | Price will **rise**, and we would **under**-bill | Pre-staged in `PRESTAGED` at today's rate. Same action as Argon. |
 | **2026-12-01** | `gemini-4-argon`: *"$2.00 through November 30, 2026. $4.00 starting December 1, 2026"*. Every tier doubles: output $10 → $20, cache $0.10 → $0.20, Batch / Flex $1 → $2, Priority $3.60 → $7.20 | Price will **rise**, and we would **under**-bill | Argon comes from `PRESTAGED`, which upstream always overrides. Bump the pin once upstream carries the new rate, then delete the pre-staged record. Until then, nothing here changes on its own. |
@@ -728,6 +728,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.71 (2026-11-18)
+**`gpt-6-astra-law` gains its >272K prices.** Exported total unchanged. The pin stays at `fcef9cd`.
+
+- 💲 The "Legal model configurations" row on [the pricing page](https://developers.openai.com/api/docs/pricing) lists $20 in / $2.00 cached / $75 out per M above 272K input tokens. The pinned upstream record has no long-context fields, so long requests were priced at the short-context rate ($10 / $1 / $50): input and cache under-billed by 50%, output by 33%. `OPENAI_SYNTH_DATA` carries the three fields; upstream main has the same values, so drop the entry at the next pin bump.
 
 ### v1.16.69 (2026-11-17)
 **Added Qwen4-Max.** Exported total **226 → 227**. The pin stays at `fcef9cd`.
