@@ -262,3 +262,11 @@ def test_glm_embeddings_share_one_price_on_zai_and_bigmodel(exported_models):
             assert raw["input_cost_per_token"] == pytest.approx(0.5 / 7.0 / 1e6), key
             assert raw["input_cost_per_token_batches"] == pytest.approx(0.25 / 7.0 / 1e6), key
             assert raw["output_vector_size"] == dims, key
+
+
+def test_gpt_6_astra_law_has_long_context_prices(exported_models):
+    # Pricing page, "Legal model configurations": >272K $20 / $2.00 cached / $75 per M.
+    raw = exported_models["gpt-6-astra-law"]["raw_data"]
+    assert raw["input_cost_per_token_above_272k_tokens"] == pytest.approx(2e-05)
+    assert raw["cache_read_input_token_cost_above_272k_tokens"] == pytest.approx(2e-06)
+    assert raw["output_cost_per_token_above_272k_tokens"] == pytest.approx(7.5e-05)
