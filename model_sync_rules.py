@@ -2066,7 +2066,219 @@ class ModelSyncRules:
     # Bedrock keys for it, so this record is fable-5-2's minus
     # supports_web_search: upstream's own 5.1 pair differs in exactly that
     # flag. Delete both when a pin bump brings them in.
+    #
+    # gpt-6.2-astra / gpt-6.2-sol / gpt-6.2-astra-law — copied from upstream
+    # main (1b07f26, 2026-11-18) without bumping the pin, and checked on
+    # 2026-11-18 against the pricing page and the 6.2 Astra / 6.2 Sol model
+    # pages. Per M, short context (<=272K) / long context (>272K, input and
+    # cache x2, output x1.5):
+    #   • 6.2 Astra: $8 in / $0.40 cached / $40 out; cache writes $10
+    #     (30-minute) and $20 (12-hour); long $16 / $0.80 / $60.
+    #   • 6.2 Sol: $2 / $0.10 / $10; cache writes $2.50 / $5; long $4 /
+    #     $0.20 / $15.
+    #   • Batch 50% off; Fast (upstream's *_priority) 2x; Ultrafast 3x
+    #     "through February 28, 2027", 6x from March 1, 2027 — today's 3x is
+    #     stored (dated-price rule). Neither is listed in the Flex table, so
+    #     neither carries *_flex prices. Regional processing +10%.
+    #   • 6.2 Astra Law: the "Legal model configurations" row, same tariff as
+    #     6.2 Astra (promotional, "at least through December 31, 2026"); it
+    #     has no model page and no Batch / Fast / Ultrafast rows, so like
+    #     gpt-6-astra-law it carries the standard and long-context tariff only
+    #     and keeps upstream's capability flags.
+    # Upstream's fedramp_uplift_multiplier is left out, as for the rest of
+    # the family until the next pin bump. Delete all three when a pin bump
+    # brings them in.
     PRESTAGED: dict[str, dict[str, Any]] = {
+        "gpt-6.2-astra": {
+            "cache_creation_input_token_cost": 1e-05,
+            "cache_creation_input_token_cost_above_12hr": 2e-05,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens": 4e-05,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens_batches": 2e-05,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens_priority": 8e-05,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens_ultrafast": 0.00012,
+            "cache_creation_input_token_cost_above_12hr_batches": 1e-05,
+            "cache_creation_input_token_cost_above_12hr_priority": 4e-05,
+            "cache_creation_input_token_cost_above_12hr_ultrafast": 6e-05,
+            "cache_creation_input_token_cost_above_272k_tokens": 2e-05,
+            "cache_creation_input_token_cost_above_272k_tokens_batches": 1e-05,
+            "cache_creation_input_token_cost_above_272k_tokens_priority": 4e-05,
+            "cache_creation_input_token_cost_above_272k_tokens_ultrafast": 6e-05,
+            "cache_creation_input_token_cost_batches": 5e-06,
+            "cache_creation_input_token_cost_priority": 2e-05,
+            "cache_creation_input_token_cost_ultrafast": 3e-05,
+            "cache_read_input_token_cost": 4e-07,
+            "cache_read_input_token_cost_above_272k_tokens": 8e-07,
+            "cache_read_input_token_cost_above_272k_tokens_batches": 4e-07,
+            "cache_read_input_token_cost_above_272k_tokens_priority": 1.6e-06,
+            "cache_read_input_token_cost_above_272k_tokens_ultrafast": 2.4e-06,
+            "cache_read_input_token_cost_batches": 2e-07,
+            "cache_read_input_token_cost_priority": 8e-07,
+            "cache_read_input_token_cost_ultrafast": 1.2e-06,
+            "input_cost_per_token": 8e-06,
+            "input_cost_per_token_above_272k_tokens": 1.6e-05,
+            "input_cost_per_token_above_272k_tokens_batches": 8e-06,
+            "input_cost_per_token_above_272k_tokens_priority": 3.2e-05,
+            "input_cost_per_token_above_272k_tokens_ultrafast": 4.8e-05,
+            "input_cost_per_token_batches": 4e-06,
+            "input_cost_per_token_priority": 1.6e-05,
+            "input_cost_per_token_ultrafast": 2.4e-05,
+            "litellm_provider": "openai",
+            "max_input_tokens": 922000,
+            "max_output_tokens": 128000,
+            "mode": "chat",
+            "output_cost_per_token": 4e-05,
+            "output_cost_per_token_above_272k_tokens": 6e-05,
+            "output_cost_per_token_above_272k_tokens_batches": 3e-05,
+            "output_cost_per_token_above_272k_tokens_priority": 0.00012,
+            "output_cost_per_token_above_272k_tokens_ultrafast": 0.00018,
+            "output_cost_per_token_batches": 2e-05,
+            "output_cost_per_token_priority": 8e-05,
+            "output_cost_per_token_ultrafast": 0.00012,
+            "reasoning_contexts": ["auto", "current_turn", "all_turns"],
+            "reasoning_modes": ["standard", "pro"],
+            "regional_processing_uplift_multiplier_eu": 1.1,
+            "regional_processing_uplift_multiplier_us": 1.1,
+            "search_context_cost_per_query": {"search_context_size_high": 0.01, "search_context_size_low": 0.01, "search_context_size_medium": 0.01},
+            "source": "https://developers.openai.com/api/docs/pricing",
+            "supported_endpoints": ["/v1/chat/completions", "/v1/batch", "/v1/responses"],
+            "supported_modalities": ["text", "image"],
+            "supported_output_modalities": ["text"],
+            "supports_computer_use": True,
+            "supports_function_calling": True,
+            "supports_max_reasoning_effort": True,
+            "supports_minimal_reasoning_effort": False,
+            "supports_native_streaming": True,
+            "supports_none_reasoning_effort": False,
+            "supports_parallel_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_cache_breakpoint": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_system_messages": True,
+            "supports_tool_choice": True,
+            "supports_tool_search": True,
+            "supports_vision": True,
+            "supports_web_search": True,
+            "supports_xhigh_reasoning_effort": True,
+        },
+        "gpt-6.2-sol": {
+            "cache_creation_input_token_cost": 2.5e-06,
+            "cache_creation_input_token_cost_above_12hr": 5e-06,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens": 1e-05,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens_batches": 5e-06,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens_priority": 2e-05,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens_ultrafast": 3e-05,
+            "cache_creation_input_token_cost_above_12hr_batches": 2.5e-06,
+            "cache_creation_input_token_cost_above_12hr_priority": 1e-05,
+            "cache_creation_input_token_cost_above_12hr_ultrafast": 1.5e-05,
+            "cache_creation_input_token_cost_above_272k_tokens": 5e-06,
+            "cache_creation_input_token_cost_above_272k_tokens_batches": 2.5e-06,
+            "cache_creation_input_token_cost_above_272k_tokens_priority": 1e-05,
+            "cache_creation_input_token_cost_above_272k_tokens_ultrafast": 1.5e-05,
+            "cache_creation_input_token_cost_batches": 1.25e-06,
+            "cache_creation_input_token_cost_priority": 5e-06,
+            "cache_creation_input_token_cost_ultrafast": 7.5e-06,
+            "cache_read_input_token_cost": 1e-07,
+            "cache_read_input_token_cost_above_272k_tokens": 2e-07,
+            "cache_read_input_token_cost_above_272k_tokens_batches": 1e-07,
+            "cache_read_input_token_cost_above_272k_tokens_priority": 4e-07,
+            "cache_read_input_token_cost_above_272k_tokens_ultrafast": 6e-07,
+            "cache_read_input_token_cost_batches": 5e-08,
+            "cache_read_input_token_cost_priority": 2e-07,
+            "cache_read_input_token_cost_ultrafast": 3e-07,
+            "input_cost_per_token": 2e-06,
+            "input_cost_per_token_above_272k_tokens": 4e-06,
+            "input_cost_per_token_above_272k_tokens_batches": 2e-06,
+            "input_cost_per_token_above_272k_tokens_priority": 8e-06,
+            "input_cost_per_token_above_272k_tokens_ultrafast": 1.2e-05,
+            "input_cost_per_token_batches": 1e-06,
+            "input_cost_per_token_priority": 4e-06,
+            "input_cost_per_token_ultrafast": 6e-06,
+            "litellm_provider": "openai",
+            "max_input_tokens": 922000,
+            "max_output_tokens": 128000,
+            "mode": "chat",
+            "output_cost_per_token": 1e-05,
+            "output_cost_per_token_above_272k_tokens": 1.5e-05,
+            "output_cost_per_token_above_272k_tokens_batches": 7.5e-06,
+            "output_cost_per_token_above_272k_tokens_priority": 3e-05,
+            "output_cost_per_token_above_272k_tokens_ultrafast": 4.5e-05,
+            "output_cost_per_token_batches": 5e-06,
+            "output_cost_per_token_priority": 2e-05,
+            "output_cost_per_token_ultrafast": 3e-05,
+            "reasoning_contexts": ["auto", "current_turn", "all_turns"],
+            "reasoning_modes": ["standard", "pro"],
+            "regional_processing_uplift_multiplier_eu": 1.1,
+            "regional_processing_uplift_multiplier_us": 1.1,
+            "search_context_cost_per_query": {"search_context_size_high": 0.01, "search_context_size_low": 0.01, "search_context_size_medium": 0.01},
+            "source": "https://developers.openai.com/api/docs/pricing",
+            "supported_endpoints": ["/v1/chat/completions", "/v1/batch", "/v1/responses"],
+            "supported_modalities": ["text", "image"],
+            "supported_output_modalities": ["text"],
+            "supports_computer_use": True,
+            "supports_function_calling": True,
+            "supports_max_reasoning_effort": True,
+            "supports_minimal_reasoning_effort": False,
+            "supports_native_streaming": True,
+            "supports_none_reasoning_effort": False,
+            "supports_parallel_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_cache_breakpoint": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_system_messages": True,
+            "supports_tool_choice": True,
+            "supports_tool_search": True,
+            "supports_vision": True,
+            "supports_web_search": True,
+            "supports_xhigh_reasoning_effort": True,
+        },
+        "gpt-6.2-astra-law": {
+            "cache_creation_input_token_cost": 1e-05,
+            "cache_creation_input_token_cost_above_12hr": 2e-05,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens": 4e-05,
+            "cache_creation_input_token_cost_above_272k_tokens": 2e-05,
+            "cache_read_input_token_cost": 4e-07,
+            "cache_read_input_token_cost_above_272k_tokens": 8e-07,
+            "input_cost_per_token": 8e-06,
+            "input_cost_per_token_above_272k_tokens": 1.6e-05,
+            "litellm_provider": "openai",
+            "max_input_tokens": 922000,
+            "max_output_tokens": 128000,
+            "mode": "chat",
+            "output_cost_per_token": 4e-05,
+            "output_cost_per_token_above_272k_tokens": 6e-05,
+            "reasoning_contexts": ["auto", "current_turn", "all_turns"],
+            "reasoning_modes": ["standard", "pro"],
+            "regional_processing_uplift_multiplier_eu": 1.1,
+            "regional_processing_uplift_multiplier_us": 1.1,
+            "search_context_cost_per_query": {"search_context_size_high": 0.01, "search_context_size_low": 0.01, "search_context_size_medium": 0.01},
+            "source": "https://developers.openai.com/api/docs/pricing",
+            "supported_endpoints": ["/v1/chat/completions", "/v1/batch", "/v1/responses"],
+            "supported_modalities": ["text", "image"],
+            "supported_output_modalities": ["text"],
+            "supports_computer_use": True,
+            "supports_function_calling": True,
+            "supports_max_reasoning_effort": True,
+            "supports_minimal_reasoning_effort": False,
+            "supports_native_streaming": True,
+            "supports_none_reasoning_effort": False,
+            "supports_parallel_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_cache_breakpoint": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_system_messages": True,
+            "supports_tool_choice": True,
+            "supports_tool_search": True,
+            "supports_vision": True,
+            "supports_web_search": True,
+            "supports_xhigh_reasoning_effort": True,
+        },
+
         "claude-fable-5-2": {
             "cache_creation_input_token_cost": 1e-05,
             "cache_creation_input_token_cost_above_1hr": 1.6e-05,
@@ -2483,10 +2695,10 @@ class ModelSyncRules:
         # Upstream stores 922,000. This catalogue stores the CONTEXT WINDOW in
         # max_input_tokens, which is how the field is used for every other
         # provider here (Claude 1M, Gemini 1,048,576, DeepSeek 1,000,000). The
-        # nine entries below keep the family internally consistent. Worth
-        # revisiting deliberately some day — as one decision across all nine.
+        # eleven entries below keep the family internally consistent. Worth
+        # revisiting deliberately some day — as one decision across all eleven.
         #
-        # Prices for all nine come from upstream unchanged; each was checked
+        # Prices for all eleven come from upstream unchanged; each was checked
         # against the pricing page when added (short context and >272k, incl.
         # flex / priority / batch). The *_above_272k_tokens_flex overlays that
         # once lived on the gpt-5.6 family were removed on 2026-08-26: kept,
@@ -2495,6 +2707,8 @@ class ModelSyncRules:
         "gpt-6-astra": {"max_input_tokens": 1050000},
         "gpt-6.1-sol": {"max_input_tokens": 1050000},  # supersedes gpt-6-sol; cached input halved ($0.10)
         "gpt-6.1-terra": {"max_input_tokens": 1050000},  # pre-staged in PRESTAGED
+        "gpt-6.2-astra": {"max_input_tokens": 1050000},  # pre-staged in PRESTAGED
+        "gpt-6.2-sol": {"max_input_tokens": 1050000},  # pre-staged in PRESTAGED
         "gpt-6-cyber": {"max_input_tokens": 1050000},  # pre-staged in PRESTAGED
         "gpt-6-sol": {"max_input_tokens": 1050000},
         "gpt-6-luna": {"max_input_tokens": 1050000},
