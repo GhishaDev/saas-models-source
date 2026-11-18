@@ -184,6 +184,36 @@ def test_gpt_6_1_terra_carries_the_context_window_not_max_input(exported_models)
     assert raw["cache_creation_input_token_cost_above_12hr"] == pytest.approx(2.5e-06)
 
 
+@pytest.mark.parametrize(
+    "key, standard, long_context",
+    [
+        # (input, cached, output) per token, <=272K and >272K, from the
+        # OpenAI pricing page on 2026-11-18.
+        ("gpt-6.2-astra", (8e-06, 4e-07, 4e-05), (1.6e-05, 8e-07, 6e-05)),
+        ("gpt-6.2-sol", (2e-06, 1e-07, 1e-05), (4e-06, 2e-07, 1.5e-05)),
+        ("gpt-6.2-astra-law", (8e-06, 4e-07, 4e-05), (1.6e-05, 8e-07, 6e-05)),
+    ],
+)
+def test_gpt_6_2_prestaged_tariff(exported_models, key, standard, long_context):
+    raw = exported_models[key]["raw_data"]
+    assert (raw["input_cost_per_token"], raw["cache_read_input_token_cost"], raw["output_cost_per_token"]) == pytest.approx(standard)
+    assert (
+        raw["input_cost_per_token_above_272k_tokens"],
+        raw["cache_read_input_token_cost_above_272k_tokens"],
+        raw["output_cost_per_token_above_272k_tokens"],
+    ) == pytest.approx(long_context)
+    # Not in the Flex table; the family's fedramp field waits for the pin bump.
+    assert not any(field.endswith("_flex") for field in raw), key
+    assert "fedramp_uplift_multiplier" not in raw, key
+
+
+def test_gpt_6_2_astra_and_sol_carry_the_context_window(exported_models):
+    for key in ("gpt-6.2-astra", "gpt-6.2-sol"):
+        assert exported_models[key]["raw_data"]["max_input_tokens"] == 1050000, key
+    # 6.2 Astra Law has no model page; like gpt-6-astra-law it keeps upstream's 922,000.
+    assert exported_models["gpt-6.2-astra-law"]["raw_data"]["max_input_tokens"] == 922000
+
+
 def test_glm_asr_2512_bills_per_token_with_a_per_second_fallback(exported_models):
     # zai holds the price ($3.00 / MTok, read from z.ai's $0.0024/minute;
     # output free; per-second fallback for responses without usage) and

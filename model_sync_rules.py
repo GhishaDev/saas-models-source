@@ -2695,10 +2695,10 @@ class ModelSyncRules:
         # Upstream stores 922,000. This catalogue stores the CONTEXT WINDOW in
         # max_input_tokens, which is how the field is used for every other
         # provider here (Claude 1M, Gemini 1,048,576, DeepSeek 1,000,000). The
-        # eleven entries below keep the family internally consistent. Worth
-        # revisiting deliberately some day — as one decision across all eleven.
+        # twelve entries below keep the family internally consistent. Worth
+        # revisiting deliberately some day — as one decision across all twelve.
         #
-        # Prices for all eleven come from upstream unchanged; each was checked
+        # Prices for all twelve come from upstream unchanged; each was checked
         # against the pricing page when added (short context and >272k, incl.
         # flex / priority / batch). The *_above_272k_tokens_flex overlays that
         # once lived on the gpt-5.6 family were removed on 2026-08-26: kept,
