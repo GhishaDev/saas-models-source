@@ -2649,6 +2649,81 @@ class ModelSyncRules:
             "supports_web_search": True,
             "supports_xhigh_reasoning_effort": True,
         },
+        # gemini-4-neon — GA, copied from upstream main (1d0b0c0, 2026-11-20)
+        # and checked against ai.google.dev/gemini-api/docs/pricing on
+        # 2026-11-20: $3.00 in / $15.00 out (incl. thinking) / $0.15 cache;
+        # Batch and Flex $1.50 / $7.50 / $0.075; Priority $5.40 / $27.00 /
+        # $0.27. No prompt-length tiers and no dated price; no Free tier.
+        # Implicit caching only. Search and Maps grounding 5,000 free per
+        # month (shared with Gemini 3+), then $14 / 1K. Same record shape as
+        # gemini-4-hydrogen.
+        "gemini/gemini-4-neon": {
+            "cache_read_input_token_cost": 1.5e-07,
+            "cache_read_input_token_cost_batches": 7.5e-08,
+            "cache_read_input_token_cost_flex": 7.5e-08,
+            "cache_read_input_token_cost_priority": 2.7e-07,
+            "google_maps_grounding_cost_per_query": 0.014,
+            "input_cost_per_token": 3e-06,
+            "input_cost_per_token_batches": 1.5e-06,
+            "input_cost_per_token_flex": 1.5e-06,
+            "input_cost_per_token_priority": 5.4e-06,
+            "litellm_provider": 'gemini',
+            "max_input_tokens": 1048576,
+            "max_output_tokens": 1048576,
+            "mode": 'chat',
+            "output_cost_per_reasoning_token": 1.5e-05,
+            "output_cost_per_token": 1.5e-05,
+            "output_cost_per_token_batches": 7.5e-06,
+            "output_cost_per_token_flex": 7.5e-06,
+            "output_cost_per_token_priority": 2.7e-05,
+            "prompt_cache_min_tokens": 4096.0,
+            "rpm": 2000.0,
+            "search_context_cost_per_query": {"search_context_size_low": 0.014, "search_context_size_medium": 0.014, "search_context_size_high": 0.014},
+            "search_free_requests": {"count": 5000, "period": "month", "shared_group": "gemini-3"},
+            "source": 'https://aistudio.google.com/docs/pricing#gemini-4-neon',
+            "supported_endpoints": ["/v1/chat/completions", "/v1/completions"],
+            "supported_modalities": ["text", "image", "audio", "video"],
+            "supported_output_modalities": ["text"],
+            "supports_audio_input": True,
+            "supports_audio_output": False,
+            "supports_computer_use": True,
+            "supports_continuation": True,
+            "supports_function_calling": True,
+            "supports_minimal_reasoning_effort": False,
+            "supports_native_streaming": True,
+            "supports_parallel_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_system_messages": True,
+            "supports_tool_choice": True,
+            "supports_url_context": True,
+            "supports_video_input": True,
+            "supports_vision": True,
+            "supports_web_search": True,
+            "supports_xhigh_reasoning_effort": True,
+            "tpm": 800000.0,
+            "web_search_billing_unit": 'per_query',
+        },
+        # gpt-live-1.1 — copied from upstream main (1d0b0c0, 2026-11-20) and
+        # checked against developers.openai.com/api/docs/pricing on
+        # 2026-11-20: the GPT-Live table lists it next to gpt-live-1 at the
+        # same "$0.05 / minute" active rate (billed per second; upstream
+        # input_cost_per_second 8.333e-04 x 60 = $0.05). The $0.02 / minute
+        # standby rate is not modelled, exactly as for gpt-live-1. No token
+        # pricing, so the top-level token prices export as 0.
+        "gpt-live-1.1": {
+            "input_cost_per_second": 0.000833333333333,
+            "litellm_provider": 'openai',
+            "mode": 'realtime',
+            "source": 'https://developers.openai.com/api/docs/pricing',
+            "supported_modalities": ["text", "audio"],
+            "supported_output_modalities": ["text", "audio"],
+            "supports_audio_input": True,
+            "supports_audio_output": True,
+            "supports_function_calling": True,
+        },
     }
 
     # ── OpenAI overlays ───────────────────────────────────────────────────
