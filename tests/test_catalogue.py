@@ -270,3 +270,28 @@ def test_gpt_6_astra_law_has_long_context_prices(exported_models):
     assert raw["input_cost_per_token_above_272k_tokens"] == pytest.approx(2e-05)
     assert raw["cache_read_input_token_cost_above_272k_tokens"] == pytest.approx(2e-06)
     assert raw["output_cost_per_token_above_272k_tokens"] == pytest.approx(7.5e-05)
+
+
+def test_gpt_6_rosalind_matches_the_pricing_page(exported_models):
+    # Specialized models table, promotional "at least through December 31, 2026":
+    # short context $10 / $1.00 cached / $50, writes $12.50 (30m) / $25 (12h);
+    # long context $20 / $2.00 / $75, writes $25 / $50.
+    entry = exported_models["gpt-6-rosalind"]
+    raw = entry["raw_data"]
+    expected = {
+        "input_cost_per_token": 1e-05,
+        "cache_read_input_token_cost": 1e-06,
+        "output_cost_per_token": 5e-05,
+        "cache_creation_input_token_cost": 1.25e-05,
+        "cache_creation_input_token_cost_above_12hr": 2.5e-05,
+        "input_cost_per_token_above_272k_tokens": 2e-05,
+        "cache_read_input_token_cost_above_272k_tokens": 2e-06,
+        "output_cost_per_token_above_272k_tokens": 7.5e-05,
+        "cache_creation_input_token_cost_above_272k_tokens": 2.5e-05,
+        "cache_creation_input_token_cost_above_12hr_above_272k_tokens": 5e-05,
+    }
+    for field, value in expected.items():
+        assert raw[field] == pytest.approx(value), field
+    assert entry["input_cost_per_token"] == pytest.approx(1e-05)
+    assert entry["output_cost_per_token"] == pytest.approx(5e-05)
+    assert entry["cache_read_input_token_cost"] == pytest.approx(1e-06)
