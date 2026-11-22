@@ -1329,17 +1329,19 @@ class ModelSyncRules:
         # Seedance 2.5 (date-less alias + dated snapshot)
         "volcengine/doubao-seedance-2-5",
         "volcengine/doubao-seedance-2-5-260628",
-        # Seedance 2.5 Flash (2026-11-15): only the alias the pricing page
-        # names ("doubao-seedance-2.5-flash"); the dated ID is not on a
-        # readable official page yet — same handling as Seedream 5.5.
+        # Seedance 2.5 Flash (2026-11-15): the alias the pricing page names
+        # ("doubao-seedance-2.5-flash"). The dated ID joined the official
+        # Model list by 2026-11-22 (480p / 720p, 4-30 s).
         "volcengine/doubao-seedance-2-5-flash",
+        "volcengine/doubao-seedance-2-5-flash-261115",
         # Seedream image models — the NON-video volcengine SKUs (scope was
         # Seedance video only until 2026-09-17). Every dated ID and alias is
         # listed, so a consumer can pick any of them with its price filled in
         # instead of typing a model id by hand.
-        # Seedream 5.5 (2026-11-13): only the alias the pricing page names;
-        # the dated ID is not on a readable official page yet.
+        # Seedream 5.5 (2026-11-13): the alias the pricing page names. The
+        # dated ID joined the official Model list by 2026-11-22.
         "volcengine/doubao-seedream-5-5",
+        "volcengine/doubao-seedream-5-5-261028",
         "volcengine/doubao-seedream-5-0-pro",
         "volcengine/doubao-seedream-5-0-pro-260628",
         "volcengine/doubao-seedream-5-0-lite",
@@ -1483,6 +1485,15 @@ class ModelSyncRules:
             "output_cost_per_token": _cny_per_m_to_usd_per_token(46),
             "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(28),
         },
+        "volcengine/doubao-seedance-2-5-flash-261115": {
+            "litellm_provider": "volcengine",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://www.volcengine.com/docs/82379/1544106",
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(46),
+            "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(28),
+        },
         # ── Seedream image generation ────────────────────────────────────
         # Billed PER IMAGE in CNY (元/张), not per token — a different shape
         # from every other volcengine SKU here, hence
@@ -1523,6 +1534,7 @@ class ModelSyncRules:
         # 0.02 input; 5-0 + 5-0-lite 0.22; 4-5 0.25; 4-0 0.20.
         # Seedream 5.5: template and source note at the top of the module.
         "volcengine/doubao-seedream-5-5": _SEEDREAM_5_5,
+        "volcengine/doubao-seedream-5-5-261028": _SEEDREAM_5_5,
         "volcengine/doubao-seedream-5-0-pro-260628": _SEEDREAM_PRO,
         "volcengine/doubao-seedream-5-0-pro": _SEEDREAM_PRO,
         # Seedream 5.0 Flash (2026-09): the cheapest 5.0 tier, ¥0.12 per output
@@ -1782,6 +1794,7 @@ class ModelSyncRules:
         "new-api/doubao-seedance-2-5",
         "new-api/doubao-seedance-2-5-260628",
         "new-api/doubao-seedance-2-5-flash",
+        "new-api/doubao-seedance-2-5-flash-261115",
     })
 
     # Map new-api/<sku> → authoritative source key (after all other synths run).
@@ -1796,6 +1809,7 @@ class ModelSyncRules:
         "new-api/doubao-seedance-2-5":              "volcengine/doubao-seedance-2-5",
         "new-api/doubao-seedance-2-5-260628":       "volcengine/doubao-seedance-2-5-260628",
         "new-api/doubao-seedance-2-5-flash":        "volcengine/doubao-seedance-2-5-flash",
+        "new-api/doubao-seedance-2-5-flash-261115": "volcengine/doubao-seedance-2-5-flash-261115",
     }
 
     # ── ecloud_aicc (aggregator gateway) ──────────────────────────────────
@@ -1817,6 +1831,7 @@ class ModelSyncRules:
         "ecloud_aicc/doubao-seedance-2-5",
         "ecloud_aicc/doubao-seedance-2-5-260628",
         "ecloud_aicc/doubao-seedance-2-5-flash",
+        "ecloud_aicc/doubao-seedance-2-5-flash-261115",
     })
 
     # Map ecloud_aicc/<sku> → authoritative source key.
@@ -1830,6 +1845,7 @@ class ModelSyncRules:
         "ecloud_aicc/doubao-seedance-2-5":              "volcengine/doubao-seedance-2-5",
         "ecloud_aicc/doubao-seedance-2-5-260628":       "volcengine/doubao-seedance-2-5-260628",
         "ecloud_aicc/doubao-seedance-2-5-flash":        "volcengine/doubao-seedance-2-5-flash",
+        "ecloud_aicc/doubao-seedance-2-5-flash-261115": "volcengine/doubao-seedance-2-5-flash-261115",
     }
 
     # DEEPSEEK_SYNTH_DATA / apply_deepseek_synth RETIRED 2026-09-04.
