@@ -255,6 +255,10 @@ class ModelSyncRules:
         "typesafe/jev-1.14.0",
         "typesafe/jev-latest",
         "typesafe/jev-preview",
+        # Not TypeSafe SKUs: open-weight Decision 3.0 models, self-hosted and
+        # served on POST /v1/systemone. See ARTICULM_D3_SYNTH_DATA.
+        "typesafe/articulm-d3-mini",
+        "typesafe/articulm-d3-flash",
     })
 
     # TypeSafe capability overlay. docs.typesafe.ai/models (2026-11-14) lists
@@ -266,6 +270,48 @@ class ModelSyncRules:
         key: {"supports_vision": True}
         for key in ("typesafe/jev-1.14.0", "typesafe/jev-1.13.0", "typesafe/jev-latest", "typesafe/jev-preview")
     }
+
+    # Decision 3.0 (d3-mini, d3-flash) — open-weight decision models from the
+    # vLLM Semantic Router project, Apache-2.0: an input (text or JSON, plus
+    # images and videos) and choice / yes-no / score questions in, a
+    # probability for every answer out, no generated text. They are NOT
+    # TypeSafe models and have no vendor API or price page: they are
+    # self-hosted behind a System One endpoint, and listed under typesafe/
+    # only because that is the provider a proxy routes /v1/systemone
+    # upstreams through. The articulm- prefix keeps them apart from Jev.
+    # A key names the product, not the build: the served weights may be a
+    # fine-tuned or quantized derivative of the released ones.
+    #
+    # Prices are set by policy, not read from a vendor (there is none), with
+    # Jev's tariff as the reference: input-only billing like every decision
+    # model, d3-flash (8.39B) at Jev's $0.042 per M input tokens and d3-mini
+    # (4.54B, about half the size) at half that. Revisit if the hosting cost
+    # changes; nothing upstream will ever move these.
+    #
+    # max_input_tokens is 32,768, the longest input the model cards document
+    # (a 32k-token text); the base models' 262,144 positions are not a
+    # documented limit of the decision models.
+    _ARTICULM_D3_COMMON: dict[str, Any] = {
+        "litellm_provider": "typesafe",
+        "mode": "evaluation",
+        "max_input_tokens": 32768,
+        "output_cost_per_token": 0.0,
+        "supports_vision": True,
+        "supports_video_input": True,
+    }
+    ARTICULM_D3_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        "typesafe/articulm-d3-mini": {
+            **_ARTICULM_D3_COMMON,
+            "source": "https://huggingface.co/vllm-sr/d3-mini",
+            "input_cost_per_token": 2.1e-08,
+        },
+        "typesafe/articulm-d3-flash": {
+            **_ARTICULM_D3_COMMON,
+            "source": "https://huggingface.co/vllm-sr/d3-flash",
+            "input_cost_per_token": 4.2e-08,
+        },
+    }
+    TYPESAFE_SYNTH_DATA.update(ARTICULM_D3_SYNTH_DATA)
 
     # zai/glm whitelist — only these keys are allowed through provider filter.
     # Includes models present on the LiteLLM source today, plus pre-staged SKUs
@@ -293,6 +339,7 @@ class ModelSyncRules:
         "zai/glm-5.3-flash",
         # Pre-staged: on docs.z.ai but missing from LiteLLM source
         # (verified against the pinned snapshot, 2026-09-30)
+        "zai/glm-5.4",  # ahead of release, see ZAI_SYNTH_DATA
         "zai/glm-5.3-flashx",
         "zai/glm-5.3-flashx-legal",
         "zai/glm-5-turbo",
@@ -359,6 +406,28 @@ class ModelSyncRules:
     # there is no current vendor page to derive them from.
     ZAI_SYNTH_DATA: dict[str, dict[str, Any]] = {
         # ── Pre-staged SKUs (absent upstream) ─────────────────────────────
+        "zai/glm-5.4": {
+            # Pre-staged ahead of release, by request (2026-11-23): GLM-5.4
+            # is not yet on docs.z.ai, docs.bigmodel.cn or upstream. Prices,
+            # context and capability flags deliberately mirror zai/glm-5.3
+            # ($1.4 in / $0.26 cached / $4.4 out per M, 1M context, 128K
+            # output), except supports_vision, which is set by request.
+            # Replace everything with z.ai's published data once it exists.
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "input_cost_per_token": 1.4e-06,
+            "output_cost_per_token": 4.4e-06,
+            "cache_read_input_token_cost": 2.6e-07,
+            "supports_reasoning": True,
+            "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_prompt_caching": True,
+            "supports_vision": True,
+            "supports_max_reasoning_effort": True,
+            "supports_low_reasoning_effort": True,
+        },
         "zai/glm-5.3-flashx": {
             # Higher-throughput tier of GLM-5.3-Flash; overview maps it to the
             # glm-5.3-flash guide, which also documents 1M context and 128K
@@ -616,6 +685,7 @@ class ModelSyncRules:
     # 8K model, not glm-4.5-airx.) glm-4.5-flash / glm-4.6v-flash are
     # free-tier and filtered separately via the Zero Price rule.
     BIGMODEL_ALLOWED_KEYS = frozenset({
+        "bigmodel/glm-5.4",
         "bigmodel/glm-5.2",
         "bigmodel/glm-5.3",
         "bigmodel/glm-5.3-flash",
@@ -651,6 +721,14 @@ class ModelSyncRules:
     # bigmodel/* keys), so apply_bigmodel_synth injects them wholesale.
     BIGMODEL_SYNTH_DATA: dict[str, dict[str, Any]] = {
         # Text models
+        "bigmodel/glm-5.4": {
+            # Pre-staged with zai/glm-5.4 (2026-11-23); prices and flags are
+            # mirrored from it, so only the context window lives here.
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+        },
         "bigmodel/glm-5.2": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
@@ -1329,17 +1407,19 @@ class ModelSyncRules:
         # Seedance 2.5 (date-less alias + dated snapshot)
         "volcengine/doubao-seedance-2-5",
         "volcengine/doubao-seedance-2-5-260628",
-        # Seedance 2.5 Flash (2026-11-15): only the alias the pricing page
-        # names ("doubao-seedance-2.5-flash"); the dated ID is not on a
-        # readable official page yet — same handling as Seedream 5.5.
+        # Seedance 2.5 Flash (2026-11-15): the alias the pricing page names
+        # ("doubao-seedance-2.5-flash"). The dated ID joined the official
+        # Model list by 2026-11-22 (480p / 720p, 4-30 s).
         "volcengine/doubao-seedance-2-5-flash",
+        "volcengine/doubao-seedance-2-5-flash-261115",
         # Seedream image models — the NON-video volcengine SKUs (scope was
         # Seedance video only until 2026-09-17). Every dated ID and alias is
         # listed, so a consumer can pick any of them with its price filled in
         # instead of typing a model id by hand.
-        # Seedream 5.5 (2026-11-13): only the alias the pricing page names;
-        # the dated ID is not on a readable official page yet.
+        # Seedream 5.5 (2026-11-13): the alias the pricing page names. The
+        # dated ID joined the official Model list by 2026-11-22.
         "volcengine/doubao-seedream-5-5",
+        "volcengine/doubao-seedream-5-5-261028",
         "volcengine/doubao-seedream-5-0-pro",
         "volcengine/doubao-seedream-5-0-pro-260628",
         "volcengine/doubao-seedream-5-0-lite",
@@ -1483,6 +1563,15 @@ class ModelSyncRules:
             "output_cost_per_token": _cny_per_m_to_usd_per_token(46),
             "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(28),
         },
+        "volcengine/doubao-seedance-2-5-flash-261115": {
+            "litellm_provider": "volcengine",
+            "mode": "video_generation",
+            "max_input_tokens": 1024,
+            "max_output_tokens": 1024,
+            "source": "https://www.volcengine.com/docs/82379/1544106",
+            "output_cost_per_token": _cny_per_m_to_usd_per_token(46),
+            "output_cost_per_token_with_input_video": _cny_per_m_to_usd_per_token(28),
+        },
         # ── Seedream image generation ────────────────────────────────────
         # Billed PER IMAGE in CNY (元/张), not per token — a different shape
         # from every other volcengine SKU here, hence
@@ -1523,6 +1612,7 @@ class ModelSyncRules:
         # 0.02 input; 5-0 + 5-0-lite 0.22; 4-5 0.25; 4-0 0.20.
         # Seedream 5.5: template and source note at the top of the module.
         "volcengine/doubao-seedream-5-5": _SEEDREAM_5_5,
+        "volcengine/doubao-seedream-5-5-261028": _SEEDREAM_5_5,
         "volcengine/doubao-seedream-5-0-pro-260628": _SEEDREAM_PRO,
         "volcengine/doubao-seedream-5-0-pro": _SEEDREAM_PRO,
         # Seedream 5.0 Flash (2026-09): the cheapest 5.0 tier, ¥0.12 per output
@@ -1782,6 +1872,7 @@ class ModelSyncRules:
         "new-api/doubao-seedance-2-5",
         "new-api/doubao-seedance-2-5-260628",
         "new-api/doubao-seedance-2-5-flash",
+        "new-api/doubao-seedance-2-5-flash-261115",
     })
 
     # Map new-api/<sku> → authoritative source key (after all other synths run).
@@ -1796,6 +1887,7 @@ class ModelSyncRules:
         "new-api/doubao-seedance-2-5":              "volcengine/doubao-seedance-2-5",
         "new-api/doubao-seedance-2-5-260628":       "volcengine/doubao-seedance-2-5-260628",
         "new-api/doubao-seedance-2-5-flash":        "volcengine/doubao-seedance-2-5-flash",
+        "new-api/doubao-seedance-2-5-flash-261115": "volcengine/doubao-seedance-2-5-flash-261115",
     }
 
     # ── ecloud_aicc (aggregator gateway) ──────────────────────────────────
@@ -1817,6 +1909,7 @@ class ModelSyncRules:
         "ecloud_aicc/doubao-seedance-2-5",
         "ecloud_aicc/doubao-seedance-2-5-260628",
         "ecloud_aicc/doubao-seedance-2-5-flash",
+        "ecloud_aicc/doubao-seedance-2-5-flash-261115",
     })
 
     # Map ecloud_aicc/<sku> → authoritative source key.
@@ -1830,6 +1923,7 @@ class ModelSyncRules:
         "ecloud_aicc/doubao-seedance-2-5":              "volcengine/doubao-seedance-2-5",
         "ecloud_aicc/doubao-seedance-2-5-260628":       "volcengine/doubao-seedance-2-5-260628",
         "ecloud_aicc/doubao-seedance-2-5-flash":        "volcengine/doubao-seedance-2-5-flash",
+        "ecloud_aicc/doubao-seedance-2-5-flash-261115": "volcengine/doubao-seedance-2-5-flash-261115",
     }
 
     # DEEPSEEK_SYNTH_DATA / apply_deepseek_synth RETIRED 2026-09-04.
@@ -2648,6 +2742,81 @@ class ModelSyncRules:
             "supports_vision": True,
             "supports_web_search": True,
             "supports_xhigh_reasoning_effort": True,
+        },
+        # gemini-4-neon — GA, copied from upstream main (1d0b0c0, 2026-11-20)
+        # and checked against ai.google.dev/gemini-api/docs/pricing on
+        # 2026-11-20: $3.00 in / $15.00 out (incl. thinking) / $0.15 cache;
+        # Batch and Flex $1.50 / $7.50 / $0.075; Priority $5.40 / $27.00 /
+        # $0.27. No prompt-length tiers and no dated price; no Free tier.
+        # Implicit caching only. Search and Maps grounding 5,000 free per
+        # month (shared with Gemini 3+), then $14 / 1K. Same record shape as
+        # gemini-4-hydrogen.
+        "gemini/gemini-4-neon": {
+            "cache_read_input_token_cost": 1.5e-07,
+            "cache_read_input_token_cost_batches": 7.5e-08,
+            "cache_read_input_token_cost_flex": 7.5e-08,
+            "cache_read_input_token_cost_priority": 2.7e-07,
+            "google_maps_grounding_cost_per_query": 0.014,
+            "input_cost_per_token": 3e-06,
+            "input_cost_per_token_batches": 1.5e-06,
+            "input_cost_per_token_flex": 1.5e-06,
+            "input_cost_per_token_priority": 5.4e-06,
+            "litellm_provider": 'gemini',
+            "max_input_tokens": 1048576,
+            "max_output_tokens": 1048576,
+            "mode": 'chat',
+            "output_cost_per_reasoning_token": 1.5e-05,
+            "output_cost_per_token": 1.5e-05,
+            "output_cost_per_token_batches": 7.5e-06,
+            "output_cost_per_token_flex": 7.5e-06,
+            "output_cost_per_token_priority": 2.7e-05,
+            "prompt_cache_min_tokens": 4096.0,
+            "rpm": 2000.0,
+            "search_context_cost_per_query": {"search_context_size_low": 0.014, "search_context_size_medium": 0.014, "search_context_size_high": 0.014},
+            "search_free_requests": {"count": 5000, "period": "month", "shared_group": "gemini-3"},
+            "source": 'https://aistudio.google.com/docs/pricing#gemini-4-neon',
+            "supported_endpoints": ["/v1/chat/completions", "/v1/completions"],
+            "supported_modalities": ["text", "image", "audio", "video"],
+            "supported_output_modalities": ["text"],
+            "supports_audio_input": True,
+            "supports_audio_output": False,
+            "supports_computer_use": True,
+            "supports_continuation": True,
+            "supports_function_calling": True,
+            "supports_minimal_reasoning_effort": False,
+            "supports_native_streaming": True,
+            "supports_parallel_function_calling": True,
+            "supports_pdf_input": True,
+            "supports_prompt_caching": True,
+            "supports_reasoning": True,
+            "supports_response_schema": True,
+            "supports_system_messages": True,
+            "supports_tool_choice": True,
+            "supports_url_context": True,
+            "supports_video_input": True,
+            "supports_vision": True,
+            "supports_web_search": True,
+            "supports_xhigh_reasoning_effort": True,
+            "tpm": 800000.0,
+            "web_search_billing_unit": 'per_query',
+        },
+        # gpt-live-1.1 — copied from upstream main (1d0b0c0, 2026-11-20) and
+        # checked against developers.openai.com/api/docs/pricing on
+        # 2026-11-20: the GPT-Live table lists it next to gpt-live-1 at the
+        # same "$0.05 / minute" active rate (billed per second; upstream
+        # input_cost_per_second 8.333e-04 x 60 = $0.05). The $0.02 / minute
+        # standby rate is not modelled, exactly as for gpt-live-1. No token
+        # pricing, so the top-level token prices export as 0.
+        "gpt-live-1.1": {
+            "input_cost_per_second": 0.000833333333333,
+            "litellm_provider": 'openai',
+            "mode": 'realtime',
+            "source": 'https://developers.openai.com/api/docs/pricing',
+            "supported_modalities": ["text", "audio"],
+            "supported_output_modalities": ["text", "audio"],
+            "supports_audio_input": True,
+            "supports_audio_output": True,
+            "supports_function_calling": True,
         },
     }
 
@@ -3894,6 +4063,13 @@ class ModelSyncRules:
                 else:
                     parts.append(p.capitalize())
             return "Kimi " + " ".join(parts)
+
+        # Decision 3.0 under typesafe/: typesafe/articulm-d3-mini →
+        #   Articulm D3 Mini. Checked before the Jev rule, which would
+        #   otherwise name it "Jev Articulm-d3-mini".
+        m = re.fullmatch(r"typesafe/articulm-d3-(\w+)", key, flags=re.IGNORECASE)
+        if m:
+            return "Articulm D3 " + m.group(1).capitalize()
 
         # TypeSafe: typesafe/jev-1.13.0 → Jev 1.13 (the docs' own name; a
         #   zero patch is dropped), typesafe/jev-latest → Jev Latest.
