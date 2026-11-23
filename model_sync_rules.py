@@ -2891,6 +2891,27 @@ class ModelSyncRules:
             "input_cost_per_token_above_272k_tokens": 2e-05,
             "output_cost_per_token_above_272k_tokens": 7.5e-05,
         },
+        # gpt-6-rosalind — the pricing page's Specialized models table
+        # (checked 2026-11-20) lists promotional pricing "at least through
+        # December 31, 2026": short context $10 in / $50 out / $1.00 cached,
+        # cache writes $12.50 (30-minute) / $25 (12-hour); long context $20 /
+        # $75 / $2.00, writes $25 / $50. The pinned upstream record still has
+        # the earlier $15 / $75 / $1.50 tariff (every field 1.5x the page), so
+        # every Rosalind request was over-billed by 50%. Upstream main fixes
+        # only the three short-context fields, so keep the seven long-context
+        # and cache-write fields after the next pin bump and drop the rest.
+        "gpt-6-rosalind": {
+            "cache_creation_input_token_cost": 1.25e-05,
+            "cache_creation_input_token_cost_above_12hr": 2.5e-05,
+            "cache_creation_input_token_cost_above_12hr_above_272k_tokens": 5e-05,
+            "cache_creation_input_token_cost_above_272k_tokens": 2.5e-05,
+            "cache_read_input_token_cost": 1e-06,
+            "cache_read_input_token_cost_above_272k_tokens": 2e-06,
+            "input_cost_per_token": 1e-05,
+            "input_cost_per_token_above_272k_tokens": 2e-05,
+            "output_cost_per_token": 5e-05,
+            "output_cost_per_token_above_272k_tokens": 7.5e-05,
+        },
         # gpt-5.6 carries gpt-5.6-sol's tariff field for field, but upstream
         # lacks the two Batch 12-hour cache-write fields sol has (2.5x the
         # Batch input, $5 / $10 above 272K).
