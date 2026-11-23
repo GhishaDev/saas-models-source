@@ -293,6 +293,7 @@ class ModelSyncRules:
         "zai/glm-5.3-flash",
         # Pre-staged: on docs.z.ai but missing from LiteLLM source
         # (verified against the pinned snapshot, 2026-09-30)
+        "zai/glm-5.4",  # ahead of release, see ZAI_SYNTH_DATA
         "zai/glm-5.3-flashx",
         "zai/glm-5.3-flashx-legal",
         "zai/glm-5-turbo",
@@ -359,6 +360,28 @@ class ModelSyncRules:
     # there is no current vendor page to derive them from.
     ZAI_SYNTH_DATA: dict[str, dict[str, Any]] = {
         # ── Pre-staged SKUs (absent upstream) ─────────────────────────────
+        "zai/glm-5.4": {
+            # Pre-staged ahead of release, by request (2026-11-23): GLM-5.4
+            # is not yet on docs.z.ai, docs.bigmodel.cn or upstream. Prices,
+            # context and capability flags deliberately mirror zai/glm-5.3
+            # ($1.4 in / $0.26 cached / $4.4 out per M, 1M context, 128K
+            # output), except supports_vision, which is set by request.
+            # Replace everything with z.ai's published data once it exists.
+            "litellm_provider": "zai",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+            "input_cost_per_token": 1.4e-06,
+            "output_cost_per_token": 4.4e-06,
+            "cache_read_input_token_cost": 2.6e-07,
+            "supports_reasoning": True,
+            "supports_function_calling": True,
+            "supports_tool_choice": True,
+            "supports_prompt_caching": True,
+            "supports_vision": True,
+            "supports_max_reasoning_effort": True,
+            "supports_low_reasoning_effort": True,
+        },
         "zai/glm-5.3-flashx": {
             # Higher-throughput tier of GLM-5.3-Flash; overview maps it to the
             # glm-5.3-flash guide, which also documents 1M context and 128K
@@ -616,6 +639,7 @@ class ModelSyncRules:
     # 8K model, not glm-4.5-airx.) glm-4.5-flash / glm-4.6v-flash are
     # free-tier and filtered separately via the Zero Price rule.
     BIGMODEL_ALLOWED_KEYS = frozenset({
+        "bigmodel/glm-5.4",
         "bigmodel/glm-5.2",
         "bigmodel/glm-5.3",
         "bigmodel/glm-5.3-flash",
@@ -651,6 +675,14 @@ class ModelSyncRules:
     # bigmodel/* keys), so apply_bigmodel_synth injects them wholesale.
     BIGMODEL_SYNTH_DATA: dict[str, dict[str, Any]] = {
         # Text models
+        "bigmodel/glm-5.4": {
+            # Pre-staged with zai/glm-5.4 (2026-11-23); prices and flags are
+            # mirrored from it, so only the context window lives here.
+            "litellm_provider": "bigmodel",
+            "mode": "chat",
+            "max_input_tokens": 1000000,
+            "max_output_tokens": 128000,
+        },
         "bigmodel/glm-5.2": {
             "litellm_provider": "bigmodel",
             "mode": "chat",
