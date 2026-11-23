@@ -255,6 +255,10 @@ class ModelSyncRules:
         "typesafe/jev-1.14.0",
         "typesafe/jev-latest",
         "typesafe/jev-preview",
+        # Not TypeSafe SKUs: open-weight Decision 3.0 models, self-hosted and
+        # served on POST /v1/systemone. See ARTICULM_D3_SYNTH_DATA.
+        "typesafe/articulm-d3-mini",
+        "typesafe/articulm-d3-flash",
     })
 
     # TypeSafe capability overlay. docs.typesafe.ai/models (2026-11-14) lists
@@ -266,6 +270,48 @@ class ModelSyncRules:
         key: {"supports_vision": True}
         for key in ("typesafe/jev-1.14.0", "typesafe/jev-1.13.0", "typesafe/jev-latest", "typesafe/jev-preview")
     }
+
+    # Decision 3.0 (d3-mini, d3-flash) — open-weight decision models from the
+    # vLLM Semantic Router project, Apache-2.0: an input (text or JSON, plus
+    # images and videos) and choice / yes-no / score questions in, a
+    # probability for every answer out, no generated text. They are NOT
+    # TypeSafe models and have no vendor API or price page: they are
+    # self-hosted behind a System One endpoint, and listed under typesafe/
+    # only because that is the provider a proxy routes /v1/systemone
+    # upstreams through. The articulm- prefix keeps them apart from Jev.
+    # A key names the product, not the build: the served weights may be a
+    # fine-tuned or quantized derivative of the released ones.
+    #
+    # Prices are set by policy, not read from a vendor (there is none), with
+    # Jev's tariff as the reference: input-only billing like every decision
+    # model, d3-flash (8.39B) at Jev's $0.042 per M input tokens and d3-mini
+    # (4.54B, about half the size) at half that. Revisit if the hosting cost
+    # changes; nothing upstream will ever move these.
+    #
+    # max_input_tokens is 32,768, the longest input the model cards document
+    # (a 32k-token text); the base models' 262,144 positions are not a
+    # documented limit of the decision models.
+    _ARTICULM_D3_COMMON: dict[str, Any] = {
+        "litellm_provider": "typesafe",
+        "mode": "evaluation",
+        "max_input_tokens": 32768,
+        "output_cost_per_token": 0.0,
+        "supports_vision": True,
+        "supports_video_input": True,
+    }
+    ARTICULM_D3_SYNTH_DATA: dict[str, dict[str, Any]] = {
+        "typesafe/articulm-d3-mini": {
+            **_ARTICULM_D3_COMMON,
+            "source": "https://huggingface.co/vllm-sr/d3-mini",
+            "input_cost_per_token": 2.1e-08,
+        },
+        "typesafe/articulm-d3-flash": {
+            **_ARTICULM_D3_COMMON,
+            "source": "https://huggingface.co/vllm-sr/d3-flash",
+            "input_cost_per_token": 4.2e-08,
+        },
+    }
+    TYPESAFE_SYNTH_DATA.update(ARTICULM_D3_SYNTH_DATA)
 
     # zai/glm whitelist — only these keys are allowed through provider filter.
     # Includes models present on the LiteLLM source today, plus pre-staged SKUs
@@ -3996,6 +4042,13 @@ class ModelSyncRules:
                 else:
                     parts.append(p.capitalize())
             return "Kimi " + " ".join(parts)
+
+        # Decision 3.0 under typesafe/: typesafe/articulm-d3-mini →
+        #   Articulm D3 Mini. Checked before the Jev rule, which would
+        #   otherwise name it "Jev Articulm-d3-mini".
+        m = re.fullmatch(r"typesafe/articulm-d3-(\w+)", key, flags=re.IGNORECASE)
+        if m:
+            return "Articulm D3 " + m.group(1).capitalize()
 
         # TypeSafe: typesafe/jev-1.13.0 → Jev 1.13 (the docs' own name; a
         #   zero patch is dropped), typesafe/jev-latest → Jev Latest.

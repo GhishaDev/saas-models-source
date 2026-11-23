@@ -28,6 +28,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 - **new-api (aggregator gateway)**: Reverse-whitelist mirror provider. Every `new-api/<sku>` is a full copy of an already-populated `<vendor>/<sku>` record with only `litellm_provider` re-labelled. Seedance is the first family mirrored (9 SKUs from `volcengine/doubao-seedance-*`); extending to more vendors is a two-line change (whitelist entry + `NEWAPI_MIRROR_SOURCES` mapping)
 - **ecloud_aicc (aggregator gateway)**: Second mirror provider — same mechanic as new-api, distinct namespace so deployments routing through the ecloud_aicc gateway can address SKUs by their aggregator-side name. Currently mirrors the same 9 Seedance SKUs from `volcengine/doubao-seedance-*`
 - **TypeSafe (decision models)**: `typesafe/jev-1.14.0` (newest), `typesafe/jev-1.13.0` and the documented aliases `jev-latest` / `jev-preview` (both → 1.14.0), reverse-whitelisted by `TYPESAFE_ALLOWED_KEYS`. Jev returns typed answers (a probability, a choice or a score), not text; $0.042 per M input tokens, output free ([docs.typesafe.ai/models](https://docs.typesafe.ai/models)). Text and image input (`supports_vision`, since v1.16.66). Exported as type **`decision`**.
+- **Decision 3.0 under `typesafe/` (decision models, not TypeSafe's)**: `typesafe/articulm-d3-mini` and `typesafe/articulm-d3-flash`, the open-weight [d3-mini](https://huggingface.co/vllm-sr/d3-mini) (4.54B) and [d3-flash](https://huggingface.co/vllm-sr/d3-flash) (8.39B) decision models of the vLLM Semantic Router project (Apache-2.0), self-hosted behind a System One endpoint. Listed under `typesafe/` only because that is the provider a proxy routes `/v1/systemone` upstreams through; the `articulm-` prefix keeps them apart from Jev. No vendor price page exists, so prices are set by policy against Jev's tariff: d3-flash $0.042 and d3-mini $0.021 per M input tokens, output free. Text, images and video in; input limit 32,768 tokens (the longest input the model cards document). Exported as type **`decision`** (`ARTICULM_D3_SYNTH_DATA`).
 
 ## Supported Model Types
 
@@ -38,7 +39,7 @@ A comprehensive tool for filtering and syncing AI model data from LiteLLM, desig
 | `image` | `image_generation` | `gpt-image-1.5`, `gemini/gemini-2.5-flash-image` |
 | `video` | `video_generation` | `volcengine/doubao-seedance-2-0`, `byteplus/dreamina-seedance-2-5`, `new-api/doubao-seedance-2-0-fast`, `ecloud_aicc/doubao-seedance-2-0-mini` |
 | `audio` | `audio_speech`, `audio_transcription` | `gpt-4o-mini-tts` / `tts-1` / `tts-1-hd` (TTS), `gpt-4o-mini-transcribe` / `whisper-1` / `zai/glm-asr-2512` / `bigmodel/glm-asr-2512` (ASR) |
-| `decision` | `evaluation` | `typesafe/jev-1.14.0`, `typesafe/jev-1.13.0`, `typesafe/jev-latest`, `typesafe/jev-preview`, `gemini/gemini-decision-1` |
+| `decision` | `evaluation` | `typesafe/jev-1.14.0`, `typesafe/jev-1.13.0`, `typesafe/jev-latest`, `typesafe/jev-preview`, `typesafe/articulm-d3-mini`, `typesafe/articulm-d3-flash`, `gemini/gemini-decision-1` |
 
 **Decisions routes.** `gpt-6-luna` stays type `language` because it is also a chat model; its Decisions capability shows up as `/v1/decisions` and `/v1/systemone` in `supported_endpoints`. The two routes are two request formats for the same kind of call (`input` = OpenAI, `state` = System One), so every decision model is listed on both, whichever one its vendor hosts. `GATEWAY_ENDPOINTS` adds them to upstream's list instead of replacing it.
 
@@ -730,6 +731,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the need for clean, production-ready model catalogs
 
 ## Changelog
+
+### v1.16.75 (2026-11-23)
+**Added the two Decision 3.0 models under `typesafe/`.** Exported total **238 → 240**. The pin stays at `fcef9cd`.
+
+| Key | Model | Input per M tokens | Output |
+|---|---|---|---|
+| `typesafe/articulm-d3-mini` | [vllm-sr/d3-mini](https://huggingface.co/vllm-sr/d3-mini), 4.54B | $0.021 | free |
+| `typesafe/articulm-d3-flash` | [vllm-sr/d3-flash](https://huggingface.co/vllm-sr/d3-flash), 8.39B | $0.042 | free |
+
+- **Not TypeSafe models.** Open-weight (Apache-2.0) decision models from the vLLM Semantic Router project, self-hosted behind a System One endpoint. They sit under `typesafe/` because that is the provider a proxy routes `/v1/systemone` upstreams through; the `articulm-` prefix keeps them apart from Jev in names and reports.
+- **Prices are policy, not a vendor tariff** (there is none): Jev's $0.042 per M input tokens for d3-flash, half that for d3-mini (about half the parameters); output free like every decision model. No upstream data will ever move them.
+- Mode `evaluation` (type `decision`), both decision routes, `supports_vision` and `supports_video_input` (the model cards: text or JSON plus images and videos), input limit 32,768 tokens (the longest input the model cards document).
 
 ### v1.16.74 (2026-11-23)
 **Pre-staged GLM-5.4 ahead of its release.** Exported total **236 → 238**. The pin stays at `fcef9cd`.
