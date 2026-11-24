@@ -973,7 +973,9 @@ class ModelSyncRules:
     # Moonshot / Kimi. kimi-k3 and kimi-k2.7-code were pre-staged and are now
     # carried upstream, so their entries hold only what upstream lacks;
     # kimi-k2.7-code-highspeed is still absent upstream and stays a complete
-    # record. Prices from platform.kimi.ai/docs/pricing.
+    # record. Prices from platform.kimi.ai/docs/pricing. The K2.7 Code prices
+    # moved into the /docs/pricing/chat table; the former chat-k2.7-code page
+    # now redirects away from pricing (checked 2026-11-24).
     #
     # Retired 2026-09-30, upstream now carrying them identically: prices,
     # context and the core capability flags of kimi-k3 / kimi-k2.7-code. Also
@@ -1068,7 +1070,7 @@ class ModelSyncRules:
         },
         "moonshot/kimi-k2.7-code": {
             "input_cost_per_token_cache_hit": 1.9e-07,
-            "source": "https://platform.kimi.ai/docs/pricing/chat-k2.7-code",
+            "source": "https://platform.kimi.ai/docs/pricing/chat",
             "supported_endpoints": ["/v1/chat/completions"],
             # Batch API (platform.kimi.ai/docs/pricing/batch, 2026-11-03).
             # K2 models take no cache writes.
@@ -1098,7 +1100,7 @@ class ModelSyncRules:
             "max_input_tokens": 262144,
             "max_output_tokens": 262144,
             "max_tokens": 262144,
-            "source": "https://platform.kimi.ai/docs/pricing/chat-k2.7-code",
+            "source": "https://platform.kimi.ai/docs/pricing/chat",
             "supported_endpoints": ["/v1/chat/completions"],
         },
     }
@@ -3375,6 +3377,15 @@ class ModelSyncRules:
         # the pricing page) but still as mode "chat" on /v1beta/interactions.
         # Listed so it cannot enter on the next pin bump without a decision.
         "gemini/gemini-omni-1.2-flash",
+        # Same scope rule, 2026-11 arrival: Genie 4 (GA 2026-11-19), an
+        # interactive world-generation model that streams 720p / 24 fps video
+        # with audio from text, a reference image and controls. Upstream
+        # carries it as mode "chat" on /v1beta/interactions with an
+        # output_cost_per_video_token ($17.50 per M) that the catalogue does
+        # not model — the same shape as the Omni pair above. Video generation
+        # is outside the Google scope, and the bare key carries no "-preview"
+        # suffix, so nothing else keeps it out of the next pin bump.
+        "gemini/genie-4",
     ]
 
     # Date patterns for validation
