@@ -238,6 +238,38 @@ def test_gpt_6_2_astra_and_sol_carry_the_context_window(exported_models):
     assert exported_models["gpt-6.2-astra-law"]["raw_data"]["max_input_tokens"] == 922000
 
 
+@pytest.mark.parametrize(
+    "key, standard, long_context, cache_write",
+    [
+        # (input, cached, output) per token, <=272K and >272K, and the
+        # 30-minute cache write (None: no column), from the OpenAI pricing
+        # page's healthcare rows on 2026-11-25.
+        ("gpt-6.2-astra-healthcare", (8e-06, 4e-07, 4e-05), (1.6e-05, 8e-07, 6e-05), 1e-05),
+        ("gpt-6.2-sol-healthcare", (2e-06, 1e-07, 1e-05), (4e-06, 2e-07, 1.5e-05), 2.5e-06),
+        ("gpt-6-astra-healthcare", (1e-05, 1e-06, 5e-05), (2e-05, 2e-06, 7.5e-05), None),
+        ("gpt-6.1-sol-healthcare", (2e-06, 1e-07, 1e-05), (4e-06, 2e-07, 1.5e-05), None),
+    ],
+)
+def test_gpt_healthcare_prestaged_tariff(exported_models, key, standard, long_context, cache_write):
+    entry = exported_models[key]
+    raw = entry["raw_data"]
+    assert entry["type"] == "language", key
+    assert (raw["input_cost_per_token"], raw["cache_read_input_token_cost"], raw["output_cost_per_token"]) == pytest.approx(standard)
+    assert (
+        raw["input_cost_per_token_above_272k_tokens"],
+        raw["cache_read_input_token_cost_above_272k_tokens"],
+        raw["output_cost_per_token_above_272k_tokens"],
+    ) == pytest.approx(long_context)
+    assert raw.get("cache_creation_input_token_cost") == (pytest.approx(cache_write) if cache_write else None)
+    # Fast table: 2x every row.
+    assert raw["input_cost_per_token_priority"] == pytest.approx(2 * standard[0])
+    assert raw["output_cost_per_token_above_272k_tokens_priority"] == pytest.approx(2 * long_context[2])
+    # No Batch / Flex / Ultrafast rows; fedramp waits for the pin bump.
+    assert not any(field.endswith(("_batches", "_flex", "_ultrafast")) for field in raw), key
+    assert "fedramp_uplift_multiplier" not in raw, key
+    assert raw["max_input_tokens"] == 922000, key
+
+
 def test_glm_asr_2512_bills_per_token_with_a_per_second_fallback(exported_models):
     # zai holds the price ($3.00 / MTok, read from z.ai's $0.0024/minute;
     # output free; per-second fallback for responses without usage) and
