@@ -1434,6 +1434,10 @@ class ModelSyncRules:
         "volcengine/doubao-seedream-4-5-251128",
         "volcengine/doubao-seedream-4-0",
         "volcengine/doubao-seedream-4-0-250828",
+        # Seedream 4.0 (2026-11-27): the official Model list gives
+        # doubao-seedream-4-0-260415 as the primary ID and -20260415 as its
+        # alternate ("同时支持"), one model under two IDs at the same price.
+        "volcengine/doubao-seedream-4-0-260415",
         "volcengine/doubao-seedream-4-0-20260415",
     })
 
@@ -1629,6 +1633,7 @@ class ModelSyncRules:
         "volcengine/doubao-seedream-4-5-251128": _SEEDREAM_FLAT_025,
         "volcengine/doubao-seedream-4-5": _SEEDREAM_FLAT_025,
         "volcengine/doubao-seedream-4-0-250828": _SEEDREAM_FLAT_020,
+        "volcengine/doubao-seedream-4-0-260415": _SEEDREAM_FLAT_020,
         "volcengine/doubao-seedream-4-0-20260415": _SEEDREAM_FLAT_020,
         "volcengine/doubao-seedream-4-0": _SEEDREAM_FLAT_020,
     }
